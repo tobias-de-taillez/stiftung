@@ -165,7 +165,14 @@ function showSchoolDetail(schoolId) {
         <div class="donation-box">
             <h3>Beschleunigen Sie das Ziel!</h3>
             <div class="donation-controls">
-                <label for="donation-slider">Ihre jährliche Spende:</label>
+                <label for="donation-frequency">Spendenfrequenz:</label>
+                <select id="donation-frequency" aria-label="Spendenfrequenz auswählen">
+                    <option value="once">Einmalig</option>
+                    <option value="monthly">Monatlich</option>
+                    <option value="yearly" selected>Jährlich</option>
+                </select>
+                
+                <label for="donation-slider" id="donation-slider-label">Ihre jährliche Spende:</label>
                 <span class="donation-amount" aria-live="polite">€50</span>
                 <input type="range" id="donation-slider" min="10" max="500" step="10" value="50" 
                        aria-label="Spendenbetrag auswählen" aria-describedby="donation-amount">
@@ -196,8 +203,13 @@ function showSchoolDetail(schoolId) {
     
     // Setup donation calculator
     const slider = document.getElementById('donation-slider');
-    slider.addEventListener('input', () => updateDonationCalculator(school, targetFund));
-    slider.addEventListener('change', () => updateDonationCalculator(school, targetFund));
+    const frequencySelect = document.getElementById('donation-frequency');
+    
+    const updateCalculator = () => updateDonationCalculator(school, targetFund);
+    
+    slider.addEventListener('input', updateCalculator);
+    slider.addEventListener('change', updateCalculator);
+    frequencySelect.addEventListener('change', updateCalculator);
 
     updateDonationCalculator(school, targetFund);
     navigateTo('school-detail-view');
@@ -206,41 +218,79 @@ function showSchoolDetail(schoolId) {
 // DONATION CALCULATOR LOGIC
 function updateDonationCalculator(school, targetFund) {
     const slider = document.getElementById('donation-slider');
-    const annualDonation = parseInt(slider.value);
+    const frequencySelect = document.getElementById('donation-frequency');
+    const sliderLabel = document.getElementById('donation-slider-label');
+    
+    const donationAmount = parseInt(slider.value);
+    const frequency = frequencySelect.value;
+    
+    // Update UI labels based on frequency
+    const frequencyLabels = {
+        'once': 'Ihre einmalige Spende:',
+        'monthly': 'Ihre monatliche Spende:',
+        'yearly': 'Ihre jährliche Spende:'
+    };
+    
+    sliderLabel.textContent = frequencyLabels[frequency];
     
     const donationAmountElement = document.querySelector('.donation-amount');
-    donationAmountElement.textContent = formatCurrency(annualDonation);
+    donationAmountElement.textContent = formatCurrency(donationAmount);
 
-    // Scenario 1: Growth WITH annual donations
-    let yearsWithHelp = 0;
-    let currentFundWithHelp = school.fund;
+    // Convert donation to annual equivalent
+    let annualDonation = 0;
+    let oneTimeDonation = 0;
+    
+    switch(frequency) {
+        case 'once':
+            oneTimeDonation = donationAmount;
+            annualDonation = 0; // No recurring donation
+            break;
+        case 'monthly':
+            annualDonation = donationAmount * 12;
+            break;
+        case 'yearly':
+            annualDonation = donationAmount;
+            break;
+    }
+
+    // Scenario 1: Growth WITH donations
+    let daysWithHelp = 0;
+    let currentFundWithHelp = school.fund + oneTimeDonation; // Add one-time donation immediately
+    
     while (currentFundWithHelp < targetFund) {
+        // Add annual donation and growth
         currentFundWithHelp = (currentFundWithHelp + annualDonation) * (1 + config.netGrowthRate);
-        yearsWithHelp++;
-        if (yearsWithHelp > 500) { // Safety break
-            yearsWithHelp = "500+";
+        daysWithHelp += 365; // Add one year in days
+        
+        if (daysWithHelp > 500 * 365) { // Safety break at 500 years
+            daysWithHelp = "500+ Jahre";
             break;
         }
     }
 
-    // Scenario 2: Growth WITHOUT annual donations
-    let yearsWithoutHelp = "∞"; // Default for no growth
+    // Scenario 2: Growth WITHOUT donations (baseline)
+    let daysWithoutHelp = "∞";
     if (school.fund > 0 && config.netGrowthRate > 0) {
-         // Formula: n = ln(FV/PV) / ln(1+i)
+        // Formula: n = ln(FV/PV) / ln(1+i)
         const years = Math.log(targetFund / school.fund) / Math.log(1 + config.netGrowthRate);
-        yearsWithoutHelp = Math.ceil(years);
+        daysWithoutHelp = Math.ceil(years * 365);
     }
    
-    // Calculate Time Saved
-    let timeSaved = "∞";
-    if (isFinite(yearsWithoutHelp) && isFinite(yearsWithHelp)) {
-        timeSaved = `${yearsWithoutHelp - yearsWithHelp} Jahre`;
+    // Calculate Time Saved in days
+    let daysSaved = 0;
+    if (isFinite(daysWithoutHelp) && isFinite(daysWithHelp)) {
+        daysSaved = daysWithoutHelp - daysWithHelp;
     }
+
+    // Format time displays
+    const timeWithoutHelp = formatTimePeriod(daysWithoutHelp);
+    const timeWithHelp = formatTimePeriod(daysWithHelp);
+    const timeSaved = formatTimePeriod(daysSaved);
 
     // Update UI with error checking
     const elementsToUpdate = [
-        { id: 'years-without-help', value: `${yearsWithoutHelp} Jahre` },
-        { id: 'years-with-help', value: `${yearsWithHelp} Jahre` },
+        { id: 'years-without-help', value: timeWithoutHelp },
+        { id: 'years-with-help', value: timeWithHelp },
         { id: 'time-saved', value: timeSaved }
     ];
 
@@ -250,6 +300,45 @@ function updateDonationCalculator(school, targetFund) {
             element.textContent = item.value;
         }
     });
+}
+
+// FORMAT TIME PERIOD (days to years/months/days)
+function formatTimePeriod(days) {
+    if (days === "∞" || days === "500+ Jahre") {
+        return days;
+    }
+    
+    if (!isFinite(days) || days <= 0) {
+        return "Sofort erreicht!";
+    }
+    
+    const years = Math.floor(days / 365);
+    const remainingDays = days % 365;
+    const months = Math.floor(remainingDays / 30);
+    const finalDays = remainingDays % 30;
+    
+    const parts = [];
+    
+    if (years > 0) {
+        parts.push(`${years} Jahr${years !== 1 ? 'e' : ''}`);
+    }
+    
+    if (months > 0) {
+        parts.push(`${months} Monat${months !== 1 ? 'e' : ''}`);
+    }
+    
+    if (finalDays > 0 || parts.length === 0) {
+        parts.push(`${finalDays} Tag${finalDays !== 1 ? 'e' : ''}`);
+    }
+    
+    // Return most significant unit(s)
+    if (parts.length === 1) {
+        return parts[0];
+    } else if (parts.length === 2) {
+        return parts.join(' und ');
+    } else {
+        return `${parts[0]} und ${parts[1]}`;
+    }
 }
 
 // DONATION HANDLER

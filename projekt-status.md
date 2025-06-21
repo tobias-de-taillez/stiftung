@@ -1,11 +1,12 @@
 # Projekt Status: Deutsche Bildungsstiftung
 
 **Stand:** Januar 2025  
-**Version:** Demo V3 (Optimiert)  
+**Version:** Demo V3.1 (Enhanced Calculator)  
 **Sitz:** Oldenburg (Niedersachsen)  
 **Project Rules:** ✅ Aktiv (Rule #1: Auto-Updates, Rule #2: Auto-Push)  
 **CI/CD:** Vercel Pipeline aktiv  
-**PWA:** ✅ Service Worker, Manifest, Offline-Support
+**PWA:** ✅ Service Worker, Manifest, Offline-Support  
+**Features:** ✅ Erweiterte Zeitdarstellung, Flexibles Spendenmodell
 
 ## 🎯 Projektziel
 
@@ -16,7 +17,8 @@ Aufbau einer nachhaltigen Bildungsstiftung, die durch Kapitalaufbau finanzielle 
 ### Technische Umsetzung
 - ✅ **Demo-Website (V3)** - Vollständig optimierte, professionelle Website
 - ✅ **Finanzierungsmodell** - Mathematisch fundiertes Berechnungsmodell implementiert
-- ✅ **Spendenrechner** - Live-Berechnung der Zeitersparnis durch Spenden
+- ✅ **Spendenrechner** - Live-Berechnung mit flexibler Frequenz (einmalig/monatlich/jährlich)
+- ✅ **Zeitdarstellung** - Präzise Anzeige in Jahren, Monaten und Tagen
 - ✅ **Responsive Design** - Modern gestaltete, mobile-optimierte Benutzeroberfläche
 - ✅ **PWA-Features** - Offline-Funktionalität, App-Installation möglich
 - ✅ **SEO-Optimierung** - Meta Tags, Schema.org, Social Media Integration
@@ -54,9 +56,10 @@ Aufbau einer nachhaltigen Bildungsstiftung, die durch Kapitalaufbau finanzielle 
 - **Features:**
   - Sticky Header Navigation mit Accessibility
   - Dynamische Schulauswahl mit Keyboard Support
-  - Interaktiver Spendenrechner mit ARIA Labels
+  - Interaktiver Spendenrechner mit flexiblen Frequenzen (einmalig/monatlich/jährlich)
+  - Präzise Zeitersparnis-Anzeige in Jahren, Monaten und Tagen  
   - Responsive Grid-Layout mit Mobile-First Design
-  - Live-Berechnungen mit Error Handling
+  - Live-Berechnungen mit Error Handling und ARIA Labels
   - SEO-Optimierung mit Schema.org
   - Critical CSS für Performance
 
