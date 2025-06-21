@@ -3,145 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deutsche Bildungsstiftung (Demo V2)</title>
+    <title>Deutsche Bildungsstiftung - Nachhaltige Bildungsförderung für Deutschland</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Die Deutsche Bildungsstiftung schafft finanzielle Unabhängigkeit für Schulen und Kitas durch nachhaltigen Kapitalaufbau. Jetzt Bildungseinrichtung unterstützen!">
+    <meta name="keywords" content="Bildungsstiftung, Schule fördern, Kita unterstützen, nachhaltige Bildung, Stiftung Deutschland">
+    <meta name="author" content="Deutsche Bildungsstiftung">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Deutsche Bildungsstiftung - Nachhaltige Bildungsförderung">
+    <meta property="og:description" content="Schaffen Sie gemeinsam mit uns finanzielle Unabhängigkeit für Bildungseinrichtungen durch nachhaltigen Kapitalaufbau.">
+    <meta property="og:url" content="https://deutsche-bildungsstiftung.de">
+    <meta property="og:site_name" content="Deutsche Bildungsstiftung">
+    <meta property="og:locale" content="de_DE">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Deutsche Bildungsstiftung - Nachhaltige Bildungsförderung">
+    <meta name="twitter:description" content="Schaffen Sie gemeinsam mit uns finanzielle Unabhängigkeit für Bildungseinrichtungen.">
+    
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#003366">
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preload" href="css/main.css" as="style">
+    <link rel="preload" href="js/app.js" as="script">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "NGO",
+        "name": "Deutsche Bildungsstiftung",
+        "description": "Nachhaltige Bildungsförderung durch Kapitalaufbau für finanzielle Unabhängigkeit von Bildungseinrichtungen",
+        "url": "https://deutsche-bildungsstiftung.de",
+        "logo": "https://deutsche-bildungsstiftung.de/logo.png",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Oldenburg",
+            "addressRegion": "Niedersachsen",
+            "addressCountry": "DE"
+        },
+        "foundingDate": "2025",
+        "mission": "Finanzielle Unabhängigkeit für Bildungseinrichtungen durch nachhaltigen Kapitalaufbau schaffen"
+    }
+    </script>
+    
+    <!-- Inline Critical CSS for First Paint -->
     <style>
+        /* Critical CSS for above-the-fold content */
         :root {
             --primary-color: #003366;
-            --secondary-color: #00aaff;
             --accent-color: #ffcc00;
-            --light-gray: #f4f4f4;
             --dark-gray: #333;
-            --success-color: #28a745;
         }
-        body {
+        body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            line-height: 1.6;
+            margin: 0; 
             color: var(--dark-gray);
         }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            background: var(--primary-color);
-            color: white;
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-        header .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .logo { font-size: 1.5rem; font-weight: bold; }
-        nav ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            display: flex;
-        }
-        nav ul li { margin-left: 20px; }
-        nav a {
-            color: white;
-            text-decoration: none;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .hero {
-            background: var(--primary-color) url('https://www.transparentpng.com/thumb/world/y8Xw6O-world-map-dots-png.png') no-repeat center center;
-            background-size: cover;
-            color: white;
-            text-align: center;
-            padding: 100px 20px;
-        }
-        .hero h1 { font-size: 3rem; margin-bottom: 10px; }
-        .hero p { font-size: 1.2rem; margin-bottom: 30px; }
-        .cta-button {
-            background: var(--accent-color);
-            color: var(--dark-gray);
-            padding: 15px 30px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 1.1rem;
-            cursor: pointer;
-            border: none;
-        }
-        .section { padding: 60px 0; }
-        .section:nth-child(even) { background-color: var(--light-gray); }
-        h2 { text-align: center; font-size: 2.5rem; margin-bottom: 40px; }
-        
-        #school-list { display: flex; flex-direction: column; gap: 15px; }
-        .school-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background: white;
-            cursor: pointer;
-            transition: box-shadow 0.2s;
-        }
-        .school-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .school-card h4 { margin: 0; font-size: 1.2rem; color: var(--primary-color); }
-        .school-card p { margin: 5px 0 0; }
-        .school-card .stats { text-align: right; }
-
-        #school-detail-view-container {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 40px;
-            align-items: flex-start;
-        }
-        .donation-box {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 100px;
-        }
-        .donation-box h3 { margin-top: 0; }
-        .donation-controls label { font-weight: bold; display: block; margin-bottom: 10px; }
-        .donation-controls input[type="range"] { width: 100%; }
-        .donation-amount { text-align: center; font-size: 2rem; font-weight: bold; color: var(--primary-color); margin: 10px 0; }
-        
-        .impact-visualization {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-        .impact-visualization .metric { margin-bottom: 15px; }
-        .impact-visualization .metric-label { font-weight: bold; }
-        .impact-visualization .metric-value { font-size: 1.2rem; }
-        .impact-visualization .metric-value.highlight {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--success-color);
-            display: block;
-            text-align: center;
-            margin-top: 5px;
-        }
-
         .page { display: none; }
         .page.active { display: block; }
+        header { 
+            background: var(--primary-color); 
+            color: white; 
+            position: sticky; 
+            top: 0; 
+            z-index: 1000; 
+        }
+        .hero { 
+            background: var(--primary-color); 
+            color: white; 
+            text-align: center; 
+            padding: 100px 20px; 
+        }
     </style>
 </head>
 <body>
 
-    <header>
+    <header role="banner">
         <div class="container">
             <div class="logo">Deutsche Bildungsstiftung</div>
-            <nav>
+            <nav role="navigation" aria-label="Hauptnavigation">
                 <ul>
-                    <li><a data-page="home">Start</a></li>
-                    <li><a data-page="schools">Schulen finden</a></li>
-                    <li><a data-page="model">Unser Modell</a></li>
+                    <li><a data-page="home" role="button" tabindex="0" aria-label="Zur Startseite">Start</a></li>
+                    <li><a data-page="schools" role="button" tabindex="0" aria-label="Schulen finden">Schulen finden</a></li>
+                    <li><a data-page="model" role="button" tabindex="0" aria-label="Unser Finanzierungsmodell">Unser Modell</a></li>
                 </ul>
             </nav>
         </div>
@@ -149,10 +104,10 @@
 
     <main>
         <div id="home" class="page active">
-            <section class="hero">
-                <h1>Bildung ist der Schlüssel.</h1>
+            <section class="hero" role="banner" aria-labelledby="hero-title">
+                <h1 id="hero-title">Bildung ist der Schlüssel.</h1>
                 <p>Gemeinsam schaffen wir eine gerechte, nachhaltige und zukunftsfähige Bildungslandschaft in Deutschland.</p>
-                <button class="cta-button" data-page="schools">Jetzt eine Schule unterstützen</button>
+                <button class="cta-button" data-page="schools" aria-label="Jetzt eine Schule unterstützen - zur Schulauswahl">Jetzt eine Schule unterstützen</button>
             </section>
             
              <section class="section">
@@ -220,175 +175,8 @@
         </div>
     </footer>
 
-    <script>
-        // --- CONFIG & DEMO DATA ---
-        const config = {
-            grossReturn: 0.07,  // 7%
-            payoutRate: 0.01,   // 1%
-            get netGrowthRate() { return this.grossReturn - this.payoutRate } // 6%
-        };
-
-        const schoolsData = [
-            { id: 1, name: 'Grundschule Sonnenhügel', city: 'Berlin', students: 250, fund: 50000, payoutPerChild: 10 },
-            { id: 2, name: 'Gymnasium Neustadt', city: 'Hamburg', students: 800, fund: 450000, payoutPerChild: 15 },
-            { id: 3, name: 'Kita Wirbelwind', city: 'München', students: 60, fund: 15000, payoutPerChild: 20 },
-            { id: 4, name: 'Realschule am Fluss', city: 'Köln', students: 450, fund: 120000, payoutPerChild: 10 },
-            { id: 5, name: 'Gesamtschule Westend', city: 'Dortmund', students: 1200, fund: 300000, payoutPerChild: 5 },
-            { id: 6, name: 'Förderschule Pestalozzi', city: 'Bremen', students: 90, fund: 80000, payoutPerChild: 25 },
-        ];
-
-        // --- GLOBAL VARIABLES ---
-        const pages = document.querySelectorAll('.page');
-        const navLinks = document.querySelectorAll('nav a, .cta-button');
-
-        // --- PAGE NAVIGATION ---
-        function navigateTo(pageId) {
-            pages.forEach(page => {
-                page.classList.remove('active');
-                if (page.id === pageId) {
-                    page.classList.add('active');
-                }
-            });
-            window.scrollTo(0, 0);
-        }
-
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const pageId = e.target.getAttribute('data-page');
-                navigateTo(pageId);
-            });
-        });
-
-        // --- INITIALIZE VIEWS ---
-        function init() {
-            populateSchoolList();
-            navigateTo('home');
-        }
-
-        // --- POPULATE SCHOOL LIST ---
-        function populateSchoolList() {
-            const schoolListContainer = document.getElementById('school-list');
-            schoolListContainer.innerHTML = '';
-            
-            schoolsData.forEach(school => {
-                const card = document.createElement('div');
-                card.className = 'school-card';
-                card.innerHTML = `
-                    <div>
-                        <h4>${school.name}</h4>
-                        <p>${school.city} | ${school.students} Kinder/Schüler</p>
-                    </div>
-                    <div class="stats">
-                        <p><strong>${formatCurrency(school.fund)}</strong> im Fonds</p>
-                    </div>
-                `;
-                card.addEventListener('click', () => showSchoolDetail(school.id));
-                schoolListContainer.appendChild(card);
-            });
-        }
-        
-        // --- SHOW SCHOOL DETAIL VIEW ---
-        function showSchoolDetail(schoolId) {
-            const school = schoolsData.find(s => s.id === schoolId);
-            if (!school) return;
-
-            document.getElementById('school-name-detail').textContent = school.name;
-            const detailContainer = document.getElementById('school-detail-view-container');
-            
-            const desiredPayout = school.payoutPerChild * school.students;
-            const targetFund = desiredPayout / config.payoutRate;
-
-            const contentHTML = `
-                <div class="school-info">
-                    <h3>Das Ziel: Ewige Förderung</h3>
-                    <p>Das finanzielle Ziel für diese Einrichtung beträgt <strong>${formatCurrency(targetFund)}</strong>. Sobald dieses Kapital erreicht ist, können aus den jährlichen Zinserträgen <strong>${formatCurrency(desiredPayout)}</strong> (entspricht ${formatCurrency(school.payoutPerChild)} pro Kind) ausgeschüttet werden – und das jedes Jahr, ohne das Stiftungskapital anzugreifen.</p>
-                    <ul>
-                        <li><strong>Aktuelles Fondsvolumen:</strong> ${formatCurrency(school.fund)}</li>
-                        <li><strong>Anzahl Kinder/Schüler:</strong> ${school.students}</li>
-                        <li><strong>Standort:</strong> ${school.city}</li>
-                    </ul>
-                </div>
-                <div class="donation-box">
-                    <h3>Beschleunigen Sie das Ziel!</h3>
-                    <div class="donation-controls">
-                        <label for="donation-slider">Ihre jährliche Spende:</label>
-                        <span class="donation-amount">€50</span>
-                        <input type="range" id="donation-slider" min="10" max="500" step="10" value="50">
-                    </div>
-                    
-                    <div class="impact-visualization">
-                        <div class="metric">
-                            <span class="metric-label">Jahre bis zum Ziel (ohne Ihre Hilfe):</span>
-                            <span class="metric-value" id="years-without-help">...</span>
-                        </div>
-                        <div class="metric">
-                            <span class="metric-label">Jahre bis zum Ziel (mit Ihrer Hilfe):</span>
-                            <span class="metric-value" id="years-with-help">...</span>
-                        </div>
-                        <div class="metric">
-                            <span class="metric-label">Ihre Zeitersparnis:</span>
-                            <span class="metric-value highlight" id="time-saved">...</span>
-                        </div>
-                    </div>
-
-                    <button class="cta-button" style="width: 100%; margin-top: 20px;" onclick="alert('Danke für Ihre Spende! (Demo)')">Jetzt jährlich spenden</button>
-                </div>
-            `;
-            detailContainer.innerHTML = contentHTML;
-            
-            const slider = document.getElementById('donation-slider');
-            slider.addEventListener('input', () => updateDonationCalculator(school, targetFund));
-
-            updateDonationCalculator(school, targetFund);
-            navigateTo('school-detail-view');
-        }
-
-        // --- DONATION CALCULATOR LOGIC ---
-        function updateDonationCalculator(school, targetFund) {
-            const annualDonation = parseInt(document.getElementById('donation-slider').value);
-            document.querySelector('.donation-amount').textContent = formatCurrency(annualDonation);
-
-            // Scenario 1: Growth WITH annual donations
-            let yearsWithHelp = 0;
-            let currentFundWithHelp = school.fund;
-            while (currentFundWithHelp < targetFund) {
-                currentFundWithHelp = (currentFundWithHelp + annualDonation) * (1 + config.netGrowthRate);
-                yearsWithHelp++;
-                if (yearsWithHelp > 500) { // Safety break
-                    yearsWithHelp = "500+";
-                    break;
-                }
-            }
-
-            // Scenario 2: Growth WITHOUT annual donations
-            let yearsWithoutHelp = "∞"; // Default for no growth
-            if (school.fund > 0 && config.netGrowthRate > 0) {
-                 // Formula: n = ln(FV/PV) / ln(1+i)
-                const years = Math.log(targetFund / school.fund) / Math.log(1 + config.netGrowthRate);
-                yearsWithoutHelp = Math.ceil(years);
-            }
-           
-            // Calculate Time Saved
-            let timeSaved = "∞";
-            if (isFinite(yearsWithoutHelp) && isFinite(yearsWithHelp)) {
-                timeSaved = `${yearsWithoutHelp - yearsWithHelp} Jahre`;
-            }
-
-            // Update UI
-            document.getElementById('years-without-help').textContent = `${yearsWithoutHelp} Jahre`;
-            document.getElementById('years-with-help').textContent = `${yearsWithHelp} Jahre`;
-            document.getElementById('time-saved').textContent = timeSaved;
-        }
-
-        // --- UTILITY FUNCTIONS ---
-        function formatCurrency(num) {
-            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
-        }
-
-        // --- START THE APP ---
-        document.addEventListener('DOMContentLoaded', init);
-    </script>
+    <!-- Load main application script -->
+    <script src="js/app.js" defer></script>
 
 </body>
 </html>
