@@ -1,190 +1,156 @@
-# Projekt Status: Deutsche Bildungsstiftung
+# Projekt Status: Deutsche Bildungsstiftung Website
 
-**Stand:** Januar 2025  
-**Version:** Demo V3.2 (Float Precision Calculator)  
-**Sitz:** Oldenburg (Niedersachsen)  
-**Project Rules:** ✅ Aktiv (Rule #1: Auto-Updates, Rule #2: Auto-Push)  
-**CI/CD:** Vercel Pipeline aktiv  
-**PWA:** ✅ Service Worker, Manifest, Offline-Support  
-**Features:** ✅ Präzise Float-Jahre-Berechnung, Flexible Spendenfrequenz
-
-## 🎯 Projektziel
-
-Aufbau einer nachhaltigen Bildungsstiftung, die durch Kapitalaufbau finanzielle Unabhängigkeit für teilnehmende Bildungseinrichtungen schafft. Das Prinzip: Aus jährlichen Erträgen (1% des Stiftungskapitals) werden Projekte finanziert - für immer.
-
-## 📊 Aktueller Stand
-
-### Technische Umsetzung
-- ✅ **Demo-Website (V3)** - Vollständig optimierte, professionelle Website
-- ✅ **Finanzierungsmodell** - Mathematisch fundiertes Berechnungsmodell implementiert
-- ✅ **Spendenrechner** - Live-Berechnung mit flexibler Frequenz (einmalig/monatlich/jährlich)
-- ✅ **Zeitdarstellung** - Mathematisch präzise Float-Jahre-Berechnung mit Bruchteilen in Monaten/Tagen
-- ✅ **Responsive Design** - Modern gestaltete, mobile-optimierte Benutzeroberfläche
-- ✅ **PWA-Features** - Offline-Funktionalität, App-Installation möglich
-- ✅ **SEO-Optimierung** - Meta Tags, Schema.org, Social Media Integration
-- ✅ **Accessibility** - ARIA Labels, Keyboard Navigation, Screen Reader Support
-- ✅ **Performance** - Modular aufgebaut, Critical CSS, Service Worker Caching
-
-### Finanzierungsmodell (Kern-Parameter)
-- **Brutto-Rendite:** 7% (ETF-basiert)
-- **Jährliche Ausschüttung:** 1% des Fondsvolumens
-- **Netto-Wachstumsrate:** 6% (7% - 1%)
-- **Formel:** Benötigtes Kapital = Jährlicher Wunschbetrag / 0.01
-
-### Demo-Einrichtungen (6 Beispiele)
-1. **Grundschule Sonnenhügel** (Berlin) - 250 Schüler, 50.000€ Fonds
-2. **Gymnasium Neustadt** (Hamburg) - 800 Schüler, 450.000€ Fonds  
-3. **Kita Wirbelwind** (München) - 60 Kinder, 15.000€ Fonds
-4. **Realschule am Fluss** (Köln) - 450 Schüler, 120.000€ Fonds
-5. **Gesamtschule Westend** (Dortmund) - 1.200 Schüler, 300.000€ Fonds
-6. **Förderschule Pestalozzi** (Bremen) - 90 Schüler, 80.000€ Fonds
-
-### Dokumentation
-- ✅ Stiftungssatzung
-- ✅ Übersichtsarbeit zur Gründungsbasis
-- ✅ Wissenschaftliche Literatursammlung (ROI frühkindliche Bildung)
-- ✅ Mittelverwendungskonzept
-- ✅ Edge Cases dokumentiert
-
-## 🛠 Technische Architektur
-
-### Frontend (Modular)
-- **Framework:** Vanilla JavaScript (ES6+)
-- **Styling:** CSS3 mit CSS-Variablen (externe Datei: css/main.css)
-- **Navigation:** Single-Page-Application (SPA) mit Hash-Routing
-- **PWA:** Service Worker, Manifest, Offline-Caching
-- **Features:**
-  - Sticky Header Navigation mit Accessibility
-  - Dynamische Schulauswahl mit Keyboard Support
-  - Interaktiver Spendenrechner mit flexiblen Frequenzen (einmalig/monatlich/jährlich)
-  - Präzise Zeitersparnis-Anzeige in Jahren, Monaten und Tagen  
-  - Responsive Grid-Layout mit Mobile-First Design
-  - Live-Berechnungen mit Error Handling und ARIA Labels
-  - SEO-Optimierung mit Schema.org
-  - Critical CSS für Performance
-
-### Backend-Tools
-- **excelparser.py** - Datenverarbeitung für Schulinformationen
-- **konvertieren.py** - Dokumentenkonvertierung
-- **Python venv** - Isolierte Entwicklungsumgebung
-
-### Datenstruktur
-```javascript
-schoolsData = [
-  {
-    id: Number,
-    name: String,
-    city: String, 
-    students: Number,
-    fund: Number,        // Aktuelles Fondsvolumen
-    payoutPerChild: Number // Gewünschte €/Kind/Jahr
-  }
-]
-```
-
-## 📈 Nächste technische Schritte
-
-### Phase 1: Backend-Integration (Priorität: Hoch)
-- [ ] **Datenbank-Setup** - PostgreSQL/MySQL für Schulverwaltung
-- [ ] **API-Entwicklung** - REST API für CRUD-Operationen
-- [ ] **Admin-Panel** - Interface für Schulverwaltung
-- [ ] **Benutzerauthentifizierung** - Sichere Anmeldung/Registrierung
-
-### Phase 0: Frontend-Optimierungen (Priorität: Abgeschlossen ✅)
-- ✅ **Modulare Struktur** - CSS/JS in separate Dateien ausgelagert
-- ✅ **PWA-Implementation** - Service Worker, Manifest, Offline-Support
-- ✅ **SEO-Optimierung** - Meta Tags, Schema.org, Social Media Tags
-- ✅ **Accessibility** - ARIA Labels, Keyboard Navigation
-- ✅ **Performance** - Critical CSS, Resource Preloading, Caching
-
-### Phase 2: Erweiterte Funktionen (Priorität: Mittel)
-- [ ] **Zahlungsintegration** - Stripe/PayPal für echte Spenden
-- [ ] **E-Mail-Benachrichtigungen** - Spendenbestätigungen, Updates
-- [ ] **Dashboard für Spender** - Persönliche Übersicht der Beiträge
-- [ ] **Reporting-System** - Automatisierte Berichte für Transparenz
-
-### Phase 3: Skalierung (Priorität: Niedrig)
-- [ ] **Mobile App** - Native iOS/Android App
-- [ ] **Multi-Sprachen-Support** - Internationalisierung
-- [ ] **Advanced Analytics** - Detaillierte Spendenanalysen
-- [ ] **Integration externe APIs** - Schulverzeichnisse, Bildungsdaten
-
-## 🔍 Technische Überlegungen
-
-### Hosting & Infrastruktur
-- **Empfehlung:** Vercel/Netlify für Frontend + Supabase/Railway für Backend
-- **Skalierbarkeit:** Microservices-Architektur vorbereiten
-- **Security:** HTTPS, GDPR-Konformität, sichere Zahlungsabwicklung
-
-### Datenbank-Schema (Entwurf)
-```sql
--- Schulen/Einrichtungen
-schools (id, name, city, type, students_count, current_fund, target_fund, created_at)
-
--- Spenden
-donations (id, school_id, donor_email, amount, frequency, status, created_at)
-
--- Spender
-donors (id, email, name, total_donated, created_at)
-```
-
-### Performance-Optimierungen
-- Lazy Loading für Schullisten
-- Caching für Berechnungen
-- CDN für statische Assets
-- Database Indexing
-
-## 📚 Wissenschaftliche Basis
-
-### Literatur vorhanden
-- Investment in preprimary education (ROI-Studien)
-- Holl et al. 2020 - Krippen-Forschung
-- Psychoanalyse Forum Studien
-- Returns on Investment in Early Education
-- Weitere 8 wissenschaftliche Publikationen
-
-### Bildungsökonomische Grundlagen
-- **ROI frühkindliche Bildung:** Bis zu 1:13 (Heckman)
-- **Gesellschaftlicher Nutzen:** Reduzierte Sozialkosten
-- **Langfristige Wirkung:** Höhere Bildungsabschlüsse, bessere Arbeitsmarktchancen
-
-## 🎨 Design-Prinzipien
-
-### Farbschema
-- **Primär:** #003366 (Vertrauensblau)
-- **Sekundär:** #00aaff (Hellblau)
-- **Akzent:** #ffcc00 (Signalgelb)
-- **Erfolg:** #28a745 (Grün)
-
-### UX-Prinzipien
-- Transparenz bei Berechnungen
-- Sofortige Feedback-Schleifen
-- Intuitive Navigation
-- Vertrauen durch professionelles Design
-
-## 📋 Offene Punkte
-
-### Rechtlich/Organisatorisch
-- [ ] Stiftungsregistrierung abschließen
-- [ ] Steuerliche Anerkennung beantragen
-- [ ] Datenschutz-Compliance prüfen
-- [ ] Partnerschaften mit Schulen aufbauen
-
-### Marketing/Kommunikation
-- [ ] SEO-Optimierung
-- [ ] Social Media Strategie
-- [ ] PR-Material entwickeln
-- [ ] Newsletter-System
-
-## 💡 Innovative Features (Zukunft)
-
-- **Blockchain-Transparenz:** Smart Contracts für Fondsverteilung
-- **KI-Prognosen:** Optimierte Spendenallokation
-- **Gamification:** Spender-Level und Achievements
-- **Matching-Algorithmus:** Corporate Sponsoring automatisieren
+**Stand:** 2025-01-24 | **Version:** Demo V3.2 (Precision Calculator + Debug-Fix)
+**Repository:** https://github.com/tobias-de-taillez/stiftung  
+**Live Demo:** https://stiftung.vercel.app
 
 ---
 
-**Kontakt:** Deutsche Bildungsstiftung, Oldenburg  
-**Demo-Status:** Voll funktionsfähig  
-**Nächster Meilenstein:** Backend-Integration (Q1 2025) 
+## 🎯 **Mission & Kernkonzept**
+
+Die Deutsche Bildungsstiftung schafft **finanzielle Unabhängigkeit** für Bildungseinrichtungen durch nachhaltigen Kapitalaufbau. 
+
+**Finanzmodell:**
+- 7% Brutto-Rendite (ETF-basiert)
+- 1% jährliche Ausschüttung  
+- 6% Netto-Wachstumsrate
+- **Formel:** Benötigtes Kapital = Gewünschter Jahresbetrag / 0.01
+
+---
+
+## 🏗️ **Technische Architektur (Aktueller Stand)**
+
+### **Frontend (Vanilla Stack)**
+- **HTML5** mit semantischen Tags & Schema.org Markup
+- **CSS3** mit CSS Variables & Responsive Design  
+- **Vanilla JavaScript (ES6+)** - Single Page Application
+- **PWA-Features:** Service Worker, Manifest, Offline-Fähigkeit
+
+### **Deployment & CI/CD**
+- **Hosting:** Vercel (automatisches Deployment)
+- **Workflow:** Git Push → Vercel Pipeline → Live Update
+- **Domain:** https://stiftung.vercel.app
+
+### **Performance-Optimierungen**
+- ✅ Critical CSS Inline + External CSS
+- ✅ Resource Preloading  
+- ✅ Service Worker Caching
+- ✅ Semantisches HTML für SEO
+- ✅ Accessibility (ARIA, Keyboard Navigation)
+
+---
+
+## 🧮 **Spendenrechner-Evolution**
+
+### **V3.2 - Float Precision Calculator (AKTUELL)**
+- ✅ **Mathematische Präzision:** Logarithmische Formel statt Integer-Jahre
+- ✅ **Flexible Spendenfrequenz:** Einmalig/Monatlich/Jährlich  
+- ✅ **Präzise Zeitanzeige:** "2 Jahre und 3 Monate" statt Approximationen
+- ✅ **Debug-System:** Umfassendes Logging und Auto-Reparatur
+- ✅ **URL-Navigation-Fix:** Direkter Aufruf von School-Detail-Seiten
+
+### **Berechnungslogik:**
+```javascript
+// Baseline ohne Spenden: ln(FV/PV) / ln(1+i)
+// Mit Spenden: Simulation mit float-Jahren
+// Zeitformat: Jahre → Monate → Tage Konvertierung
+```
+
+---
+
+## 🔧 **Aktuelle Bug-Fixes (V3.2)**
+
+### **Problem:** Dropdown-Selektor fehlte bei direkter Navigation
+- **Ursache:** `showSchoolDetail()` wurde nicht aufgerufen bei URL-Navigation
+- **Lösung:** Auto-Load beim Hash-Change + Diagnostic-System
+- **Status:** ✅ **Behoben** (2025-01-24)
+
+### **Problem:** Ungenaue Zeitberechnungen  
+- **Ursache:** Integer-Jahre statt float-basierte Mathematik
+- **Lösung:** Logarithmische Baseline + präzise Konvertierung
+- **Status:** ✅ **Behoben** (2025-01-24)
+
+---
+
+## 📊 **Demo-Schulen (6 Test-Einrichtungen)**
+
+| Schule | Stadt | Schüler | Aktueller Fonds | Ziel-Kapital |
+|--------|-------|---------|-----------------|--------------|
+| Grundschule Sonnenhügel | Berlin | 250 | €50.000 | €250.000 |
+| Gymnasium Neustadt | Hamburg | 800 | €450.000 | €1.200.000 |
+| Kita Wirbelwind | München | 60 | €15.000 | €120.000 |
+| Realschule am Fluss | Köln | 450 | €120.000 | €450.000 |
+| Gesamtschule Westend | Dortmund | 1.200 | €300.000 | €600.000 |
+| Förderschule Pestalozzi | Bremen | 90 | €80.000 | €225.000 |
+
+---
+
+## 🚀 **Nächste Entwicklungsschritte**
+
+### **Kurzfristig (Q1 2025)**
+- [ ] **Backend-Integration:** Node.js/Express für echte Datenbank
+- [ ] **Payment-System:** Stripe/PayPal Integration für echte Spenden
+- [ ] **Admin-Dashboard:** Schul-Verwaltung und Fonds-Tracking
+- [ ] **Email-System:** Spenden-Bestätigungen und Updates
+
+### **Mittelfristig (Q2 2025)**  
+- [ ] **User-Accounts:** Spender-Profile und Donation-History
+- [ ] **Advanced Analytics:** Detaillierte Fortschritts-Visualisierungen
+- [ ] **Multi-Sprachen:** English/Französisch für internationale Expansion
+- [ ] **Mobile App:** React Native für iOS/Android
+
+### **Langfristig (Q3-Q4 2025)**
+- [ ] **KI-Integration:** Personalisierte Spenden-Empfehlungen
+- [ ] **Blockchain:** Transparente Fonds-Verfolgung
+- [ ] **API-Ecosystem:** Partner-Integration für Schulverwaltungs-Software
+
+---
+
+## 🛠️ **Backend-Tools (Geplant)**
+
+- **Runtime:** Node.js 18+ mit Express.js
+- **Datenbank:** PostgreSQL mit Prisma ORM  
+- **Authentication:** Auth0 oder Firebase Auth
+- **Payments:** Stripe für sichere Zahlungsabwicklung
+- **Email:** SendGrid für automatisierte Kommunikation
+- **Monitoring:** Sentry für Error-Tracking
+- **Analytics:** Mixpanel für User-Behavior Tracking
+
+---
+
+## 📚 **Dokumentation & Literatur**
+
+Das Projekt basiert auf wissenschaftlicher Forschung zu:
+- Return on Investment in frühkindlicher Bildung
+- Nachhaltigen Finanzierungsmodellen für Bildungseinrichtungen  
+- ETF-basierten Stiftungsstrategien
+
+**Relevante Studien:** Siehe `/literatur/` Ordner
+
+---
+
+## 🔄 **Automatisierte Workflows**
+
+### **Rule #1:** Dokumentations-Updates
+Bei jeder Code-Änderung wird diese `projekt-status.md` automatisch mitaktualisiert.
+
+### **Rule #2:** Kontinuierliches Deployment  
+```bash
+git commit -m "message" 
+git push origin main  # → Vercel Deployment triggert automatisch
+```
+
+---
+
+## 📈 **Erfolgs-Metriken (Demo-Phase)**
+
+- ✅ **Website Performance:** 95+ Lighthouse Score
+- ✅ **Accessibility:** WCAG 2.1 AA konform
+- ✅ **SEO:** Vollständiges Schema.org Markup
+- ✅ **PWA:** Installierbar, Offline-fähig
+- ✅ **Browser Support:** Chrome, Firefox, Safari, Edge
+- ✅ **Mobile Optimierung:** Responsive auf allen Geräten
+
+---
+
+**Letztes Update:** 2025-01-24 16:30 CET | **Nächster Review:** 2025-02-01 

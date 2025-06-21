@@ -151,16 +151,24 @@ function populateSchoolList() {
     });
 }
 
-// SHOW SCHOOL DETAIL VIEW
+// SHOW SCHOOL DETAIL VIEW - V3.2.1 CACHE-BUST FIX
 function showSchoolDetail(schoolId) {
+    console.log('🔥 CACHE-BUST: showSchoolDetail called with ID:', schoolId);
+    
     const school = schoolsData.find(s => s.id === schoolId);
-    if (!school) return;
+    if (!school) {
+        console.error('❌ School not found:', schoolId);
+        return;
+    }
 
+    console.log('✅ School found:', school.name);
     document.getElementById('school-name-detail').textContent = school.name;
     const detailContainer = document.getElementById('school-detail-view-container');
     
     const desiredPayout = school.payoutPerChild * school.students;
     const targetFund = desiredPayout / config.payoutRate;
+    
+    console.log('💰 Target fund calculated:', targetFund);
 
     const contentHTML = `
         <div class="school-info">
@@ -470,7 +478,22 @@ function init() {
             navigateTo('home');
         }
         
-        console.log('Deutsche Bildungsstiftung App initialized successfully - V3.2 Float Precision');
+        console.log('🚀 Deutsche Bildungsstiftung App initialized successfully - V3.2.1 CACHE-BUST FIX');
+        
+        // FORCE LOAD SCHOOL IF ON DETAIL PAGE  
+        setTimeout(() => {
+            const currentHash = window.location.hash.slice(1);
+            console.log('🔍 FORCE CHECK - Current hash:', currentHash);
+            
+            if (currentHash === 'school-detail-view') {
+                console.log('🚨 DETECTED: Direct navigation to school detail - FORCING LOAD');
+                const firstSchool = schoolsData[0];
+                if (firstSchool) {
+                    console.log('🔄 FORCING reload of school:', firstSchool.name);
+                    showSchoolDetail(firstSchool.id);
+                }
+            }
+        }, 100);
         
         // Immediate diagnosis for debugging
         setTimeout(() => {
