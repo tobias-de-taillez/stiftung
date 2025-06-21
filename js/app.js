@@ -419,7 +419,7 @@ function init() {
             navigateTo('home');
         }
         
-        console.log('Deutsche Bildungsstiftung App initialized successfully');
+        console.log('Deutsche Bildungsstiftung App initialized successfully - V3.1 Enhanced Calculator');
         
     } catch (error) {
         handleError(error, 'initialization');
