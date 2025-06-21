@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+### Rule #2: Automatisches Deployment
+**Status:** ✅ AKTIV
+
+Nach jedem Git Commit muss automatisch ein Git Push ausgeführt werden, damit die Vercel Pipeline triggert und die Website direkt online aktualisiert wird. erzeuge dafür eine sinnvolle commit message
+
+**Workflow:**
+```bash
+1. git commit -m "message"
+2. git push origin main  # Automatisch nach jedem Commit
+```

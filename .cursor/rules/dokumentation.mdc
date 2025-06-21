@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## 📋 Rule #1: Automatische Dokumentations-Updates
+
+### Regel
+Bei jeder Code-Änderung durch den AI-Agent muss das `projekt-status.md` File mitaktualisiert werden - spätestens bei einem Git-Commit.
+
+### Was aktualisiert werden muss:
+- ✅ **Neue Features** → Status von "❌ TODO" zu "✅ Erledigt"
+- ✅ **Architektur-Änderungen** → Technische Architektur Section
+- ✅ **Dependencies** → Backend-Tools / Frontend-Updates
+- ✅ **Roadmap** → Nächste Schritte entsprechend anpassen
+- ✅ **Stand-Updates** → Versionsnummer, Datum, Meilensteine
+
+### Umsetzung:
+```bash
+# Workflow bei jeder bedeutsamen Änderung:
+1. Code-Änderungen durchführen
+2. projekt-status.md entsprechend aktualisieren
+3. Beide Dateien zusammen committen
+4. Commit Message: "feat: [Feature] + update project status"
+```

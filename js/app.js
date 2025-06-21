@@ -143,8 +143,15 @@ function populateSchoolList() {
 
 // SHOW SCHOOL DETAIL VIEW
 function showSchoolDetail(schoolId) {
+    console.log('🔍 DEBUG: showSchoolDetail called with schoolId:', schoolId);
+    
     const school = schoolsData.find(s => s.id === schoolId);
-    if (!school) return;
+    if (!school) {
+        console.error('❌ School not found:', schoolId);
+        return;
+    }
+    
+    console.log('✅ School found:', school.name);
 
     document.getElementById('school-name-detail').textContent = school.name;
     const detailContainer = document.getElementById('school-detail-view-container');
@@ -163,7 +170,7 @@ function showSchoolDetail(schoolId) {
             </ul>
         </div>
         <div class="donation-box">
-            <h3>Beschleunigen Sie das Ziel!</h3>
+            <h3>🚀 Beschleunigen Sie das Ziel! (V3.1 Enhanced)</h3>
             <div class="donation-controls">
                 <label for="donation-frequency">Spendenfrequenz:</label>
                 <select id="donation-frequency" aria-label="Spendenfrequenz auswählen">
@@ -199,8 +206,10 @@ function showSchoolDetail(schoolId) {
             </button>
         </div>
     `;
+    console.log('📝 Setting innerHTML with enhanced donation controls');
     detailContainer.innerHTML = contentHTML;
     
+    console.log('🎛️ Setting up donation calculator event listeners');
     // Setup donation calculator
     const slider = document.getElementById('donation-slider');
     const frequencySelect = document.getElementById('donation-frequency');
@@ -419,7 +428,13 @@ function init() {
             navigateTo('home');
         }
         
-        console.log('Deutsche Bildungsstiftung App initialized successfully - V3.1 Enhanced Calculator');
+        console.log('🚀 Deutsche Bildungsstiftung App initialized successfully - V3.1 Enhanced Calculator');
+    
+    // Debug: Add visible version indicator
+    document.body.style.border = '3px solid red';
+    setTimeout(() => {
+        document.body.style.border = 'none';
+    }, 3000);
         
     } catch (error) {
         handleError(error, 'initialization');
