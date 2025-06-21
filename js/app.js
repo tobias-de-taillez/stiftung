@@ -200,9 +200,23 @@ function showSchoolDetail(schoolId) {
         </div>
     `;
     detailContainer.innerHTML = contentHTML;
+    
+    // CRITICAL DEBUG: Verify elements exist
+    console.log('🔍 HTML set. Checking elements...');
+    console.log('detailContainer content:', detailContainer.innerHTML.substring(0, 200));
+    
     // Setup donation calculator
     const slider = document.getElementById('donation-slider');
     const frequencySelect = document.getElementById('donation-frequency');
+    
+    console.log('slider found:', !!slider);
+    console.log('frequencySelect found:', !!frequencySelect);
+    
+    if (!frequencySelect) {
+        console.error('❌ CRITICAL: donation-frequency element not found!');
+        alert('ERROR: Frequency selector not found! Check console.');
+        return;
+    }
     
     const updateCalculator = () => updateDonationCalculator(school, targetFund);
     
