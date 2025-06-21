@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deutsche Bildungsstiftung (Demo)</title>
+    <title>Deutsche Bildungsstiftung (Demo V2)</title>
     <style>
         :root {
             --primary-color: #003366;
@@ -12,10 +12,6 @@
             --light-gray: #f4f4f4;
             --dark-gray: #333;
             --success-color: #28a745;
-            --bronze: #cd7f32;
-            --silver: #c0c0c0;
-            --gold: #ffd700;
-            --platinum: #e5e4e2;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -78,13 +74,6 @@
         .section { padding: 60px 0; }
         .section:nth-child(even) { background-color: var(--light-gray); }
         h2 { text-align: center; font-size: 2.5rem; margin-bottom: 40px; }
-        .two-pillars {
-            display: flex;
-            gap: 40px;
-            align-items: flex-start;
-        }
-        .pillar { flex: 1; text-align: center; }
-        .pillar h3 { color: var(--primary-color); font-size: 1.5rem; }
         
         #school-list { display: flex; flex-direction: column; gap: 15px; }
         .school-card {
@@ -95,29 +84,15 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             background: white;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
         }
+        .school-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .school-card h4 { margin: 0; font-size: 1.2rem; color: var(--primary-color); }
         .school-card p { margin: 5px 0 0; }
         .school-card .stats { text-align: right; }
 
-        .ranking-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-        }
-        .ranking-list h3 { color: var(--primary-color); }
-        .ranking-list ul { list-style: none; padding: 0;}
-        .ranking-list li {
-            background: #fff;
-            padding: 10px 15px;
-            margin-bottom: 8px;
-            border-radius: 4px;
-            border: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        #school-detail-view {
+        #school-detail-view-container {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 40px;
@@ -135,73 +110,24 @@
         .donation-controls label { font-weight: bold; display: block; margin-bottom: 10px; }
         .donation-controls input[type="range"] { width: 100%; }
         .donation-amount { text-align: center; font-size: 2rem; font-weight: bold; color: var(--primary-color); margin: 10px 0; }
-        .donation-toggle { display: flex; margin: 20px 0; }
-        .donation-toggle button {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            background: #f0f0f0;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        .donation-toggle button.active { background: var(--secondary-color); color: white; border-color: var(--secondary-color); }
-
-        .impact-visualization h4 { margin-top: 30px; }
-        .impact-value { font-size: 1.5rem; font-weight: bold; color: var(--success-color); }
         
-        .progress-bar-container {
-            background: #e0e0e0;
-            border-radius: 30px;
-            height: 30px;
-            width: 100%;
+        .impact-visualization {
             margin-top: 20px;
-            position: relative;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
         }
-        .progress-bar {
-            background: var(--success-color);
-            height: 100%;
-            border-radius: 30px;
-            transition: width 0.5s ease-in-out;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
+        .impact-visualization .metric { margin-bottom: 15px; }
+        .impact-visualization .metric-label { font-weight: bold; }
+        .impact-visualization .metric-value { font-size: 1.2rem; }
+        .impact-visualization .metric-value.highlight {
+            font-size: 2.5rem;
             font-weight: bold;
-        }
-        .progress-bar-container .goal-marker {
-            position: absolute;
-            top: -25px;
-            font-size: 0.8em;
-            font-weight: bold;
-            color: var(--dark-gray);
-        }
-        #level-bronze { left: 25%; }
-        #level-silver { left: 50%; }
-        #level-gold { left: 75%; }
-
-        .gamification-levels span {
-            padding: 3px 8px;
-            border-radius: 4px;
-            color: var(--dark-gray);
-            font-weight: bold;
-        }
-        .level-bronze { background-color: var(--bronze); }
-        .level-silver { background-color: var(--silver); }
-        .level-gold { background-color: var(--gold); }
-        .level-platinum { background-color: var(--platinum); }
-        
-        .share-buttons { margin-top: 20px; text-align: center; }
-        .share-buttons button { background: none; border: 1px solid #ccc; padding: 8px 12px; margin: 0 5px; border-radius: 4px; cursor: pointer;}
-        .qr-code { text-align: center; margin-top: 15px; }
-        .qr-code img { width: 100px; height: 100px; }
-
-        footer {
-            background: var(--dark-gray);
-            color: white;
+            color: var(--success-color);
+            display: block;
             text-align: center;
-            padding: 40px 20px;
-            margin-top: 60px;
+            margin-top: 5px;
         }
+
         .page { display: none; }
         .page.active { display: block; }
     </style>
@@ -216,7 +142,6 @@
                     <li><a data-page="home">Start</a></li>
                     <li><a data-page="schools">Schulen finden</a></li>
                     <li><a data-page="model">Unser Modell</a></li>
-                    <li><a data-page="stats">Statistiken</a></li>
                 </ul>
             </nav>
         </div>
@@ -230,21 +155,10 @@
                 <button class="cta-button" data-page="schools">Jetzt eine Schule unterstützen</button>
             </section>
             
-            <section class="section">
+             <section class="section">
                 <div class="container">
-                    <h2>Unser Zwei-Säulen-Modell</h2>
-                    <div class="two-pillars">
-                        <div class="pillar">
-                            <img src="https://img.icons8.com/plasticine/100/000000/school.png" alt="Schule Icon"/>
-                            <h3>Säule 1: Individuelle Einrichtungsfonds</h3>
-                            <p>Spender können gezielt eine bestimmte Schule, Kita oder andere Bildungseinrichtung unterstützen. Diese Spenden fließen in einen individuellen Fonds für die jeweilige Einrichtung und sichern deren langfristigen finanziellen Aufbau.</p>
-                        </div>
-                        <div class="pillar">
-                            <img src="https://img.icons8.com/plasticine/100/000000/crowd.png" alt="Menschenmenge Icon"/>
-                            <h3>Säule 2: Solidaritätsfonds</h3>
-                            <p>Allgemeine Spenden und ein Solidarbeitrag aus den Einrichtungsfonds werden hier gebündelt. Die Mittel werden gezielt an Einrichtungen mit geringerem Fördervolumen pro Kind verteilt, um finanzielle Ungleichgewichte im Bildungssystem aktiv auszugleichen.</p>
-                        </div>
-                    </div>
+                    <h2>Das Prinzip: Finanzielle Unabhängigkeit für Schulen</h2>
+                    <p style="text-align: center; max-width: 800px; margin: 0 auto 40px;">Unser Ziel ist es, für jede teilnehmende Einrichtung ein Stiftungskapital aufzubauen, das so groß ist, dass aus den jährlichen Erträgen wichtige Projekte finanziert werden können – für immer. Durch regelmäßige Spenden wird dieses Ziel nicht nur erreicht, sondern die Zeit bis dahin drastisch verkürzt.</p>
                 </div>
             </section>
         </div>
@@ -253,7 +167,7 @@
              <section class="section">
                 <div class="container">
                     <h2>Finden Sie eine Einrichtung</h2>
-                    <p style="text-align:center;">Wählen Sie eine Schule aus der Liste, um mehr zu erfahren und direkt zu spenden.</p>
+                    <p style="text-align:center;">Wählen Sie eine Schule aus der Liste, um zu sehen, wie Sie mit Ihrer Spende helfen können, das Ziel Jahre früher zu erreichen.</p>
                     <div id="school-list">
                         </div>
                 </div>
@@ -265,7 +179,7 @@
                 <div class="container">
                     <a data-page="schools" style="cursor:pointer; color: var(--primary-color); font-weight: bold;">&larr; Zurück zur Übersicht</a>
                     <h2 id="school-name-detail">Schulname</h2>
-                    <div id="school-detail-content">
+                    <div id="school-detail-view-container">
                         </div>
                 </div>
             </section>
@@ -274,47 +188,26 @@
 
         <div id="model" class="page">
             <section class="section">
-                <div class="container">
-                    <h2>So funktioniert die Mittelverteilung</h2>
-                    <p>Unser Zwei-Säulen-Modell sorgt für gezielte Förderung und solidarischen Ausgleich. Es basiert auf transparenten, automatisierten Regeln, um Fairness und Nachhaltigkeit zu gewährleisten.</p>
+                <div class="container" style="max-width: 800px;">
+                    <h2>Unser Finanzierungsmodell: Transparent und Nachhaltig</h2>
+                    <p>Die finanzielle Logik hinter unserer Stiftung ist einfach, aber wirkungsvoll. Sie basiert auf den Prinzipien des langfristigen Vermögensaufbaus und der ewigen Förderung (Perpetuity).</p>
                     
-                    <h3>Säule 1: Individuelle Fonds</h3>
+                    <h3>Die Kern-Annahmen</h3>
                     <ul>
-                        <li><strong>Gezielte Spenden:</strong> Spenden für eine bestimmte Einrichtung fließen zu 100% in deren individuellen Fonds.</li>
-                        <li><strong>Jährliche Direktspende:</strong> Jede Einrichtung erhält jährlich <strong>1% ihres Fondsvolumens</strong> als direkte Ausschüttung zur freien Verfügung.</li>
-                        <li><strong>Solidarische Abgabe:</strong> Gleichzeitig leistet jede Einrichtung eine Abgabe von <strong>0% bis 1%</strong> ihres Fondsvolumens an den Solidaritätsfonds. Der genaue Prozentsatz hängt vom Rang der Einrichtung ab: Die bestfinanzierte Einrichtung (höchstes Fondsvolumen pro Kind) zahlt 1%, die am schwächsten finanzierte zahlt 0%.</li>
+                        <li><strong>Brutto-Rendite (ETF-Zins): 7%</strong> - Wir gehen von einer durchschnittlichen jährlichen Rendite der Kapitalanlagen aus.</li>
+                        <li><strong>Jährliche Ausschüttung: 1%</strong> - Jedes Jahr wird 1% des Fondsvolumens an die jeweilige Einrichtung ausgeschüttet, um laufende Projekte zu finanzieren.</li>
+                        <li><strong>Netto-Wachstumsrate: 6%</strong> - Dies ist die entscheidende Rate (`7% - 1%`). Sie stellt sicher, dass das Stiftungskapital nach der Ausschüttung real weiter wächst und die Inflation ausgleicht.</li>
                     </ul>
 
-                    <h3>Säule 2: Der Solidaritätsfonds</h3>
-                     <ul>
-                        <li><strong>Einnahmen:</strong> Der Fonds speist sich aus nicht zweckgebundenen Spenden und den solidarischen Abgaben aller Einrichtungen.</li>
-                        <li><strong>Stiftungskosten:</strong> Aus dem Soli-Fonds werden die Betriebskosten der Stiftung gedeckt (max. 1% des Fondsvolumens).</li>
-                        <li><strong>Jährliche Umverteilung:</strong> Nach Abzug der Kosten wird jährlich <strong>1% des verbleibenden Volumens</strong> des Soli-Fonds wieder an alle Einrichtungen ausgeschüttet.</li>
-                        <li><strong>Inverser Verteilungsschlüssel:</strong> Die Verteilung erfolgt nach dem Prinzip der Chancengleichheit. Die Einrichtung mit dem geringsten Fondsvolumen pro Kind erhält den höchsten Anteil aus der Ausschüttung, während die bestfinanzierte Einrichtung 0% erhält.</li>
-                    </ul>
-
-                    <h3>Ziel des Modells</h3>
-                    <p>Dieses System schafft einen Anreiz für alle, das Bildungsangebot zu verbessern. Gleichzeitig wird sichergestellt, dass finanzielle Ungleichgewichte ausgeglichen werden und auch Einrichtungen in sozioökonomisch schwächeren Regionen eine faire Chance auf exzellente Ausstattung und Förderung haben.</p>
+                    <h3>Wie das Finanzierungsziel berechnet wird</h3>
+                    <p>Das Ziel für jede Einrichtung ist nicht willkürlich. Es leitet sich direkt aus dem gewünschten jährlichen Förderbetrag ab.</p>
+                    <p><strong>Die Formel:</strong></p>
+                    <p style="text-align: center; font-family: monospace; background-color: #eee; padding: 15px; border-radius: 5px;">Benötigtes Kapital = (Jährlicher Wunschbetrag) / (Ausschüttungsrate)</p>
+                    <p><strong>Beispiel:</strong> Um 2.500 € pro Jahr auszuschütten, benötigt man bei 1% Ausschüttung ein Fondsvolumen von 250.000 €. (`2.500 € / 0.01 = 250.000 €`).</p>
+                    
+                    <h3>Das Prinzip der "Zeitersparnis"</h3>
+                    <p>Der stärkste Hebel zur Erreichung dieses Ziels sind regelmäßige, zusätzliche Spenden. Unser Spendenrechner auf der Seite jeder Einrichtung zeigt Ihnen live, um wie viele Jahre Ihre Spende den Weg zur finanziellen Unabhängigkeit der Schule verkürzen kann. Dies ist der Kern unserer Mission: Gemeinsam schneller ans Ziel kommen.</p>
                 </div>
-            </section>
-        </div>
-
-        <div id="stats" class="page">
-            <section class="section">
-                 <div class="container">
-                    <h2>Statistiken & Rankings</h2>
-                    <p style="text-align: center;">Transparenz ist uns wichtig. Hier sehen Sie Live-Statistiken zur Vermögensverteilung und können die Rankings der Einrichtungen einsehen.</p>
-                    <div class="ranking-container">
-                        <div class="ranking-list" id="top-20-schools">
-                            <h3>🏆 Top 20 Einrichtungen (nach Fondsvolumen / Kind)</h3>
-                            <ul></ul>
-                        </div>
-                        <div class="ranking-list" id="bottom-20-schools">
-                             <h3>❤️ Einrichtungen mit dem größten Förderbedarf</h3>
-                            <ul></ul>
-                        </div>
-                    </div>
-                 </div>
             </section>
         </div>
     </main>
@@ -323,29 +216,25 @@
         <div class="container">
             <p><strong>Deutsche Bildungsstiftung</strong></p>
             <p>Sitz in Oldenburg (Niedersachsen)</p>
-            <p><a href="#" style="color:white;">Satzung</a> | <a href="#" style="color:white;">Datenschutz</a> | <a href="#" style="color:white;">Kontakt</a></p>
             <p><small>&copy; 2025 Deutsche Bildungsstiftung. Dies ist eine interaktive Demo.</small></p>
         </div>
     </footer>
 
     <script>
-        // --- DEMO DATA ---
+        // --- CONFIG & DEMO DATA ---
+        const config = {
+            grossReturn: 0.07,  // 7%
+            payoutRate: 0.01,   // 1%
+            get netGrowthRate() { return this.grossReturn - this.payoutRate } // 6%
+        };
+
         const schoolsData = [
-            { id: 1, name: 'Grundschule Sonnenhügel', city: 'Berlin', students: 250, fund: 120000, goal: 1500000 },
-            { id: 2, name: 'Gymnasium Neustadt', city: 'Hamburg', students: 800, fund: 950000, goal: 4000000 },
-            { id: 3, name: 'Kita Wirbelwind', city: 'München', students: 60, fund: 15000, goal: 500000 },
-            { id: 4, name: 'Realschule am Fluss', city: 'Köln', students: 450, fund: 250000, goal: 2500000 },
-            { id: 5, name: 'Tagesmutter Liliput', city: 'Frankfurt', students: 5, fund: 80000, goal: 100000 },
-            { id: 6, name: 'Waldorfschule Eichenhain', city: 'Stuttgart', students: 300, fund: 450000, goal: 2000000 },
-            { id: 7, name: 'Gesamtschule Westend', city: 'Dortmund', students: 1200, fund: 300000, goal: 5000000 },
-            { id: 8, name: 'Berufskolleg Technik', city: 'Essen', students: 950, fund: 70000, goal: 3000000 },
-            { id: 9, name: 'Grundschule Buntstift', city: 'Leipzig', students: 180, fund: 22000, goal: 1000000 },
-            { id: 10, name: 'Förderschule Pestalozzi', city: 'Bremen', students: 90, fund: 180000, goal: 800000 },
-            { id: 11, name: 'Montessori-Schule', city: 'Dresden', students: 150, fund: 280000, goal: 1200000 },
-            { id: 12, name: 'Kita Zwergenland', city: 'Hannover', students: 80, fund: 12000, goal: 600000 },
-            { id: 13, name: 'Abendgymnasium', city: 'Nürnberg', students: 220, fund: 5000, goal: 1500000 },
-            { id: 14, name: 'Grundschule am Park', city: 'Duisburg', students: 320, fund: 15000, goal: 1800000 },
-            { id: 15, name: 'IGS Lindenfeld', city: 'Bochum', students: 750, fund: 40000, goal: 3500000 },
+            { id: 1, name: 'Grundschule Sonnenhügel', city: 'Berlin', students: 250, fund: 50000, payoutPerChild: 10 },
+            { id: 2, name: 'Gymnasium Neustadt', city: 'Hamburg', students: 800, fund: 450000, payoutPerChild: 15 },
+            { id: 3, name: 'Kita Wirbelwind', city: 'München', students: 60, fund: 15000, payoutPerChild: 20 },
+            { id: 4, name: 'Realschule am Fluss', city: 'Köln', students: 450, fund: 120000, payoutPerChild: 10 },
+            { id: 5, name: 'Gesamtschule Westend', city: 'Dortmund', students: 1200, fund: 300000, payoutPerChild: 5 },
+            { id: 6, name: 'Förderschule Pestalozzi', city: 'Bremen', students: 90, fund: 80000, payoutPerChild: 25 },
         ];
 
         // --- GLOBAL VARIABLES ---
@@ -374,7 +263,7 @@
         // --- INITIALIZE VIEWS ---
         function init() {
             populateSchoolList();
-            populateRankings();
+            navigateTo('home');
         }
 
         // --- POPULATE SCHOOL LIST ---
@@ -383,7 +272,6 @@
             schoolListContainer.innerHTML = '';
             
             schoolsData.forEach(school => {
-                const fundPerStudent = (school.fund / school.students).toFixed(2);
                 const card = document.createElement('div');
                 card.className = 'school-card';
                 card.innerHTML = `
@@ -393,7 +281,6 @@
                     </div>
                     <div class="stats">
                         <p><strong>${formatCurrency(school.fund)}</strong> im Fonds</p>
-                        <p>${formatCurrency(fundPerStudent)} pro Kind</p>
                     </div>
                 `;
                 card.addEventListener('click', () => showSchoolDetail(school.id));
@@ -401,152 +288,102 @@
             });
         }
         
-        // --- POPULATE RANKINGS ---
-        function populateRankings() {
-            const schoolsWithRatio = schoolsData.map(s => ({...s, ratio: s.fund / s.students }));
-            
-            // Sort descending for Top 20
-            schoolsWithRatio.sort((a, b) => b.ratio - a.ratio);
-            const top20Container = document.querySelector('#top-20-schools ul');
-            top20Container.innerHTML = schoolsWithRatio.slice(0, 20).map(s => `<li><span>${s.name}</span> <strong>${formatCurrency(s.ratio)}/Kind</strong></li>`).join('');
-
-            // Sort ascending for Bottom 20
-            schoolsWithRatio.sort((a, b) => a.ratio - b.ratio);
-            const bottom20Container = document.querySelector('#bottom-20-schools ul');
-            bottom20Container.innerHTML = schoolsWithRatio.slice(0, 20).map(s => `<li><span>${s.name}</span> <strong>${formatCurrency(s.ratio)}/Kind</strong></li>`).join('');
-        }
-
         // --- SHOW SCHOOL DETAIL VIEW ---
         function showSchoolDetail(schoolId) {
             const school = schoolsData.find(s => s.id === schoolId);
             if (!school) return;
 
             document.getElementById('school-name-detail').textContent = school.name;
-            const detailContent = document.getElementById('school-detail-content');
+            const detailContainer = document.getElementById('school-detail-view-container');
             
+            const desiredPayout = school.payoutPerChild * school.students;
+            const targetFund = desiredPayout / config.payoutRate;
+
             const contentHTML = `
-                <div id="school-detail-view">
-                    <div class="school-info">
-                        <h3>Über die Einrichtung</h3>
-                        <p><strong>Standort:</strong> ${school.city}</p>
-                        <p><strong>Anzahl Kinder/Schüler:</strong> ${school.students}</p>
-                        <p><strong>Aktuelles Fondsvolumen:</strong> ${formatCurrency(school.fund)}</p>
-                        <p><strong>Ziel zur finanziellen Unabhängigkeit:</strong> ${formatCurrency(school.goal)}</p>
-                        
-                        <h3>Was Ihre Spende bewirken kann:</h3>
-                        <p>Mit den Erträgen können konkrete Verbesserungen finanziert werden. Hier einige Beispiele, die mit einem jährlichen Zusatzbudget pro Kind möglich werden:</p>
-                        <ul>
-                            <li><strong>+50€/Jahr pro Kind:</strong> Anschaffung von modernen Lehrmaterialien und Spielzeugen.</li>
-                            <li><strong>+200€/Jahr pro Kind:</strong> Finanzierung von Förderunterricht, Ausflügen und digitalen Lernangeboten.</li>
-                            <li><strong>+500€/Jahr pro Kind:</strong> Einstellung von zusätzlichem Personal zur individuellen Betreuung.</li>
-                        </ul>
+                <div class="school-info">
+                    <h3>Das Ziel: Ewige Förderung</h3>
+                    <p>Das finanzielle Ziel für diese Einrichtung beträgt <strong>${formatCurrency(targetFund)}</strong>. Sobald dieses Kapital erreicht ist, können aus den jährlichen Zinserträgen <strong>${formatCurrency(desiredPayout)}</strong> (entspricht ${formatCurrency(school.payoutPerChild)} pro Kind) ausgeschüttet werden – und das jedes Jahr, ohne das Stiftungskapital anzugreifen.</p>
+                    <ul>
+                        <li><strong>Aktuelles Fondsvolumen:</strong> ${formatCurrency(school.fund)}</li>
+                        <li><strong>Anzahl Kinder/Schüler:</strong> ${school.students}</li>
+                        <li><strong>Standort:</strong> ${school.city}</li>
+                    </ul>
+                </div>
+                <div class="donation-box">
+                    <h3>Beschleunigen Sie das Ziel!</h3>
+                    <div class="donation-controls">
+                        <label for="donation-slider">Ihre jährliche Spende:</label>
+                        <span class="donation-amount">€50</span>
+                        <input type="range" id="donation-slider" min="10" max="500" step="10" value="50">
                     </div>
-                    <div class="donation-box">
-                        <h3>Jetzt unterstützen!</h3>
-                        <div class="donation-controls">
-                            <label for="donation-slider">Spendenbetrag wählen:</label>
-                            <span class="donation-amount">€50</span>
-                            <input type="range" id="donation-slider" min="10" max="1000" step="10" value="50">
+                    
+                    <div class="impact-visualization">
+                        <div class="metric">
+                            <span class="metric-label">Jahre bis zum Ziel (ohne Ihre Hilfe):</span>
+                            <span class="metric-value" id="years-without-help">...</span>
                         </div>
-                        <div class="donation-toggle">
-                            <button class="active" id="one-time-btn">Einmalig</button>
-                            <button id="yearly-btn">Jährlich</button>
+                        <div class="metric">
+                            <span class="metric-label">Jahre bis zum Ziel (mit Ihrer Hilfe):</span>
+                            <span class="metric-value" id="years-with-help">...</span>
                         </div>
-                        <div class="impact-visualization">
-                            <h4>Ihre Spende wächst in 100 Jahren auf ca.:</h4>
-                            <p class="impact-value">€40.138</p>
-                            <p id="donation-period-text" style="font-size: 0.9em;"></p>
-                        </div>
-                        
-                        <p>Fortschritt zum Ziel (${formatCurrency(school.goal)}):</p>
-                        <div class="progress-bar-container">
-                            <div class="goal-marker" id="level-bronze" title="Level 1: 50€/Jahr pro Kind">🥉</div>
-                            <div class="goal-marker" id="level-silver" title="Level 2: 200€/Jahr pro Kind">🥈</div>
-                            <div class="goal-marker" id="level-gold" title="Level 3: 500€/Jahr pro Kind">🥇</div>
-                            <div class="progress-bar" style="width: 0%;"></div>
-                        </div>
-
-                        <button class="cta-button" style="width: 100%; margin-top: 30px;" onclick="alert('Danke für Ihre Spende! (Demo)')">Spende abschließen</button>
-                        
-                        <div class="share-buttons">
-                           <button>Teilen</button>
-                           <button>QR-Code</button>
-                        </div>
-
-                        <div class="qr-code">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://example.com/stiftung/schule/${school.id}" alt="QR Code">
+                        <div class="metric">
+                            <span class="metric-label">Ihre Zeitersparnis:</span>
+                            <span class="metric-value highlight" id="time-saved">...</span>
                         </div>
                     </div>
+
+                    <button class="cta-button" style="width: 100%; margin-top: 20px;" onclick="alert('Danke für Ihre Spende! (Demo)')">Jetzt jährlich spenden</button>
                 </div>
             `;
-            detailContent.innerHTML = contentHTML;
+            detailContainer.innerHTML = contentHTML;
             
-            // Attach event listeners for the donation calculator
             const slider = document.getElementById('donation-slider');
-            const oneTimeBtn = document.getElementById('one-time-btn');
-            const yearlyBtn = document.getElementById('yearly-btn');
+            slider.addEventListener('input', () => updateDonationCalculator(school, targetFund));
 
-            slider.addEventListener('input', () => updateDonationCalculator(school));
-            oneTimeBtn.addEventListener('click', () => {
-                oneTimeBtn.classList.add('active');
-                yearlyBtn.classList.remove('active');
-                updateDonationCalculator(school);
-            });
-            yearlyBtn.addEventListener('click', () => {
-                yearlyBtn.classList.add('active');
-                oneTimeBtn.classList.remove('active');
-                updateDonationCalculator(school);
-            });
-
-            // Initial calculation
-            updateDonationCalculator(school);
-            
+            updateDonationCalculator(school, targetFund);
             navigateTo('school-detail-view');
         }
 
         // --- DONATION CALCULATOR LOGIC ---
-        function updateDonationCalculator(school) {
-            const slider = document.getElementById('donation-slider');
-            const amountDisplay = document.querySelector('.donation-amount');
-            const impactDisplay = document.querySelector('.impact-value');
-            const periodText = document.getElementById('donation-period-text');
-            const isYearly = document.getElementById('yearly-btn').classList.contains('active');
+        function updateDonationCalculator(school, targetFund) {
+            const annualDonation = parseInt(document.getElementById('donation-slider').value);
+            document.querySelector('.donation-amount').textContent = formatCurrency(annualDonation);
 
-            const donationAmount = parseInt(slider.value);
-            amountDisplay.textContent = formatCurrency(donationAmount);
-            
-            // Simplified compound interest calculation FV = P * (1+r)^n
-            // For yearly: It's a future value of an annuity series calculation
-            const years = 100;
-            const annualReturn = 0.06; // 6% annual return
-            let futureValue = 0;
-
-            if (isYearly) {
-                // FV of an annuity = P * [((1+r)^n - 1) / r]
-                futureValue = donationAmount * ((Math.pow(1 + annualReturn, years) - 1) / annualReturn);
-                const yearsToGoal = Math.log((school.goal * annualReturn) / donationAmount + 1) / Math.log(1 + annualReturn);
-                periodText.textContent = `Mit dieser jährlichen Spende könnte das Ziel statt in 100 schon in ca. ${Math.round(yearsToGoal)} Jahren erreicht werden.`;
-            } else {
-                // FV of a lump sum = P * (1+r)^n
-                futureValue = donationAmount * Math.pow(1 + annualReturn, years);
-                 periodText.textContent = ``;
+            // Scenario 1: Growth WITH annual donations
+            let yearsWithHelp = 0;
+            let currentFundWithHelp = school.fund;
+            while (currentFundWithHelp < targetFund) {
+                currentFundWithHelp = (currentFundWithHelp + annualDonation) * (1 + config.netGrowthRate);
+                yearsWithHelp++;
+                if (yearsWithHelp > 500) { // Safety break
+                    yearsWithHelp = "500+";
+                    break;
+                }
             }
 
-            impactDisplay.textContent = formatCurrency(Math.round(futureValue));
-            
-            // Update progress bar
-            const totalFutureFund = school.fund + futureValue;
-            let progress = (totalFutureFund / school.goal) * 100;
-            if(progress > 100) progress = 100;
-            
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.style.width = progress + '%';
-            progressBar.textContent = progress.toFixed(1) + '%';
+            // Scenario 2: Growth WITHOUT annual donations
+            let yearsWithoutHelp = "∞"; // Default for no growth
+            if (school.fund > 0 && config.netGrowthRate > 0) {
+                 // Formula: n = ln(FV/PV) / ln(1+i)
+                const years = Math.log(targetFund / school.fund) / Math.log(1 + config.netGrowthRate);
+                yearsWithoutHelp = Math.ceil(years);
+            }
+           
+            // Calculate Time Saved
+            let timeSaved = "∞";
+            if (isFinite(yearsWithoutHelp) && isFinite(yearsWithHelp)) {
+                timeSaved = `${yearsWithoutHelp - yearsWithHelp} Jahre`;
+            }
+
+            // Update UI
+            document.getElementById('years-without-help').textContent = `${yearsWithoutHelp} Jahre`;
+            document.getElementById('years-with-help').textContent = `${yearsWithHelp} Jahre`;
+            document.getElementById('time-saved').textContent = timeSaved;
         }
 
         // --- UTILITY FUNCTIONS ---
         function formatCurrency(num) {
-            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(num);
+            return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
         }
 
         // --- START THE APP ---
