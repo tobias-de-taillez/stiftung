@@ -38,7 +38,21 @@ Bei jeder Code-Änderung durch den AI-Agent muss das `projekt-status.md` File mi
 
 ## 🔧 Weitere Rules (Bereit zur Aktivierung)
 
-### Rule #2: Git Commit Standards
+### Rule #2: Automatisches Deployment
+**Status:** ✅ AKTIV
+
+Nach jedem Git Commit muss automatisch ein Git Push ausgeführt werden, damit die Vercel Pipeline triggert und die Website direkt online aktualisiert wird.
+
+**Workflow:**
+```bash
+1. git commit -m "message"
+2. git push origin main  # Automatisch nach jedem Commit
+3. Vercel Pipeline → Live Deployment
+```
+
+**Grund:** Direkte Integration mit Vercel CI/CD für sofortige Website-Updates.
+
+### Rule #3: Git Commit Standards
 ```
 feat: neue Feature
 fix: Bugfix
@@ -66,9 +80,10 @@ chore: Maintenance
 | Rule | Status | Aktiviert seit | Methode |
 |------|--------|---------------|---------|
 | #1: Auto-Updates | ✅ AKTIV | Januar 2025 | AI Memory + Manual |
-| #2: Git Standards | 🟡 BEREIT | - | - |
-| #3: Code Review | 🟡 BEREIT | - | - |
-| #4: Sicherheit | 🟡 BEREIT | - | - |
+| #2: Auto-Push | ✅ AKTIV | Januar 2025 | AI Memory + Manual |
+| #3: Git Standards | 🟡 BEREIT | - | - |
+| #4: Code Review | 🟡 BEREIT | - | - |
+| #5: Sicherheit | 🟡 BEREIT | - | - |
 
 ---
 

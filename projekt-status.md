@@ -3,7 +3,8 @@
 **Stand:** Januar 2025  
 **Version:** Demo V2  
 **Sitz:** Oldenburg (Niedersachsen)  
-**Project Rules:** ✅ Aktiv (Rule #1: Auto-Updates)
+**Project Rules:** ✅ Aktiv (Rule #1: Auto-Updates, Rule #2: Auto-Push)  
+**CI/CD:** Vercel Pipeline aktiv
 
 ## 🎯 Projektziel
 
