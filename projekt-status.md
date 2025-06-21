@@ -1,12 +1,12 @@
 # Projekt Status: Deutsche Bildungsstiftung
 
 **Stand:** Januar 2025  
-**Version:** Demo V3.1 (Enhanced Calculator)  
+**Version:** Demo V3.2 (Float Precision Calculator)  
 **Sitz:** Oldenburg (Niedersachsen)  
 **Project Rules:** ✅ Aktiv (Rule #1: Auto-Updates, Rule #2: Auto-Push)  
 **CI/CD:** Vercel Pipeline aktiv  
 **PWA:** ✅ Service Worker, Manifest, Offline-Support  
-**Features:** ✅ Erweiterte Zeitdarstellung, Flexibles Spendenmodell
+**Features:** ✅ Präzise Float-Jahre-Berechnung, Flexible Spendenfrequenz
 
 ## 🎯 Projektziel
 
@@ -18,7 +18,7 @@ Aufbau einer nachhaltigen Bildungsstiftung, die durch Kapitalaufbau finanzielle 
 - ✅ **Demo-Website (V3)** - Vollständig optimierte, professionelle Website
 - ✅ **Finanzierungsmodell** - Mathematisch fundiertes Berechnungsmodell implementiert
 - ✅ **Spendenrechner** - Live-Berechnung mit flexibler Frequenz (einmalig/monatlich/jährlich)
-- ✅ **Zeitdarstellung** - Präzise Anzeige in Jahren, Monaten und Tagen
+- ✅ **Zeitdarstellung** - Mathematisch präzise Float-Jahre-Berechnung mit Bruchteilen in Monaten/Tagen
 - ✅ **Responsive Design** - Modern gestaltete, mobile-optimierte Benutzeroberfläche
 - ✅ **PWA-Features** - Offline-Funktionalität, App-Installation möglich
 - ✅ **SEO-Optimierung** - Meta Tags, Schema.org, Social Media Integration

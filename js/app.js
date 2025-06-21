@@ -143,15 +143,8 @@ function populateSchoolList() {
 
 // SHOW SCHOOL DETAIL VIEW
 function showSchoolDetail(schoolId) {
-    console.log('🔍 DEBUG: showSchoolDetail called with schoolId:', schoolId);
-    
     const school = schoolsData.find(s => s.id === schoolId);
-    if (!school) {
-        console.error('❌ School not found:', schoolId);
-        return;
-    }
-    
-    console.log('✅ School found:', school.name);
+    if (!school) return;
 
     document.getElementById('school-name-detail').textContent = school.name;
     const detailContainer = document.getElementById('school-detail-view-container');
@@ -170,7 +163,7 @@ function showSchoolDetail(schoolId) {
             </ul>
         </div>
         <div class="donation-box">
-            <h3>🚀 Beschleunigen Sie das Ziel! (V3.1 Enhanced)</h3>
+            <h3>Beschleunigen Sie das Ziel!</h3>
             <div class="donation-controls">
                 <label for="donation-frequency">Spendenfrequenz:</label>
                 <select id="donation-frequency" aria-label="Spendenfrequenz auswählen">
@@ -206,10 +199,7 @@ function showSchoolDetail(schoolId) {
             </button>
         </div>
     `;
-    console.log('📝 Setting innerHTML with enhanced donation controls');
     detailContainer.innerHTML = contentHTML;
-    
-    console.log('🎛️ Setting up donation calculator event listeners');
     // Setup donation calculator
     const slider = document.getElementById('donation-slider');
     const frequencySelect = document.getElementById('donation-frequency');
@@ -262,39 +252,39 @@ function updateDonationCalculator(school, targetFund) {
             break;
     }
 
-    // Scenario 1: Growth WITH donations
-    let daysWithHelp = 0;
+    // Scenario 1: Growth WITH donations (precise float calculation)
+    let yearsWithHelp = 0;
     let currentFundWithHelp = school.fund + oneTimeDonation; // Add one-time donation immediately
     
     while (currentFundWithHelp < targetFund) {
         // Add annual donation and growth
         currentFundWithHelp = (currentFundWithHelp + annualDonation) * (1 + config.netGrowthRate);
-        daysWithHelp += 365; // Add one year in days
+        yearsWithHelp += 1; // Increment by 1 year
         
-        if (daysWithHelp > 500 * 365) { // Safety break at 500 years
-            daysWithHelp = "500+ Jahre";
+        if (yearsWithHelp > 500) { // Safety break at 500 years
+            yearsWithHelp = "500+";
             break;
         }
     }
 
     // Scenario 2: Growth WITHOUT donations (baseline)
-    let daysWithoutHelp = "∞";
+    let yearsWithoutHelp = "∞";
     if (school.fund > 0 && config.netGrowthRate > 0) {
-        // Formula: n = ln(FV/PV) / ln(1+i)
+        // Formula: n = ln(FV/PV) / ln(1+i) - precise float result
         const years = Math.log(targetFund / school.fund) / Math.log(1 + config.netGrowthRate);
-        daysWithoutHelp = Math.ceil(years * 365);
+        yearsWithoutHelp = years; // Keep as float for precision
     }
    
-    // Calculate Time Saved in days
-    let daysSaved = 0;
-    if (isFinite(daysWithoutHelp) && isFinite(daysWithHelp)) {
-        daysSaved = daysWithoutHelp - daysWithHelp;
+    // Calculate Time Saved in float years
+    let yearsSaved = 0;
+    if (isFinite(yearsWithoutHelp) && isFinite(yearsWithHelp)) {
+        yearsSaved = yearsWithoutHelp - yearsWithHelp;
     }
 
-    // Format time displays
-    const timeWithoutHelp = formatTimePeriod(daysWithoutHelp);
-    const timeWithHelp = formatTimePeriod(daysWithHelp);
-    const timeSaved = formatTimePeriod(daysSaved);
+    // Format time displays (convert float years to precise time periods)
+    const timeWithoutHelp = formatTimePeriodFromYears(yearsWithoutHelp);
+    const timeWithHelp = formatTimePeriodFromYears(yearsWithHelp);
+    const timeSaved = formatTimePeriodFromYears(yearsSaved);
 
     // Update UI with error checking
     const elementsToUpdate = [
@@ -311,33 +301,40 @@ function updateDonationCalculator(school, targetFund) {
     });
 }
 
-// FORMAT TIME PERIOD (days to years/months/days)
-function formatTimePeriod(days) {
-    if (days === "∞" || days === "500+ Jahre") {
-        return days;
+// FORMAT TIME PERIOD (float years to precise years/months/days)
+function formatTimePeriodFromYears(floatYears) {
+    if (floatYears === "∞" || floatYears === "500+") {
+        return floatYears === "500+" ? "500+ Jahre" : "∞";
     }
     
-    if (!isFinite(days) || days <= 0) {
+    if (!isFinite(floatYears) || floatYears <= 0) {
         return "Sofort erreicht!";
     }
     
-    const years = Math.floor(days / 365);
-    const remainingDays = days % 365;
-    const months = Math.floor(remainingDays / 30);
-    const finalDays = remainingDays % 30;
+    // Extract whole years
+    const wholeYears = Math.floor(floatYears);
+    const yearFraction = floatYears - wholeYears;
+    
+    // Convert year fraction to months (more precise than days-based calculation)
+    const totalMonths = yearFraction * 12;
+    const wholeMonths = Math.floor(totalMonths);
+    const monthFraction = totalMonths - wholeMonths;
+    
+    // Convert month fraction to days (average month = 30.44 days)
+    const wholeDays = Math.round(monthFraction * 30.44);
     
     const parts = [];
     
-    if (years > 0) {
-        parts.push(`${years} Jahr${years !== 1 ? 'e' : ''}`);
+    if (wholeYears > 0) {
+        parts.push(`${wholeYears} Jahr${wholeYears !== 1 ? 'e' : ''}`);
     }
     
-    if (months > 0) {
-        parts.push(`${months} Monat${months !== 1 ? 'e' : ''}`);
+    if (wholeMonths > 0) {
+        parts.push(`${wholeMonths} Monat${wholeMonths !== 1 ? 'e' : ''}`);
     }
     
-    if (finalDays > 0 || parts.length === 0) {
-        parts.push(`${finalDays} Tag${finalDays !== 1 ? 'e' : ''}`);
+    if (wholeDays > 0 || parts.length === 0) {
+        parts.push(`${wholeDays} Tag${wholeDays !== 1 ? 'e' : ''}`);
     }
     
     // Return most significant unit(s)
@@ -348,6 +345,18 @@ function formatTimePeriod(days) {
     } else {
         return `${parts[0]} und ${parts[1]}`;
     }
+}
+
+// LEGACY: Keep old function for backward compatibility if needed
+function formatTimePeriod(days) {
+    // Convert days to years and use new function
+    if (days === "∞" || days === "500+ Jahre") {
+        return days;
+    }
+    if (!isFinite(days) || days <= 0) {
+        return "Sofort erreicht!";
+    }
+    return formatTimePeriodFromYears(days / 365.25); // More accurate year conversion
 }
 
 // DONATION HANDLER
@@ -428,13 +437,7 @@ function init() {
             navigateTo('home');
         }
         
-        console.log('🚀 Deutsche Bildungsstiftung App initialized successfully - V3.1 Enhanced Calculator');
-    
-    // Debug: Add visible version indicator
-    document.body.style.border = '3px solid red';
-    setTimeout(() => {
-        document.body.style.border = 'none';
-    }, 3000);
+        console.log('Deutsche Bildungsstiftung App initialized successfully - V3.2 Float Precision');
         
     } catch (error) {
         handleError(error, 'initialization');
