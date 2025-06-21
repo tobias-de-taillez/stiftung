@@ -98,6 +98,16 @@ window.addEventListener('hashchange', () => {
     const hash = window.location.hash.slice(1);
     if (hash && document.getElementById(hash)) {
         navigateTo(hash);
+        
+        // Special handling for school-detail-view
+        if (hash === 'school-detail-view') {
+            // Try to load the first school as fallback
+            const firstSchool = schoolsData[0];
+            if (firstSchool) {
+                console.log('🔧 Loading fallback school on direct navigation:', firstSchool.name);
+                showSchoolDetail(firstSchool.id);
+            }
+        }
     }
 });
 
@@ -447,11 +457,44 @@ function init() {
         const hash = window.location.hash.slice(1);
         if (hash && document.getElementById(hash)) {
             navigateTo(hash);
+            
+            // Special handling for school-detail-view on page load
+            if (hash === 'school-detail-view') {
+                const firstSchool = schoolsData[0];
+                if (firstSchool) {
+                    console.log('🚀 Auto-loading school on page load:', firstSchool.name);
+                    showSchoolDetail(firstSchool.id);
+                }
+            }
         } else {
             navigateTo('home');
         }
         
         console.log('Deutsche Bildungsstiftung App initialized successfully - V3.2 Float Precision');
+        
+        // Immediate diagnosis for debugging
+        setTimeout(() => {
+            const currentHash = window.location.hash.slice(1);
+            console.log('🔍 Current hash after init:', currentHash);
+            
+            if (currentHash === 'school-detail-view') {
+                const detailContainer = document.getElementById('school-detail-view-container');
+                const frequencySelect = document.getElementById('donation-frequency');
+                
+                console.log('DetailContainer found:', !!detailContainer);
+                console.log('DetailContainer content length:', detailContainer ? detailContainer.innerHTML.length : 0);
+                console.log('FrequencySelect found:', !!frequencySelect);
+                
+                if (!frequencySelect && detailContainer) {
+                    console.warn('🚨 Missing frequency selector - forcing reload of school detail');
+                    const firstSchool = schoolsData[0];
+                    if (firstSchool) {
+                        showSchoolDetail(firstSchool.id);
+                    }
+                }
+            }
+        }, 500);
+        
         
     } catch (error) {
         handleError(error, 'initialization');
