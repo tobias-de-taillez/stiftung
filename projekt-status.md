@@ -169,4 +169,5 @@ git push origin main  # → Vercel Deployment triggert automatisch
 - ✅ **Schul-Detailseiten** → Spezifische Förderung pro Einrichtung
 - ✅ **SEO-Optimierung** → Meta-Tags, Schema.org, Performance
 - ✅ **Accessibility** → ARIA-Labels, Keyboard-Navigation
-- ✅ **Header-Design verbessert** → Grüne Farbgebung und catchiger Text "Gemeinsam zur Bildungsrevolution!" 
+- ✅ **Header-Design verbessert** → Grüne Farbgebung und catchiger Text "Gemeinsam zur Bildungsrevolution!"
+- ✅ **Rosa Background implementiert** → Website-Hintergrund auf Rosa geändert für verbesserte Ästhetik 
