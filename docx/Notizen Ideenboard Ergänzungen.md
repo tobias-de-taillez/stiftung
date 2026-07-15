@@ -31,3 +31,64 @@ Frage an papa: wie läuft das mit den spenden an die schule? Darf eine schule sp
 
 
 VER MW 685. 
+
+---
+
+## Frühere Notiz (nachgetragen 2026-07-15): Rechtsform-Analyse & MVP-Fokus
+
+### Punkt 1 – Rechtsform: gemeinnütziger Verein statt Stiftung
+- **Warum keine Stiftung:** Für die Zulassung durch die Stiftungsaufsicht muss ein Mindest-Stiftungsvermögen nachgewiesen werden. Laut Recherche + Kontakt zum Stiftungsnetzwerk Bremen: **ca. 1 Mio. €**. Haben wir nicht.
+- **Verein als Lösung:** gemeinnütziger Verein, gründbar für ~**200 € beim Notar**.
+- **Steuerlich gleichwertig:** Befreiung von Körperschaft- und Gewerbesteuer möglich; wir können **Spendenbescheinigungen** ausstellen, Spenden sind **steuerabzugsfähig** → alles, was ein Spender typischerweise will, ist abbildbar.
+- **Zusatz-Vorteil Mitgliedsbeiträge:** Verein kann neben Spenden auch **Mitgliedsbeiträge** erheben → nicht allein auf Spenden angewiesen.
+- **Kapitalanlage erlaubt:** Vereinsvermögen darf am Aktienmarkt angelegt und die Rendite verwendet werden, **solange die Satzung korrekt definiert, wofür**. Erträge satzungsgemäß/im Vereinssinn einsetzen.
+- **Flexibel:** Gemeinnützigkeit ist beantragbar, aber **deutlich weniger streng** reguliert als eine Stiftung. Satzung per **Mitgliederversammlung änderbar** → wir müssen die Satzung am Anfang nicht perfekt treffen (bei Stiftung ist Satzungsänderung schwierig).
+- **Governance-Unterschied:** Verein = basisdemokratisch, Mitglieder wählen Vorstand und stimmen über Vorgehen ab (Vollversammlung). Stiftung = niemand redet rein außer dem zu bestellenden Stiftungsrat.
+  - **Für uns gut:** Zielgruppe = **Eltern**; deren Ziele decken sich ohnehin mit unseren. Kein Sportverein mit täglicher Mitarbeit – im Kern ein gemeinnützig verwendeter Mitgliedsbeitrag; wer nicht mehr will, tritt aus.
+- **Konsequenz:** Ding kommt ohne Riesen-Initialkapital zum Laufen; die **bestehende Satzung genügt vermutlich pi mal Daumen** schon.
+- **Kontakt:** Notarin **Frau Dr. Simon in Oldenburg** (bekannt aus Hauskauf + Beteiligungssachen/UG). Fair, transparent, kommunikativ, nicht abgehoben. Idee: bitten, die Satzung gegenzulesen und das mit uns zu machen (kostenpflichtig, aber fair).
+
+### Punkt 2 – MVP: bei Kitas & Tagesmüttern anfangen, nicht bei Schulen
+- **Rechtlich einfacher:** Kitas und Tagesmütter/-väter sind **privatwirtschaftliche Einheiten** mit eigenem Haushalt/Wirtschaftsleitung (evtl. städtisch gefördert). Man kann ihnen **viel einfacher Geld zustecken** als Schulen.
+- **Höherer gesellschaftlicher ROI:** Je **früher** investiert, desto größer der Return (deckt sich mit der Literatur zu frühkindlicher Bildung).
+- **Besserer Pro-Kind-Hebel auf der Website:** Emotionaler Kern ist der **Pro-Kind-Faktor**. Bei einer Tagesmutter mit 5 Kindern wirken 100 € gespendet enorm ("ab jetzt 1 €/Kind/Jahr – für immer"); bei einer Schule mit 700 Schülern verpufft dieselbe Spende optisch (~0,1 Cent/Kind). Kleine Einheiten = sichtbarerer Impact.
+- **Näher an den Eltern:** Bei Tagesmüttern/Kitas ist die Bindung eng (5 Elternpaare + 1 Tagesmutter, man kennt sich persönlich). Schulen – spätestens weiterführende – sind gesichtslos, Eltern weniger verbunden.
+- **Bessere Werbeträger:** Tagesmutter einbinden ("du bist Teil der Gang, musst nichts tun, gib neuen Eltern unseren Flyer, zeig was du letztes Jahr aus den Erträgen gekauft hast"). Es gibt viele Tageseltern → gute Startbasis, viele Mitglieder gewinnbar. Kleinteilig (alle Tagesmütter z. B. in Oldenburg raussuchen/anschreiben), aber machbar.
+- **Reihenfolge:** 1. Tagesmütter/-väter → 2. Kindergärten/Kitas → 3. später Schulen.
+- **Warum Schulen später:** Schulen sind vermutlich schon besser gefördert (Ehemaligenvereine – man erinnert sich an seine Schule, nicht an die Kita/Tagesmutter). Kitas/Tagesmütter sind unterversorgt.
+- **Differenzierung:** Kita-/Tagesmütter-Förderung wirkt greifbarer und hebt sich ab – man hört öfter von Schulförderung als von Kita-, geschweige denn Tagesmütter-Förderung.
+
+---
+
+## Notiz 2026-07-15: Rechtsform & Konten-/Spendenkonzept
+
+### Rechtsform: Verein statt Stiftung (vorerst)
+- Stiftungsgründung scheitert am fehlenden Startkapital (nachrecherchiert).
+- Stattdessen: **gemeinnütziger Verein** gründen – kommt mit deutlich weniger Startgeld aus.
+- Ziel bleibt: bei Erreichen einer bestimmten Summe wird der Verein **in eine Stiftung umgewandelt**.
+
+### Kontenstruktur (bewusst schlank)
+- **Kein** eigenes Konto pro Betreuungseinrichtung. Nur zwei Konten insgesamt:
+  - **Arbeits-Konto:** Marketingbudget, Gehälter, laufende Kosten etc.
+  - **Fonds-Konto:** dient als Input/Output zum ETF.
+- Die Zuordnung zu Einrichtungen passiert **nicht** über eigene Konten, sondern über Finanztöpfe in der Datenbank (siehe unten).
+
+### Spendeneingang – bevorzugter Weg (Lastschrift/Überweisung)
+- Neue Spende trägt im **Überweisungsbetreff** die **Unique-ID der Betreuungseinrichtung** (für welchen Topf) und **optional die Unique Nutzer-ID**.
+- Wird eine Nutzer-ID mitgeschickt → automatisch **Spendenquittung** ausgestellt und zugeschickt.
+- Das ist der bevorzugte Weg für Vereinsgebühren/Spenden (keine Provider-Gebühren).
+
+### Spendeneingang – niedrigschwellig (Payment-Provider)
+- Zusätzlich immer Möglichkeit einer **Einmal-Spende** über Payment-Provider (Stripe, Google Pay, PayPal o. Ä.).
+- Kostet Gebühren, aber niedrige Hürde.
+- **Nach** der Einmal-Spende: Nutzer fragen, ob er eine Spendenquittung möchte. Falls ja → durch **User-Onboarding** leiten (Registrierung etc.).
+- **MEMO/offene Frage:** Braucht man für eine Spendenquittung ein KYC?
+
+### Nutzerkonten & Finanztöpfe
+- **Nutzerkonten der Betreuungseinrichtungen** müssen **proaktiv von den Einrichtungen selbst** erstellt / zugänglich gemacht werden (KYC für Einrichtungen **mandatory**).
+- **Finanztopf erstellen** kann **jeder – auch anonym, ohne Registrierung**:
+  - Läuft über die **Betreuungseinrichtungs-Suchfunktion** auf der Website.
+  - Wird eine Einrichtung nicht gefunden → **"Hinzufügen"-Button**: Kernangaben eingeben (Name, Adresse, geschätzte Kinderanzahl, geschätzte Betreueranzahl).
+  - Danach wird direkt in der DB ein **neuer Finanztopf** angelegt und mit **Initialgeld aus dem Reservetopf** befüllt.
+  - Effekt: User sieht im nächsten Screen sofort "aahhh, da liegen schon 21 € drin" und kann direkt reinspenden.
+- Fordert eine Einrichtung ihren Zugang **nie** ein: Das gespendete Geld liegt trotzdem im Einrichtungs-Finanztopf im ETF, produziert Rendite → wird **umverteilt**. So geht **kein Geld verloren oder bleibt stecken**.
