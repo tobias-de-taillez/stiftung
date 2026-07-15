@@ -39,12 +39,17 @@ Wir sind die Brücke zwischen Menschen, die etwas beitragen wollen, und den Einr
 
 **In 100 Jahren sind Deutschlands Bildungs- und Betreuungseinrichtungen die – relativ zum Pro-Kopf-Einkommen des Landes – am besten finanzierten der Welt. Kein Kind zahlt für seine Bildung, und keine Einrichtung ist von der Spendenlaune ihres Umfelds abhängig, weil jede über ein eigenes, wachsendes Kapitalpolster verfügt.**
 
-Diese Vision ist ambitioniert, aber prinzipiell erreichbar und terminierbar. Wegmarken auf dem Weg dorthin:
+Diese Vision ist ambitioniert, aber prinzipiell erreichbar und terminierbar. Zwei Dinge laufen dabei **parallel, nicht nacheinander**: der *Plattform-Bau* (technisch von Tag 1 als White-Label für ALLE Einrichtungstypen) und der *Markteintritt* (bewusst sequenziert, beginnend bei den Kleinsten).
 
-- **Phase 1 — Verein, MVP bei den Kleinsten.** Wir starten als gemeinnütziger Verein (deutlich weniger Startkapital als eine Stiftung) und beginnen bewusst bei **Tagesmüttern/-vätern und Kitas**, nicht bei Schulen. Gründe: privatwirtschaftliche Einheiten mit eigenem Haushalt (Geld ist einfacher zu übergeben), höchster gesellschaftlicher ROI bei den Jüngsten, stärkster Pro-Kind-Hebel (100 € wirken bei 5 Kindern sichtbar, bei 700 Schüler:innen nicht), engste Elternbindung und damit beste Werbeträger. Zwei Konten (Arbeits-Konto für Betrieb, Fonds-Konto als Ein-/Ausgang zum ETF), pro Einrichtung ein Finanztopf in der Datenbank statt eigener Konten.
-- **Phase 2 — Ausbau über Kitas zu Schulen.** Nach der Tagespflege folgen Kindergärten/Kitas, danach Schulen. Schulen kommen später, weil sie über Ehemaligennetzwerke bereits eher gefördert sind – die Betreuung der Jüngsten ist unterversorgt.
+**Plattform — von Anfang an generisch (White-Label).** Wir bauen die Lösung von Tag 1 als White-Label-Plattform, die jede Bildungs- und Betreuungseinrichtung abbilden kann – Tagespflege, Kita, Schule und mehr. Kein Einrichtungstyp ist hartkodiert: Suche, Finanztopf, verifizierter Zugang (KYC), Solidaritätsmechanismus und Spendenfluss sind generisch. So ist Flächendeckung kein späterer Umbau, sondern ergibt sich, sobald der Markteintritt sie erreicht. Zwei Konten (Arbeits-Konto für Betrieb, Fonds-Konto als Ein-/Ausgang zum ETF), pro Einrichtung ein Finanztopf in der Datenbank statt eigener Konten.
+
+**Markteintritt — sequenziert bei den Kleinsten beginnend:**
+
+- **Phase 1 — Verein, MVP bei der Tagespflege.** Wir starten als gemeinnütziger Verein (deutlich weniger Startkapital als eine Stiftung) und gehen zuerst auf **Tagesmütter/-väter**, dann Kitas. Gründe: privatwirtschaftliche Einheiten mit eigenem Haushalt (Geld ist einfacher zu übergeben), höchster gesellschaftlicher ROI bei den Jüngsten, stärkster Pro-Kind-Hebel (100 € wirken bei 5 Kindern sichtbar, bei 700 Schüler:innen nicht), engste Elternbindung und damit beste Werbeträger.
+- **Phase 2 — Ausbau über Kitas zu Schulen.** Nach der Tagespflege folgen Kindergärten/Kitas, danach Schulen. Schulen kommen später, weil sie über Ehemaligennetzwerke bereits eher gefördert sind – die Betreuung der Jüngsten ist unterversorgt. Technisch ist die Plattform dafür schon bereit (siehe White-Label).
 - **Phase 3 — Umwandlung in eine Stiftung.** Bei Erreichen einer definierten Schwellensumme wird der Verein in eine Stiftung überführt. Die Rechtsform folgt dem Kapital, nicht umgekehrt.
-- **Phase 4 — Flächendeckung.** Jede Bildungs- und Betreuungseinrichtung in Deutschland ist auffindbar, hat einen Finanztopf und einen verifizierten Zugang; der Solidaritätsfonds gleicht regionale Unterschiede messbar aus.
+
+**Zielzustand — Flächendeckung.** Jede Bildungs- und Betreuungseinrichtung in Deutschland ist auffindbar, hat einen Finanztopf und einen verifizierten Zugang; der Solidaritätsfonds gleicht regionale Unterschiede messbar aus. Dies ist kein separater Bauschritt, sondern das Ergebnis von White-Label-Plattform × sequenziertem Markteintritt.
 
 ---
 
