@@ -3,6 +3,8 @@ import { BarChart } from '@/components/BarChart';
 import { formatEuro } from '@/lib/calc/format';
 import { statistik } from '@/lib/server/einrichtungenService';
 
+export const dynamic = 'force-dynamic';
+
 export default async function StatistikPage() {
   const stats = await statistik();
 

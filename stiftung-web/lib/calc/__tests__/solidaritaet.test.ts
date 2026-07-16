@@ -73,4 +73,14 @@ describe('verteilePool', () => {
     expect(ergebnis.find((e) => e.slug === 'beduerftig')!.anteil).toBe(0.01);
     expect(ergebnis.find((e) => e.slug === 'satt')!.anteil).toBe(0);
   });
+
+  it('verteilt nie mehr als der Pool enthält (Sub-Cent-Eingaben)', () => {
+    const ergebnis = verteilePool(10.005, [
+      { slug: 'a', bedarf: 1 },
+      { slug: 'b', bedarf: 1 },
+    ]);
+    const summe = ergebnis.reduce((s, e) => s + e.anteil, 0);
+    expect(summe).toBeLessThanOrEqual(10.005);
+    expect(summe).toBeCloseTo(10.0, 10);
+  });
 });

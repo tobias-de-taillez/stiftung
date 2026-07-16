@@ -20,7 +20,7 @@ export function verteilePool(pool: number, eintraege: BedarfsEintrag[]): { slug:
     return eintraege.map((e) => ({ slug: e.slug, anteil: 0 }));
   }
 
-  const poolCents = Math.round(pool * 100);
+  const poolCents = Math.floor(pool * 100);
   let lastPositive = -1;
   for (let i = 0; i < bedarfe.length; i++) {
     if (bedarfe[i] > 0) lastPositive = i;

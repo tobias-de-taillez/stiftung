@@ -2,6 +2,8 @@ import { Card } from '@/components/Card';
 import { SolidaritaetsfondsPanel } from '@/components/SolidaritaetsfondsPanel';
 import { getFondsBestand } from '@/lib/server/solidaritaetsfondsService';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SolidaritaetsfondsPage() {
   const bestand = await getFondsBestand();
 

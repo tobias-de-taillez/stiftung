@@ -21,4 +21,8 @@ describe('EinrichtungDetailPage', () => {
     expect(screen.getByText(/Teststadt/)).toBeInTheDocument();
     expect(screen.getByAltText(/QR-Code zu Detail-Test-Kita/i)).toBeInTheDocument();
   });
+
+  it('wirft notFound für unbekannten slug', async () => {
+    await expect(EinrichtungDetailPage({ params: { slug: 'gibt-es-nicht' } })).rejects.toThrow();
+  });
 });

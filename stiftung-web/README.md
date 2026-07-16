@@ -8,12 +8,15 @@ wirkenden Solidaritäts-Umverteilungsmechanismus.
 ## Lokal starten
 
 ```bash
+echo 'DATABASE_URL="file:./dev.db"' > .env
 npm install
 npx prisma generate
 npm run db:push
 npm run db:seed
 npm run dev
 ```
+
+Alternativ die mitgelieferte Vorlage kopieren: `cp .env.example .env`.
 
 Danach `http://localhost:3000` öffnen.
 
@@ -29,7 +32,7 @@ Die Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`, via
 dass jede Test-Suite in ihrem `beforeEach` alle vier Tabellen leert
 (FK-sichere Reihenfolge) und `fileParallelism: false` die Testdateien
 sequenziell ausführt. Neue DB-Test-Suiten müssen dieses beforeEach-Muster
-übernehmen. Aktueller Stand: 21 Testdateien, 83 Tests, alle PASS.
+übernehmen. Aktueller Stand: 21 Testdateien, 85 Tests, alle PASS.
 
 ## Struktur
 

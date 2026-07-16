@@ -6,7 +6,7 @@ export function ProgressBar({ value, max, label }: { value: number; max: number;
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={max}
-        aria-valuenow={Math.round(value)}
+        aria-valuenow={Math.round(Math.min(max, Math.max(0, value)))}
         style={{ background: 'var(--surface-2)', borderRadius: '999px', height: '14px', overflow: 'hidden' }}
       >
         <div style={{ width: `${pct}%`, height: '100%', background: 'var(--sun)', borderRadius: '999px' }} />

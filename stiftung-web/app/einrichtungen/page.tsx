@@ -1,6 +1,8 @@
 import { listEinrichtungen } from '@/lib/server/einrichtungenService';
 import { EinrichtungenFilter } from '@/components/EinrichtungenFilter';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EinrichtungenPage() {
   const einrichtungen = await listEinrichtungen();
 

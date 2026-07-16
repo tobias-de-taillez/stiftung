@@ -35,6 +35,7 @@ export async function spenden(slug: string, betrag: number, frequenz: Frequenz) 
 }
 
 export function foerderungProKind(e: { aktuellesKapital: number; kinderAnzahl: number }): number {
+  if (e.kinderAnzahl <= 0) return 0;
   return e.aktuellesKapital / e.kinderAnzahl;
 }
 
