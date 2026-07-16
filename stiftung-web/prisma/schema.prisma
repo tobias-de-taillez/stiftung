@@ -40,3 +40,12 @@ model FondsSpende {
   betrag    Float
   createdAt DateTime @default(now())
 }
+
+model Jahresabschluss {
+  id             String   @id @default(cuid())
+  nummer         Int
+  fondsErtrag    Float
+  kapitalErtrag  Float
+  verteiltGesamt Float
+  createdAt      DateTime @default(now())
+}
