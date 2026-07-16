@@ -31,8 +31,8 @@ const IMPACT_STUFEN: Record<EinrichtungTyp, ImpactStufe[]> = {
   ],
 };
 
-export function impactBeispiel(typ: EinrichtungTyp, jahresAusschuettung: number): string {
-  const stufen = IMPACT_STUFEN[typ];
+export function impactBeispiel(typ: string, jahresAusschuettung: number): string {
+  const stufen = IMPACT_STUFEN[typ as EinrichtungTyp] ?? IMPACT_STUFEN.tagespflege;
   let ergebnis = stufen[0].beispiel;
   for (const stufe of stufen) {
     if (jahresAusschuettung >= stufe.abJahresausschuettung) {

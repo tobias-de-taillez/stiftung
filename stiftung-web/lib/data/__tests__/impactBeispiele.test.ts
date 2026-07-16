@@ -57,4 +57,12 @@ describe('impactBeispiel', () => {
     expect(impactBeispiel('kita', 20)).toMatch(/Bewegungslandschaft/i);
     expect(impactBeispiel('schule', 20)).toMatch(/Experimentierkasten/i);
   });
+
+  it('fallback zu tagespflege bei unbekanntem Einrichtungstyp (keine Exception)', () => {
+    // Defensiv: Prisma speichert 'typ' als generischen String. Falls ein neuer
+    // Typ in die DB kommt, bevor die UI aktualisiert ist, sollte die Funktion
+    // fallback auf das generischste Beispiel (tagespflege), statt abzustürzen.
+    expect(impactBeispiel('unbekannter-typ', 0)).toBe('neues Spielzeug');
+    expect(impactBeispiel('unbekannter-typ', 0.5)).toBe('neues Spielzeug');
+  });
 });

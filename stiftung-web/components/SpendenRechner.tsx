@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { ANNUAL_PAYOUT_RATE, computeYearsToGoal } from '@/lib/calc/spendenrechner';
 import { formatDuration, formatEuro } from '@/lib/calc/format';
 import { currentLevel } from '@/lib/data/levels';
-import { impactBeispiel, type EinrichtungTyp } from '@/lib/data/impactBeispiele';
+import { impactBeispiel } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
 import { SpendenBestaetigung } from './SpendenBestaetigung';
 
 interface EinrichtungFuerRechner {
   slug: string;
   name: string;
-  typ: EinrichtungTyp;
+  typ: string;
   kinderAnzahl: number;
   aktuellesKapital: number;
   zielKapital: number;

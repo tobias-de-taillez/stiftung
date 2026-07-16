@@ -4,7 +4,6 @@ import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
 import { SpendenRechner } from '@/components/SpendenRechner';
 import { formatEuro } from '@/lib/calc/format';
-import type { EinrichtungTyp } from '@/lib/data/impactBeispiele';
 import { getEinrichtungBySlug } from '@/lib/server/einrichtungenService';
 
 export default async function EinrichtungDetailPage({ params }: { params: { slug: string } }) {
@@ -17,10 +16,9 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
   const url = `${baseUrl}/einrichtungen/${einrichtung!.slug}`;
   const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 180 });
 
-  // Prisma liefert 'typ' als generischen String (schema.prisma kennt kein
-  // Enum) — der Rechner braucht ihn enger typisiert, um damit das passende
-  // Impact-Beispiel auszuwählen.
-  const rechnerEinrichtung = { ...einrichtung!, typ: einrichtung!.typ as EinrichtungTyp };
+  // Prisma liefert 'typ' als generischen String. impactBeispiel akzeptiert
+  // jede Zeichenkette und fallback auf tagespflege bei unbekannten Typen.
+  const rechnerEinrichtung = { ...einrichtung! };
 
   return (
     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
