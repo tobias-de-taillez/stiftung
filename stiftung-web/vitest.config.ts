@@ -13,7 +13,7 @@ export default defineConfig({
     // "npm run test works" contract for this task. Harmless once tests exist.
     passWithNoTests: true,
     env: {
-      DATABASE_URL: 'file:./prisma/test.db',
+      DATABASE_URL: 'file:./test.db',
     },
   },
   resolve: {

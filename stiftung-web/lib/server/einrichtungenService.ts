@@ -1,0 +1,66 @@
+import { prisma } from './prismaClient';
+import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+
+export type Frequenz = 'einmalig' | 'jaehrlich';
+
+export class EinrichtungNotFoundError extends Error {}
+export class UngueltigerBetragError extends Error {}
+
+export async function listEinrichtungen() {
+  return prisma.einrichtung.findMany({ orderBy: { name: 'asc' } });
+}
+
+export async function getEinrichtungBySlug(slug: string) {
+  return prisma.einrichtung.findUnique({ where: { slug } });
+}
+
+export async function spenden(slug: string, betrag: number, frequenz: Frequenz) {
+  if (!Number.isFinite(betrag) || betrag <= 0) {
+    throw new UngueltigerBetragError('Betrag muss größer als 0 sein');
+  }
+  const einrichtung = await getEinrichtungBySlug(slug);
+  if (!einrichtung) {
+    throw new EinrichtungNotFoundError(`Keine Einrichtung mit slug ${slug}`);
+  }
+  const [aktualisiert, spende] = await prisma.$transaction([
+    prisma.einrichtung.update({
+      where: { slug },
+      data: { aktuellesKapital: einrichtung.aktuellesKapital + betrag },
+    }),
+    prisma.spende.create({
+      data: { einrichtungId: einrichtung.id, betrag, frequenz, quelle: 'direkt' },
+    }),
+  ]);
+  return { einrichtung: aktualisiert, spende };
+}
+
+export function foerderungProKind(e: { aktuellesKapital: number; kinderAnzahl: number }): number {
+  return e.aktuellesKapital / e.kinderAnzahl;
+}
+
+export async function statistik() {
+  const alle = await listEinrichtungen();
+  const mitFoerderung = alle.map((e) => ({ ...e, foerderungProKind: foerderungProKind(e) }));
+  const ranked = [...mitFoerderung].sort((a, b) => b.foerderungProKind - a.foerderungProKind);
+
+  const gesamtKapital = alle.reduce((sum, e) => sum + e.aktuellesKapital, 0);
+  const anzahlEinrichtungen = alle.length;
+
+  const einJahrVorHeute = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  const [direktSumme, fondsSumme] = await Promise.all([
+    prisma.spende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
+    prisma.fondsSpende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
+  ]);
+  const zuflussLetztesJahr = (direktSumme._sum.betrag ?? 0) + (fondsSumme._sum.betrag ?? 0);
+
+  return {
+    anzahlEinrichtungen,
+    gesamtKapital,
+    gesamtKinder: alle.reduce((sum, e) => sum + e.kinderAnzahl, 0),
+    durchschnittlichesVolumen: anzahlEinrichtungen > 0 ? gesamtKapital / anzahlEinrichtungen : 0,
+    zuflussLetztesJahr,
+    simulierterJahresertrag: gesamtKapital * NET_GROWTH_RATE,
+    top5: ranked.slice(0, 5),
+    bottom5: ranked.slice(-5).reverse(),
+  };
+}
