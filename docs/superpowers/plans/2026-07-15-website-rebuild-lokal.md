@@ -18,7 +18,7 @@
 - Finanzmodell exakt aus `projekt-status.md`: 7 % Brutto-Rendite, 1 % jährliche Ausschüttung, **6 % Netto-Wachstumsrate**. Formel: benötigtes Kapital = gewünschter Jahresbetrag / 0.01.
 - **Solidaritätsprinzip ist aktiv, nicht nur sichtbar:** Der Solidaritätsfonds verteilt real nach Bedarfs-Score (Pro-Kind-Lücke zum Ziel) — Einrichtungen mit dem größten Rückstand bekommen proportional am meisten. Kein Geld bleibt ungenutzt liegen, solange irgendwo Bedarf besteht (bleibt der Bedarf bei 0, bleibt der Fonds-Bestand bewusst unangetastet, statt sinnlos verteilt zu werden).
 - Design: Farbtokens/Radien/Typografie aus `docs/DESIGN.md` im `wealth`-Projekt (`/Users/tdetaillez/CodingInternal/wealth/docs/DESIGN.md`) übernehmen, aber **keine** Planet/Orbit/Satellit-Illustration, keine Mission-Terminologie. Nur visuelle Primitives.
-- Farben ausschließlich als `var(--token)`, keine rohen Hex-Werte außerhalb des Token-Blocks in `globals.css` — **keine Ausnahme, auch nicht für den QR-Code-Hintergrund** (Task 18): dafür trägt der Token-Block ein eigenes `--qr-bg: #fff;` (Pre-Flight-Entscheidung, 2026-07-16).
+- Farben ausschließlich als `var(--token)`, keine rohen Hex-Werte außerhalb des Token-Blocks in `globals.css` — **keine Ausnahme, auch nicht für den QR-Code-Hintergrund** (Task 18): dafür trägt der Token-Block ein eigenes `--qr-bg: #fff;` (Pre-Flight-Entscheidung, 2026-07-16). Gilt auch für rgba-Literale: Rahmen-/Nav-Transparenzen sind als `--border`, `--border-subtle`, `--nav-bg` tokenisiert (Entscheidung 2026-07-16, Task-2-Review).
 - Eine Schriftfamilie: `Inter, ui-rounded, "SF Pro Rounded", system-ui, sans-serif`.
 - Jeder Chart hat beschriftete Achsen (keine Ausnahme).
 - Jede Ansicht mit Daten braucht sichtbare Zustände: Loading, Empty, Populated, Error — **explizit auch Server-Component-Seiten, die aus der lokalen SQLite-DB laden** (`/einrichtungen`, `/einrichtungen/[slug]`, `/statistik`, `/solidaritaetsfonds`): jede bekommt ein `loading.tsx` und ein `error.tsx` nach Next.js-App-Router-Konvention, auch wenn der lokale DB-Read quasi instant ist (Pre-Flight-Entscheidung, 2026-07-16).
@@ -83,7 +83,7 @@ stiftung-web/
 
 ```bash
 cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
-npx create-next-app@14 stiftung-web --typescript --eslint --app --src-dir=false --import-alias "@/*" --tailwind=false --use-npm
+npx create-next-app@14 stiftung-web --typescript --eslint --app --no-src-dir --import-alias "@/*" --no-tailwind --use-npm
 ```
 
 - [ ] **Step 2: Vitest + React Testing Library installieren**
@@ -173,7 +173,7 @@ git commit -m "chore: Next.js-Scaffold für lokale Website + Vitest-Setup"
 - Modify: `stiftung-web/app/layout.tsx`
 
 **Interfaces:**
-- Produces: CSS-Variablen (`--space`, `--surface`, `--cream`, `--muted`, `--turquoise`, `--coral`, `--sun`, `--lavender`, `--ink`, `--focus`, `--qr-bg`, `--radius`, `--shadow`), Klassen `.card`, `.pill`, `.status`, `.positive`, `.negative`, `.forecast`, `.muted`. `--qr-bg` ist bewusst der einzige feste Weißwert im Token-Block — QR-Codes brauchen echten Weiß-Kontrast unabhängig vom Theme (genutzt in Task 18).
+- Produces: CSS-Variablen (`--space`, `--surface`, `--cream`, `--muted`, `--turquoise`, `--coral`, `--sun`, `--lavender`, `--ink`, `--focus`, `--qr-bg`, `--border`, `--border-subtle`, `--nav-bg`, `--radius`, `--shadow`), Klassen `.card`, `.pill`, `.status`, `.positive`, `.negative`, `.forecast`, `.muted`. `--qr-bg` ist bewusst der einzige feste Weißwert im Token-Block — QR-Codes brauchen echten Weiß-Kontrast unabhängig vom Theme (genutzt in Task 18). `--border`/`--border-subtle`/`--nav-bg` tokenisieren die früheren rgba-Literale (Entscheidung 2026-07-16, Task-2-Review: „Farben ausschließlich als var(--token)" gilt auch für rgba, nicht nur Hex).
 
 - [ ] **Step 1: `globals.css` mit Tokens und Basis-Primitives schreiben**
 
@@ -194,6 +194,9 @@ git commit -m "chore: Next.js-Scaffold für lokale Website + Vitest-Setup"
   --ink: #101939;
   --focus: #fff;
   --qr-bg: #fff;
+  --border: rgba(135, 152, 232, 0.35);
+  --border-subtle: rgba(135, 152, 232, 0.25);
+  --nav-bg: rgba(9, 19, 47, 0.75);
 
   --radius: 22px;
   --radius-sm: 14px;
@@ -238,7 +241,7 @@ a {
 
 .card {
   background: linear-gradient(145deg, var(--surface), var(--space-2));
-  border: 1px solid rgba(135, 152, 232, 0.35);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 1.5rem;
@@ -269,7 +272,7 @@ a {
 .pill-secondary {
   background: var(--surface-2);
   color: var(--cream);
-  border: 1px solid rgba(135, 152, 232, 0.35);
+  border: 1px solid var(--border);
 }
 
 .status {
@@ -404,8 +407,8 @@ export function Nav() {
         top: 0,
         zIndex: 10,
         backdropFilter: 'blur(12px)',
-        background: 'rgba(9, 19, 47, 0.75)',
-        borderBottom: '1px solid rgba(135, 152, 232, 0.25)',
+        background: 'var(--nav-bg)',
+        borderBottom: '1px solid var(--border-subtle)',
       }}
     >
       <nav
@@ -2111,7 +2114,7 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
             value={suche}
             onChange={(e) => setSuche(e.target.value)}
             placeholder="Name oder Ort"
-            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
         </label>
         <label>
@@ -2120,7 +2123,7 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
             aria-label="Typ"
             value={typ}
             onChange={(e) => setTyp(e.target.value as TypFilter)}
-            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           >
             <option value="alle">Alle</option>
             <option value="tagespflege">Tagespflege</option>
@@ -2571,7 +2574,7 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
             min={5}
             value={betrag}
             onChange={(e) => setBetrag(Number(e.target.value) || 0)}
-            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
           <span>€</span>
         </div>
@@ -3140,7 +3143,7 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
             min={5}
             value={betrag}
             onChange={(e) => setBetrag(Number(e.target.value) || 0)}
-            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
           <button type="button" className="pill pill-primary" onClick={handleSpenden} disabled={status === 'loading'}>
             In den Fonds einzahlen
