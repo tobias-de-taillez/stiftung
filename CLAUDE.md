@@ -29,3 +29,10 @@ npm run test     # Vitest (einmalig)
 
 - `project-rules.md` Rule #2 (Auto-Push nach jedem Commit) ist obsolet — niemals ohne expliziten Auftrag pushen.
 - `projekt-status.md` wird beim Branch-Abschluss aktualisiert, nicht pro Commit.
+
+## Loops
+
+- Loop-Verzeichnis: `docs/loops/` — Loop-Definitionen + `STATE.md` (versioniertes Ledger, append-only; bei Wiederaufnahme gilt Ledger + `git log`, nicht Erinnerung).
+- Aktiver Loop: `docs/loops/plan-executor.md` (Plan-Tasks 25–35, Branch `begeisterung-pakete`, Level 2 Draft).
+- Mechanischer Check: `cd stiftung-web && npm run verify` (tsc + Tests + Build) — das Urteil, nicht die Agenten-Meinung.
+- Human-Gates: push, PR-Merge, Task 36, Deploy, Löschen — nie autonom.
