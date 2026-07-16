@@ -108,7 +108,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     env: {
-      DATABASE_URL: 'file:./prisma/test.db',
+      DATABASE_URL: 'file:./test.db',
     },
   },
   resolve: {
@@ -975,7 +975,7 @@ Das Schema wird von Anfang an vollständig geschrieben (inkl. der später genutz
 
 ```bash
 cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/stiftung-web"
-npm install prisma @prisma/client
+npm install prisma@6 @prisma/client@6
 npm install --save-dev tsx
 ```
 
@@ -1030,7 +1030,7 @@ model FondsSpende {
 
 ```bash
 # stiftung-web/.env
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="file:./dev.db"
 ```
 
 - [ ] **Step 4: `.gitignore` ergänzen**
@@ -1139,13 +1139,15 @@ git commit -m "feat: Prisma-Schema (Einrichtung/Spende/Solidaritaetsfonds/FondsS
   - `statistik(): Promise<{ anzahlEinrichtungen: number; gesamtKapital: number; gesamtKinder: number; durchschnittlichesVolumen: number; zuflussLetztesJahr: number; simulierterJahresertrag: number; top5: (Einrichtung & { foerderungProKind: number })[]; bottom5: (Einrichtung & { foerderungProKind: number })[] }>`
 - Tests laufen gegen die echte Datei `prisma/test.db`. Kein Mocking der DB-Schicht.
 
-- [ ] **Step 1: `pretest`-Script ergänzen**
+- [ ] **Step 1: `pretest`-Script ergänzen und vitest-DATABASE_URL korrigieren**
 
 Im `"scripts"`-Block von `package.json`:
 
 ```json
-"pretest": "DATABASE_URL=\"file:./prisma/test.db\" npx prisma db push --force-reset --skip-generate"
+"pretest": "DATABASE_URL=\"file:./test.db\" npx prisma db push --force-reset --skip-generate"
 ```
+
+Prisma löst relative `file:`-Pfade relativ zum **schema.prisma-Verzeichnis** auf (empirisch verifiziert, Task-8-Befund 2026-07-16), nicht relativ zum CWD — `file:./test.db` landet also korrekt in `stiftung-web/prisma/test.db`. Falls `vitest.config.ts` noch den alten Wert `file:./prisma/test.db` enthält (Task-1-Stand), auf `file:./test.db` korrigieren — sonst entsteht `prisma/prisma/test.db`.
 
 - [ ] **Step 2: Failing Test schreiben**
 
