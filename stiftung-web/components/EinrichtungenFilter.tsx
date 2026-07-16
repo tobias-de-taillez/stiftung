@@ -26,10 +26,11 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
   const gefiltert = useMemo(() => {
     return einrichtungen.filter((e) => {
       const passtTyp = typ === 'alle' || e.typ === typ;
+      const begriff = suche.trim().toLowerCase();
       const passtSuche =
-        suche.trim() === '' ||
-        e.name.toLowerCase().includes(suche.toLowerCase()) ||
-        e.ort.toLowerCase().includes(suche.toLowerCase());
+        begriff === '' ||
+        e.name.toLowerCase().includes(begriff) ||
+        e.ort.toLowerCase().includes(begriff);
       return passtTyp && passtSuche;
     });
   }, [suche, typ, einrichtungen]);

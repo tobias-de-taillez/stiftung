@@ -29,4 +29,12 @@ describe('EinrichtungenFilter', () => {
     await user.type(screen.getByLabelText(/Suche/i), 'xyz-gibt-es-nicht');
     expect(screen.getByText(/Keine Einrichtung gefunden/i)).toBeInTheDocument();
   });
+
+  it('filtert per Suche nach Name oder Ort (trimmt Leerzeichen)', async () => {
+    const user = userEvent.setup();
+    render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
+    await user.type(screen.getByLabelText(/Suche/i), ' wirbelwind ');
+    expect(screen.getByText('Tagespflege Wirbelwind')).toBeInTheDocument();
+    expect(screen.queryByText('Grundschule Sonnenhügel')).not.toBeInTheDocument();
+  });
 });
