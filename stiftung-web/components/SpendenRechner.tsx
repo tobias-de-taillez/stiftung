@@ -5,6 +5,7 @@ import { computeYearsToGoal } from '@/lib/calc/spendenrechner';
 import { formatDuration, formatEuro } from '@/lib/calc/format';
 import { currentLevel } from '@/lib/data/levels';
 import { StatusChip } from './StatusChip';
+import { SpendenBestaetigung } from './SpendenBestaetigung';
 
 interface EinrichtungFuerRechner {
   slug: string;
@@ -17,6 +18,27 @@ interface EinrichtungFuerRechner {
 export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRechner }) {
   const [betrag, setBetrag] = useState(50);
   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
+  const [spendeId, setSpendeId] = useState<string | null>(null);
+
+  async function handleSpenden() {
+    setStatus('loading');
+    try {
+      const res = await fetch(`/api/einrichtungen/${einrichtung.slug}/spenden`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ betrag, frequenz }),
+      });
+      if (!res.ok) throw new Error('request_failed');
+      const { einrichtung: updated, spende } = await res.json();
+      setNeuesKapital(updated.aktuellesKapital);
+      setSpendeId(spende.id);
+      setStatus('done');
+    } catch {
+      setStatus('error');
+    }
+  }
 
   const jahre = computeYearsToGoal({
     startCapital: einrichtung.aktuellesKapital,
@@ -69,6 +91,29 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
       </div>
 
       {level && <StatusChip tone={level.tone}>{level.name}-Spender:in</StatusChip>}
+
+      <button
+        type="button"
+        className="pill pill-primary"
+        onClick={handleSpenden}
+        disabled={status === 'loading'}
+      >
+        {status === 'loading' ? 'Wird gebucht …' : 'Jetzt spenden'}
+      </button>
+
+      {status === 'error' && (
+        <p className="negative">Spende konnte nicht gebucht werden. Bitte erneut versuchen.</p>
+      )}
+
+      {status === 'done' && neuesKapital !== null && spendeId && (
+        <SpendenBestaetigung
+          betrag={betrag}
+          frequenz={frequenz}
+          einrichtungName={einrichtung.name}
+          neuesKapital={neuesKapital}
+          spendeId={spendeId}
+        />
+      )}
     </div>
   );
 }

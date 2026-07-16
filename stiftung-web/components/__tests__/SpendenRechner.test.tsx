@@ -1,7 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SpendenRechner } from '../SpendenRechner';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const einrichtung = {
   id: '1',
@@ -37,5 +41,35 @@ describe('SpendenRechner', () => {
     const jaehrlichButton = screen.getByRole('button', { name: 'Jährlich' });
     await user.click(jaehrlichButton);
     expect(jaehrlichButton).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('sendet POST an den Spenden-Endpoint und zeigt die Bestätigung mit neuem Kapitalstand', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+        spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/einrichtungen/${einrichtung.slug}/spenden`,
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
+    expect(await screen.findByText(/3.050,00 €/)).toBeInTheDocument();
+  });
+
+  it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+    expect(await screen.findByText(/Spende konnte nicht gebucht werden/i)).toBeInTheDocument();
   });
 });
