@@ -1,95 +1,41 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import Link from 'next/link';
+import { Card } from '@/components/Card';
+import { capitalForAnnualPayout } from '@/lib/calc/spendenrechner';
+import { formatEuro } from '@/lib/calc/format';
 
-export default function Home() {
+export default function Page() {
+  const beispielZiel = capitalForAnnualPayout(20000);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+    <div style={{ padding: '3rem 0', display: 'grid', gap: '2rem' }}>
+      <section>
+        <p className="eyebrow">Deutsche Bildungsstiftung</p>
+        <h1 className="hero-number" style={{ maxWidth: '18ch' }}>
+          Gemeinsam zur Bildungsrevolution
+        </h1>
+        <p style={{ maxWidth: '60ch', fontSize: '1.1rem' }}>
+          Bildung darf niemals vom Geldbeutel der Familie abhängen. Wir bauen
+          unabhängiges, dauerhaftes Bildungskapital auf, damit jede
+          Bildungs- und Betreuungseinrichtung in Deutschland ihre Kinder
+          fördern kann — unabhängig davon, wie reich ihr Umfeld ist.
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+          <Link href="/einrichtungen" className="pill pill-primary">Einrichtung finden</Link>
+          <Link href="/statistik" className="pill pill-secondary">Statistik ansehen</Link>
+          <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
         </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
+
+      <Card>
+        <p className="eyebrow">So wirkt Ihre Spende</p>
+        <p style={{ maxWidth: '60ch' }}>
+          Für eine jährliche Ausschüttung von 20.000 € an eine Einrichtung
+          braucht der Finanztopf ein Kapital von{' '}
+          <strong>{formatEuro(beispielZiel)}</strong> — bei einer
+          Netto-Wachstumsrate von 6 % pro Jahr wächst jede Spende dauerhaft
+          weiter, ohne dass das Kapital verbraucht wird.
+        </p>
+      </Card>
     </div>
   );
 }
