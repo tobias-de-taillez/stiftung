@@ -683,6 +683,10 @@ describe('formatDuration', () => {
   it('zeigt nur Jahre bei vollen Jahren', () => {
     expect(formatDuration(5)).toBe('5 Jahre');
   });
+  it('nutzt Singular bei genau einem Jahr bzw. Monat', () => {
+    expect(formatDuration(1)).toBe('1 Jahr');
+    expect(formatDuration(13 / 12)).toBe('1 Jahr und 1 Monat');
+  });
   it('meldet Infinity als nicht erreichbar', () => {
     expect(formatDuration(Infinity)).toBe('nicht erreichbar');
   });
@@ -707,9 +711,11 @@ export function formatDuration(years: number): string {
   const totalMonths = Math.round(years * 12);
   const y = Math.floor(totalMonths / 12);
   const m = totalMonths % 12;
-  if (y === 0) return `${m} Monate`;
-  if (m === 0) return `${y} Jahre`;
-  return `${y} Jahre und ${m} Monate`;
+  const jahre = y === 1 ? 'Jahr' : 'Jahre';
+  const monate = m === 1 ? 'Monat' : 'Monate';
+  if (y === 0) return `${m} ${monate}`;
+  if (m === 0) return `${y} ${jahre}`;
+  return `${y} ${jahre} und ${m} ${monate}`;
 }
 ```
 
