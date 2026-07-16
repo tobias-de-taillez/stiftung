@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Deutsche Bildungsstiftung — lokale Website
 
-## Getting Started
+Lokale Demo-Version (Next.js + SQLite/Prisma). Kein echtes Payment, kein
+echtes Geld — aber ein echtes, laufendes Backend: Spenden werden real in
+einer lokalen SQLite-Datenbank gebucht ("Spielgeld"), inklusive eines aktiv
+wirkenden Solidaritäts-Umverteilungsmechanismus.
 
-First, run the development server:
+## Lokal starten
 
 ```bash
+npm install
+npx prisma generate
+npm run db:push
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Danach `http://localhost:3000` öffnen.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run test
+```
 
-## Learn More
+Setzt vor jedem Lauf automatisch `prisma/test.db` zurück (`pretest`-Skript)
+und testet Service-Layer und API-Routes gegen eine echte SQLite-Datei —
+keine gemockte Datenbank. Aktueller Stand: 21 Testdateien, 83 Tests, alle
+PASS.
 
-To learn more about Next.js, take a look at the following resources:
+## Struktur
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `app/` — Seiten (Landing, Einrichtungen, Statistik, Solidaritätsfonds) + `app/api/**` (Backend-HTTP-Schnittstelle)
+- `components/` — UI-Bausteine (Design-Tokens aus `app/globals.css`)
+- `lib/calc/` — clientseitige Spendenrechner-Simulation + Solidaritäts-Verteilungsformel (beide pure Funktionen, DB-unabhängig)
+- `lib/server/` — Backend-Service-Layer (Prisma-Zugriff, Buchungslogik, Fonds-Verteilung, Statistik)
+- `prisma/` — DB-Schema und Seed-Daten (8 Einrichtungen, Tagespflege-Schwerpunkt nach Leitbild Phase 1)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Solidaritätsfonds
 
-## Deploy on Vercel
+Nicht zweckgebundene Spenden sammeln sich im Fonds. Eine Verteilung berechnet
+pro Einrichtung den Pro-Kind-Abstand zum Ziel (`bedarfProKind`) und teilt den
+Fonds-Bestand proportional dazu auf — Einrichtungen mit dem größten Rückstand
+bekommen am meisten. Besteht nirgends Bedarf, bleibt der Fonds bewusst
+unangetastet statt sinnlos verteilt zu werden.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Was hier bewusst fehlt (lokale Version)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Kein echtes Payment (Stripe/PayPal) — Buchung ist real in der DB, aber ohne echtes Zahlungsmittel ("Spielgeld").
+- Kein Login/KYC — Spenden sind anonym.
+- Keine Auszahlung an Einrichtungen (nur Zufluss modelliert, kein Abfluss aus der Stiftung heraus).
+- Kein Arbeits-Konto/Fonds-Konto-Split — pro Einrichtung nur ein `aktuellesKapital`-Feld.
+
+Diese Punkte sind laut Leitbild (`../leitbild.md`) die nächsten Schritte für
+eine Produktions-Version.
