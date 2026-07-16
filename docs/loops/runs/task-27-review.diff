@@ -1,0 +1,615 @@
+# Review package: 363c301..e22c130
+
+## Commits
+e22c130 feat(spenden): Feier-Moment nach der Spende — Konfetti, Vorher/Nachher-Balken, Count-up
+
+## Files changed
+ stiftung-web/app/globals.css                       |  80 +++++++++++
+ stiftung-web/components/Konfetti.tsx               |  58 ++++++++
+ stiftung-web/components/SpendenBestaetigung.tsx    | 159 ++++++++++++++-------
+ stiftung-web/components/SpendenRechner.tsx         |   2 +
+ .../components/__tests__/Konfetti.test.tsx         |  14 ++
+ .../__tests__/SpendenBestaetigung.test.tsx         |  66 ++++++++-
+ .../components/__tests__/SpendenRechner.test.tsx   |  27 +++-
+ 7 files changed, 348 insertions(+), 58 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/app/globals.css b/stiftung-web/app/globals.css
+index a4f8f97..6ba80b6 100644
+--- a/stiftung-web/app/globals.css
++++ b/stiftung-web/app/globals.css
+@@ -149,20 +149,100 @@ a:hover .card {
+ .progress-bar-fill.is-complete {
+   background: var(--turquoise);
+ }
+ 
+ @keyframes progress-bar-fill-in {
+   from {
+     width: 0;
+   }
+ }
+ 
++/*
++ * Vorher→Nachher-Balken der Spenden-Bestätigung: Geisterbalken (alter Stand,
++ * blass) liegt unter dem animierten Fill (neuer Stand). Der Fill nutzt
++ * dieselbe progress-bar-fill-in-Animation wie ProgressBar und erbt damit auch
++ * denselben globalen prefers-reduced-motion-Override weiter unten.
++ */
++.vorher-nachher-track {
++  position: relative;
++  background: var(--surface-2);
++  border-radius: 999px;
++  height: 14px;
++  overflow: hidden;
++}
++
++.vorher-nachher-ghost {
++  position: absolute;
++  inset: 0 auto 0 0;
++  height: 100%;
++  border-radius: 999px;
++  background: var(--cream);
++  opacity: 0.28;
++}
++
++.vorher-nachher-fill {
++  position: absolute;
++  inset: 0 auto 0 0;
++  height: 100%;
++  border-radius: 999px;
++  background: var(--sun);
++  animation: progress-bar-fill-in 900ms ease-out;
++}
++
++.vorher-nachher-fill.is-complete {
++  background: var(--turquoise);
++}
++
++/*
++ * Konfetti-Burst: reines CSS, einmalig beim Mounten der Bestätigung. Jede
++ * Drift-Variante ist ein fixes Keyframe (kein JS-Custom-Property-Bedarf),
++ * Zufälligkeit kommt aus Startposition, Verzögerung und Dauer pro Partikel.
++ */
++.konfetti-burst {
++  position: relative;
++  height: 0;
++}
++
++.konfetti-partikel {
++  position: absolute;
++  top: 0;
++  width: 8px;
++  height: 8px;
++  border-radius: 2px;
++  animation-timing-function: ease-out;
++  animation-fill-mode: forwards;
++}
++
++.konfetti-partikel-a { animation-name: konfetti-fall-a; }
++.konfetti-partikel-b { animation-name: konfetti-fall-b; }
++.konfetti-partikel-c { animation-name: konfetti-fall-c; }
++
++@keyframes konfetti-fall-a {
++  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
++  to { transform: translate(-36px, 92px) rotate(-220deg); opacity: 0; }
++}
++@keyframes konfetti-fall-b {
++  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
++  to { transform: translate(0, 104px) rotate(180deg); opacity: 0; }
++}
++@keyframes konfetti-fall-c {
++  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
++  to { transform: translate(36px, 88px) rotate(220deg); opacity: 0; }
++}
++
++/* Reduced-motion: Container komplett ausblenden statt eingefroren stehen lassen. */
++@media (prefers-reduced-motion: reduce) {
++  .konfetti-burst {
++    display: none;
++  }
++}
++
+ :focus-visible {
+   outline: 3px solid var(--focus);
+   outline-offset: 3px;
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+   *, *::before, *::after {
+     animation-duration: 0.001ms !important;
+     animation-iteration-count: 1 !important;
+     transition-duration: 0.001ms !important;
+diff --git a/stiftung-web/components/Konfetti.tsx b/stiftung-web/components/Konfetti.tsx
+new file mode 100644
+index 0000000..277c29e
+--- /dev/null
++++ b/stiftung-web/components/Konfetti.tsx
+@@ -0,0 +1,58 @@
++'use client';
++
++import { useState } from 'react';
++
++const FARBEN = ['var(--sun)', 'var(--turquoise)', 'var(--lavender)', 'var(--coral)'];
++const DRIFT_VARIANTEN = ['konfetti-partikel-a', 'konfetti-partikel-b', 'konfetti-partikel-c'];
++const ANZAHL_PARTIKEL = 20;
++
++interface Partikel {
++  id: number;
++  left: number;
++  farbe: string;
++  driftKlasse: string;
++  delayMs: number;
++  dauerMs: number;
++}
++
++function erzeugePartikel(): Partikel[] {
++  return Array.from({ length: ANZAHL_PARTIKEL }, (_, i) => ({
++    id: i,
++    left: Math.round(Math.random() * 96),
++    farbe: FARBEN[i % FARBEN.length],
++    driftKlasse: DRIFT_VARIANTEN[i % DRIFT_VARIANTEN.length],
++    delayMs: Math.round(Math.random() * 150),
++    dauerMs: 700 + Math.round(Math.random() * 400),
++  }));
++}
++
++/**
++ * Einmaliger Konfetti-Burst beim Mounten der Bestätigung — reines CSS,
++ * keine Abhängigkeiten. `useState(erzeugePartikel)` erzeugt die Partikel nur
++ * beim ersten Rendern (stabile keys), Re-Renders des Elternteils (z. B. durch
++ * den Kapitalstand-Count-up) starten den Burst nicht neu.
++ *
++ * Unter prefers-reduced-motion blendet die globale Media-Query in globals.css
++ * den kompletten Container aus (`display: none`) — kein eingefrorenes
++ * Partikelfeld mitten im Bild.
++ */
++export function Konfetti() {
++  const [partikel] = useState<Partikel[]>(erzeugePartikel);
++
++  return (
++    <div className="konfetti-burst" aria-hidden="true" data-testid="konfetti">
++      {partikel.map((p) => (
++        <span
++          key={p.id}
++          className={`konfetti-partikel ${p.driftKlasse}`}
++          style={{
++            left: `${p.left}%`,
++            background: p.farbe,
++            animationDelay: `${p.delayMs}ms`,
++            animationDuration: `${p.dauerMs}ms`,
++          }}
++        />
++      ))}
++    </div>
++  );
++}
+diff --git a/stiftung-web/components/SpendenBestaetigung.tsx b/stiftung-web/components/SpendenBestaetigung.tsx
+index 10d1753..d0e014e 100644
+--- a/stiftung-web/components/SpendenBestaetigung.tsx
++++ b/stiftung-web/components/SpendenBestaetigung.tsx
+@@ -1,92 +1,149 @@
+ 'use client';
+ 
+ import { useState } from 'react';
+ import { formatEuro } from '@/lib/calc/format';
++import { useCountUp } from '@/lib/hooks/useCountUp';
+ import { Card } from './Card';
+-import { StatusChip } from './StatusChip';
++import { Konfetti } from './Konfetti';
++
++function rundeAufZweiNachkommastellen(wert: number): number {
++  return Math.round(wert * 100) / 100;
++}
+ 
+ export function SpendenBestaetigung({
+   betrag,
+   frequenz,
+   einrichtungName,
++  altesKapital,
+   neuesKapital,
++  zielKapital,
+   spendeId,
+ }: {
+   betrag: number;
+   frequenz: 'einmalig' | 'jaehrlich';
+   einrichtungName: string;
++  altesKapital: number;
+   neuesKapital: number;
++  zielKapital: number;
+   spendeId: string;
+ }) {
+   const [quittungOffen, setQuittungOffen] = useState(false);
++  const angezeigtesKapital = useCountUp(neuesKapital);
+   const shareText = `Ich habe gerade ${formatEuro(betrag)} an ${einrichtungName} gespendet — mach mit!`;
+   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+ 
+   async function handleShare() {
+     if (typeof navigator !== 'undefined' && navigator.share) {
+       await navigator.share({ title: 'Meine Spende', text: shareText, url: shareUrl });
+     } else if (typeof window !== 'undefined') {
+       window.alert('Teilen wird von diesem Browser nicht unterstützt — nutze den WhatsApp-Link.');
+     }
+   }
+ 
++  const altPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (altesKapital / zielKapital) * 100))) : 0;
++  const neuPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (neuesKapital / zielKapital) * 100))) : 0;
++  const istZielErreicht = neuPct >= 100;
++  const prozentZuwachs = altesKapital > 0 ? ((neuesKapital - altesKapital) / altesKapital) * 100 : 0;
++  const prozentZuwachsText = `+${prozentZuwachs.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
++
+   return (
+     <Card>
+-      <StatusChip tone="forecast">Spielgeld — echte Buchung, kein echtes Geld</StatusChip>
+-      <h2 style={{ marginTop: '0.75rem' }}>Danke für Ihre Spende!</h2>
+-      <p>{formatEuro(betrag)} {frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'} für {einrichtungName}.</p>
+-      <p className="muted">
+-        Neuer Kapitalstand im Finanztopf: <strong>{formatEuro(neuesKapital)}</strong> — real in
+-        der Datenbank gespeichert. In der Live-Version folgt hier echte
+-        Zahlungsabwicklung (Stripe/PayPal) sowie bei Auszahlung an eine
+-        Einrichtung die verifizierte Zugangsprüfung (KYC).
+-      </p>
++      {/* (1) Konfetti-Burst + Danke — prominent, als Erstes zu sehen */}
++      <div data-testid="konfetti-danke">
++        <Konfetti />
++        <h2>Danke für Ihre Spende!</h2>
++        <p>{formatEuro(betrag)} {frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'} für {einrichtungName}.</p>
++      </div>
+ 
+-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+-        <button type="button" className="pill pill-secondary" onClick={handleShare}>
+-          Teilen
+-        </button>
+-        <a
+-          className="pill pill-secondary"
+-          href={`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`}
+-          target="_blank"
+-          rel="noopener noreferrer"
++      {/* (2) Vorher→Nachher-Balken (Geisterbalken = alter Stand) + Prozentzuwachs */}
++      <div data-testid="vorher-nachher" style={{ marginTop: '1.25rem' }}>
++        <p className="eyebrow" style={{ marginBottom: '0.4rem' }}>Kapitalstand-Zuwachs</p>
++        <div
++          className="vorher-nachher-track"
++          role="progressbar"
++          aria-valuemin={0}
++          aria-valuemax={zielKapital}
++          aria-valuenow={Math.round(Math.min(zielKapital, Math.max(0, neuesKapital)))}
++          aria-label="Kapitalstand-Fortschritt zum Ziel"
+         >
+-          WhatsApp
+-        </a>
++          <div className="vorher-nachher-ghost" style={{ width: `${altPct}%` }} />
++          <div
++            className={`vorher-nachher-fill${istZielErreicht ? ' is-complete' : ''}`}
++            style={{ width: `${neuPct}%` }}
++          />
++        </div>
++        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginTop: '0.4rem' }}>
++          <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
++            {formatEuro(altesKapital)} → {formatEuro(neuesKapital)}
++          </p>
++          <p className="muted" style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
++            {prozentZuwachsText}
++          </p>
++        </div>
+       </div>
+ 
+-      <div style={{ marginTop: '1rem' }}>
+-        <button
+-          type="button"
+-          className="muted"
+-          aria-expanded={quittungOffen}
+-          style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+-          onClick={() => setQuittungOffen((offen) => !offen)}
+-        >
+-          {quittungOffen ? 'Spendenquittung ausblenden' : 'Spendenquittung anzeigen'}
+-        </button>
+-        {quittungOffen && (
+-          <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--space-2)', borderRadius: 'var(--radius-sm)' }}>
+-            <p className="eyebrow">Spendenquittung (Demo)</p>
+-            <p>Beleg-Nr.: {spendeId}</p>
+-            <p>Betrag: {formatEuro(betrag)} ({frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'})</p>
+-            <p>Empfänger: {einrichtungName}</p>
+-            <p className="muted" style={{ fontSize: '0.8rem' }}>
+-              Demo-Dokument, nicht steuerlich gültig — echte Quittungen folgen mit dem Payment-Backend.
+-            </p>
+-            <button
+-              type="button"
+-              className="pill pill-secondary"
+-              onClick={() => {
+-                if (typeof window !== 'undefined') window.print();
+-              }}
+-            >
+-              Drucken / Als PDF speichern
+-            </button>
+-          </div>
+-        )}
++      {/* (3) Neuer Kapitalstand mit Count-up */}
++      <div data-testid="kapitalstand" style={{ marginTop: '1.25rem' }}>
++        <p className="muted">
++          Neuer Kapitalstand im Finanztopf: <strong>{formatEuro(angezeigtesKapital)}</strong>
++        </p>
+       </div>
++
++      {/* (4) Share/Quittung */}
++      <div data-testid="share-quittung" style={{ marginTop: '1rem' }}>
++        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
++          <button type="button" className="pill pill-secondary" onClick={handleShare}>
++            Teilen
++          </button>
++          <a
++            className="pill pill-secondary"
++            href={`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`}
++            target="_blank"
++            rel="noopener noreferrer"
++          >
++            WhatsApp
++          </a>
++        </div>
++
++        <div style={{ marginTop: '1rem' }}>
++          <button
++            type="button"
++            className="muted"
++            aria-expanded={quittungOffen}
++            style={{ cursor: 'pointer', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
++            onClick={() => setQuittungOffen((offen) => !offen)}
++          >
++            {quittungOffen ? 'Spendenquittung ausblenden' : 'Spendenquittung anzeigen'}
++          </button>
++          {quittungOffen && (
++            <div style={{ marginTop: '0.75rem', padding: '1rem', background: 'var(--space-2)', borderRadius: 'var(--radius-sm)' }}>
++              <p className="eyebrow">Spendenquittung (Demo)</p>
++              <p>Beleg-Nr.: {spendeId}</p>
++              <p>Betrag: {formatEuro(betrag)} ({frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'})</p>
++              <p>Empfänger: {einrichtungName}</p>
++              <p className="muted" style={{ fontSize: '0.8rem' }}>
++                Demo-Dokument, nicht steuerlich gültig — echte Quittungen folgen mit dem Payment-Backend.
++              </p>
++              <button
++                type="button"
++                className="pill pill-secondary"
++                onClick={() => {
++                  if (typeof window !== 'undefined') window.print();
++                }}
++              >
++                Drucken / Als PDF speichern
++              </button>
++            </div>
++          )}
++        </div>
++      </div>
++
++      {/* (5) Spielgeld-Hinweis — bewusst zuletzt, dezent statt auffälligem Chip */}
++      <p className="muted" data-testid="spielgeld-hinweis" style={{ marginTop: '1.5rem', fontSize: '0.8rem' }}>
++        Spielgeld-Hinweis: Diese Spende ist eine echte Buchung in der Datenbank, aber kein echtes
++        Geld. In der Live-Version folgt hier echte Zahlungsabwicklung (Stripe/PayPal) sowie bei
++        Auszahlung an eine Einrichtung die verifizierte Zugangsprüfung (KYC).
++      </p>
+     </Card>
+   );
+ }
+diff --git a/stiftung-web/components/SpendenRechner.tsx b/stiftung-web/components/SpendenRechner.tsx
+index 6a39ef8..7a09428 100644
+--- a/stiftung-web/components/SpendenRechner.tsx
++++ b/stiftung-web/components/SpendenRechner.tsx
+@@ -119,17 +119,19 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+ 
+       {status === 'error' && (
+         <p className="negative">Spende konnte nicht gebucht werden. Bitte erneut versuchen.</p>
+       )}
+ 
+       {status === 'done' && neuesKapital !== null && spendeId && (
+         <SpendenBestaetigung
+           betrag={betrag}
+           frequenz={frequenz}
+           einrichtungName={einrichtung.name}
++          altesKapital={einrichtung.aktuellesKapital}
+           neuesKapital={neuesKapital}
++          zielKapital={einrichtung.zielKapital}
+           spendeId={spendeId}
+         />
+       )}
+     </div>
+   );
+ }
+diff --git a/stiftung-web/components/__tests__/Konfetti.test.tsx b/stiftung-web/components/__tests__/Konfetti.test.tsx
+new file mode 100644
+index 0000000..9f3f3c8
+--- /dev/null
++++ b/stiftung-web/components/__tests__/Konfetti.test.tsx
+@@ -0,0 +1,14 @@
++import { render } from '@testing-library/react';
++import { describe, it, expect } from 'vitest';
++import { Konfetti } from '../Konfetti';
++
++describe('Konfetti', () => {
++  it('rendert einen aria-hidden Partikel-Burst-Container mit mehreren Partikeln', () => {
++    const { container } = render(<Konfetti />);
++    const burst = container.querySelector('.konfetti-burst');
++
++    expect(burst).toBeInTheDocument();
++    expect(burst).toHaveAttribute('aria-hidden', 'true');
++    expect(container.querySelectorAll('.konfetti-partikel').length).toBeGreaterThan(0);
++  });
++});
+diff --git a/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx b/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
+index d66522e..133527c 100644
+--- a/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
+@@ -1,36 +1,63 @@
+ import { render, screen } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+-import { describe, it, expect, vi, afterEach } from 'vitest';
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+ import { SpendenBestaetigung } from '../SpendenBestaetigung';
+ 
++// useCountUp liest prefers-reduced-motion beim Mounten und läuft sonst über
++// requestAnimationFrame — das würde die synchronen Assertions unten flaky
++// machen. reduced-motion erzwingt den Sofort-Sprung auf den Zielwert
++// (deterministisch, siehe lib/hooks/__tests__/useCountUp.test.ts).
++function stubReducedMotion() {
++  vi.stubGlobal(
++    'matchMedia',
++    vi.fn().mockImplementation((query: string) => ({
++      matches: true,
++      media: query,
++      onchange: null,
++      addListener: vi.fn(),
++      removeListener: vi.fn(),
++      addEventListener: vi.fn(),
++      removeEventListener: vi.fn(),
++      dispatchEvent: vi.fn(),
++    }))
++  );
++}
++
++beforeEach(() => {
++  stubReducedMotion();
++});
++
+ afterEach(() => {
+   vi.unstubAllGlobals();
+ });
+ 
+ const props = {
+   betrag: 50,
+   frequenz: 'jaehrlich' as const,
+   einrichtungName: 'Tagespflege Wirbelwind',
++  altesKapital: 3000,
+   neuesKapital: 3050,
++  zielKapital: 25000,
+   spendeId: 'spende-123',
+ };
+ 
+ describe('SpendenBestaetigung', () => {
+   it('zeigt Betrag, Frequenz, neuen Kapitalstand und einen Spielgeld-Hinweis', () => {
+     render(<SpendenBestaetigung {...props} />);
+-    // Anchored: formatEuro(3050) = "3.050,00 €" contains "50,00 €" as a
+-    // substring, so an unanchored regex would ambiguously match both the
+-    // betrag paragraph and the neuesKapital <strong> (multiple elements).
++    // Anchored: formatEuro(3050) = "3.050,00 €" taucht sowohl im
++    // Vorher→Nachher-Text ("3.000,00 € → 3.050,00 €") als auch im
++    // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
++    // das <strong> (getNodeText fasst nur direkte Text-Kindknoten zusammen).
+     expect(screen.getByText(/^50,00 €/)).toBeInTheDocument();
+     expect(screen.getByText(/jährlich/i)).toBeInTheDocument();
+-    expect(screen.getByText(/3.050,00 €/)).toBeInTheDocument();
++    expect(screen.getByText(/^3\.050,00 €$/)).toBeInTheDocument();
+     expect(screen.getByText(/Spielgeld/i)).toBeInTheDocument();
+   });
+ 
+   it('zeigt einen WhatsApp-Share-Link mit dem Spendentext', () => {
+     render(<SpendenBestaetigung {...props} />);
+     const link = screen.getByRole('link', { name: /WhatsApp/i });
+     expect(link.getAttribute('href')).toContain('wa.me');
+   });
+ 
+   it('nutzt navigator.share, wenn verfügbar', async () => {
+@@ -42,11 +69,40 @@ describe('SpendenBestaetigung', () => {
+     expect(shareMock).toHaveBeenCalled();
+   });
+ 
+   it('zeigt eine Spendenquittung mit Beleg-Nummer nach Aufklappen', async () => {
+     const user = userEvent.setup();
+     render(<SpendenBestaetigung {...props} />);
+     await user.click(screen.getByText(/Spendenquittung anzeigen/i));
+     expect(screen.getByText(/spende-123/)).toBeInTheDocument();
+     expect(screen.getByText(/Demo-Dokument/i)).toBeInTheDocument();
+   });
++
++  it('rendert den Geisterbalken mit korrekten Alt-/Neu-Werten und zeigt den Prozentzuwachs als Text', () => {
++    const { container } = render(<SpendenBestaetigung {...props} />);
++    const ghost = container.querySelector('.vorher-nachher-ghost') as HTMLElement;
++    const fill = container.querySelector('.vorher-nachher-fill') as HTMLElement;
++
++    expect(ghost).toBeInTheDocument();
++    expect(fill).toBeInTheDocument();
++    // altesKapital 3000 / zielKapital 25000 = 12 %; neuesKapital 3050 / 25000 = 12,2 %
++    expect(ghost.style.width).toBe('12%');
++    expect(fill.style.width).toBe('12.2%');
++
++    expect(screen.getByText(/3\.000,00 € → 3\.050,00 €/)).toBeInTheDocument();
++    // (3050 - 3000) / 3000 * 100 = 1,666...% → gerundet "1,7 %"
++    expect(screen.getByText(/\+1,7 %/)).toBeInTheDocument();
++  });
++
++  it('zeigt den Spielgeld-Hinweis als letztes Element, als dezenten Text statt als Chip', () => {
++    const { container } = render(<SpendenBestaetigung {...props} />);
++    const sections = container.querySelectorAll('[data-testid]');
++    const letztesElement = sections[sections.length - 1];
++
++    expect(letztesElement).toHaveAttribute('data-testid', 'spielgeld-hinweis');
++    expect(letztesElement.textContent).toMatch(/Spielgeld/i);
++    expect(letztesElement.textContent).toMatch(/kein echtes Geld/i);
++    expect(letztesElement.className).toContain('muted');
++    // Kein StatusChip mehr (der rendert eine .status-Span)
++    expect(container.querySelector('.status')).toBeNull();
++  });
+ });
+diff --git a/stiftung-web/components/__tests__/SpendenRechner.test.tsx b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+index 2b9ced1..2cc90f5 100644
+--- a/stiftung-web/components/__tests__/SpendenRechner.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+@@ -1,15 +1,35 @@
+ import { render, screen } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+-import { describe, it, expect, vi, afterEach } from 'vitest';
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+ import { SpendenRechner } from '../SpendenRechner';
+ 
++// SpendenBestaetigung nutzt useCountUp für den Kapitalstand — ohne
++// reduced-motion liefe die Zahl über requestAnimationFrame hoch und die
++// synchronen/`findByText`-Assertions unten wären flaky (siehe
++// SpendenBestaetigung.test.tsx für dieselbe Begründung).
++beforeEach(() => {
++  vi.stubGlobal(
++    'matchMedia',
++    vi.fn().mockImplementation((query: string) => ({
++      matches: true,
++      media: query,
++      onchange: null,
++      addListener: vi.fn(),
++      removeListener: vi.fn(),
++      addEventListener: vi.fn(),
++      removeEventListener: vi.fn(),
++      dispatchEvent: vi.fn(),
++    }))
++  );
++});
++
+ afterEach(() => {
+   vi.unstubAllGlobals();
+ });
+ 
+ const einrichtung = {
+   id: '1',
+   slug: 'tagesmutter-wirbelwind-muenchen',
+   name: 'Tagespflege Wirbelwind',
+   typ: 'tagespflege',
+   ort: 'München',
+@@ -78,21 +98,24 @@ describe('SpendenRechner', () => {
+ 
+     const user = userEvent.setup();
+     render(<SpendenRechner einrichtung={einrichtung} />);
+     await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+ 
+     expect(fetchMock).toHaveBeenCalledWith(
+       `/api/einrichtungen/${einrichtung.slug}/spenden`,
+       expect.objectContaining({ method: 'POST' })
+     );
+     expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
+-    expect(await screen.findByText(/3.050,00 €/)).toBeInTheDocument();
++    // Anchored: "3.050,00 €" taucht sowohl im Vorher→Nachher-Text als auch im
++    // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
++    // das <strong> (siehe SpendenBestaetigung.test.tsx für die Begründung).
++    expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
+   });
+ 
+   it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {
+     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+     const user = userEvent.setup();
+     render(<SpendenRechner einrichtung={einrichtung} />);
+     await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+     expect(await screen.findByText(/Spende konnte nicht gebucht werden/i)).toBeInTheDocument();
+   });
+ });

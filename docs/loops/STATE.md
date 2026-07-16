@@ -9,7 +9,7 @@
 
 ## Next
 
-Pass 3: Task 27 (Feier-Moment nach der Spende).
+Pass 4: Task 28 (Impact-Beispiele + Share-Text).
 
 ## Ledger (append-only, eine Zeile pro Pass)
 
@@ -17,3 +17,4 @@ Pass 3: Task 27 (Feier-Moment nach der Spende).
 |------|-------|--------|-------------------------------|----------|
 | 1 | 2026-07-16 | Task 25 Motion-Fundament (Commit 5f788ae) | `npm run verify` → Exit 0, 103/103 Tests; Verifier-Verdict Approved (0 Critical/Important, 1 Minor stilistisch); Keyframe-Technik per Browser-Repro verifiziert | ✅ approved |
 | 2 | 2026-07-16 | Task 26 Conversion-Pfad (Commit ac02f1e) | `npm run verify` → Exit 0, 107/107; Verifier reproduzierte tsc/vitest/build unabhängig, Empty-DB-Edge empirisch geprüft (CTA-Fallback /einrichtungen); Approved 0C/0I, 1 Minor (fortschrittProzent ohne Unit-Test, disclosed) | ✅ approved |
+| 3 | 2026-07-17 | Task 27 Feier-Moment (e22c130 + Fix b0395c5) | verify Exit 0, 112/112; Erstreview 2 Important (Relativ-% irreführend; altesKapital stale bei Zweitspende) → Fix + Re-Review Approved 0C/0I; Verifier reproduzierte verify unabhängig | ✅ approved (nach 1 Fix-Zyklus) |
