@@ -61,7 +61,7 @@ export async function verteileMitClient(tx: Prisma.TransactionClient): Promise<{
   const verteiltGesamt = verteilung.reduce((s, v) => s + v.anteil, 0);
   await tx.solidaritaetsfonds.update({
     where: { id: 'main' },
-    data: { bestand: fonds.bestand - verteiltGesamt },
+    data: { bestand: Math.round((fonds.bestand - verteiltGesamt) * 100) / 100 },
   });
 
   const namen = new Map(alle.map((e) => [e.slug, e.name]));
