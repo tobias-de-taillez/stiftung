@@ -10,8 +10,10 @@ import {
 } from '../einrichtungenService';
 
 beforeEach(async () => {
+  await prisma.fondsSpende.deleteMany();
   await prisma.spende.deleteMany();
   await prisma.einrichtung.deleteMany();
+  await prisma.solidaritaetsfonds.deleteMany();
   await prisma.einrichtung.create({
     data: { slug: 'test-kita-a', name: 'Test-Kita A', typ: 'kita', ort: 'Teststadt', kinderAnzahl: 10, aktuellesKapital: 1000, zielKapital: 50000 },
   });
