@@ -9,9 +9,10 @@
 
 ## Next
 
-Pass 1: Task 25 (Motion-Fundament) auf Branch `begeisterung-pakete` — Maker dispatchen, Brief aus Plan-Erweiterung 2 extrahieren.
+Pass 2: Task 26 (Conversion-Pfad) — Brief aus Plan-Erweiterung 2 extrahieren, Maker dispatchen.
 
 ## Ledger (append-only, eine Zeile pro Pass)
 
 | Pass | Datum | Aktion | Evidence (Kommando → Ergebnis) | Ergebnis |
 |------|-------|--------|-------------------------------|----------|
+| 1 | 2026-07-16 | Task 25 Motion-Fundament (Commit 5f788ae) | `npm run verify` → Exit 0, 103/103 Tests; Verifier-Verdict Approved (0 Critical/Important, 1 Minor stilistisch); Keyframe-Technik per Browser-Repro verifiziert | ✅ approved |
