@@ -35,7 +35,7 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
       if (!res.ok) throw new Error('failed');
       const json = await res.json();
       setVerteilung(json.verteilung);
-      setBestand(0);
+      setBestand((b) => Math.round((b - json.verteiltGesamt) * 100) / 100);
       setStatus('idle');
     } catch {
       setStatus('error');

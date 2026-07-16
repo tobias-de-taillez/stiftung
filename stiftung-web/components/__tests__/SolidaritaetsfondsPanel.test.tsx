@@ -33,4 +33,24 @@ describe('SolidaritaetsfondsPanel', () => {
     expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
     expect(screen.getByText('0,00 €')).toBeInTheDocument();
   });
+
+  it('zeigt Fehlertext, wenn die Einzahlung fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel initialBestand={120} />);
+    await user.click(screen.getByRole('button', { name: /In den Fonds einzahlen/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+
+  it('lässt den Bestand unverändert, wenn Verteilung ohne Bedarf zurückkommt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ verteiltGesamt: 0, verteilung: [] }),
+    }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel initialBestand={120} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
+    expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
+    expect(screen.getByText(/120,00\s*€/)).toBeInTheDocument();
+  });
 });
