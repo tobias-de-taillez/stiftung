@@ -1,11 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { ANNUAL_PAYOUT_RATE, computeYearsToGoal } from '@/lib/calc/spendenrechner';
-import { formatDuration, formatEuro } from '@/lib/calc/format';
+import {
+  ANNUAL_PAYOUT_RATE,
+  NET_GROWTH_RATE,
+  computeYearsToGoal,
+  zukunftswert,
+  futureValueWithAnnualDonation,
+  dauerhafteJahresfoerderung,
+  verkuerzungMonate,
+} from '@/lib/calc/spendenrechner';
+import { formatDuration, formatEuro, formatMonate } from '@/lib/calc/format';
 import { currentLevel } from '@/lib/data/levels';
 import { impactBeispiel } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
+import { ProgressBar } from './ProgressBar';
 import { SpendenBestaetigung } from './SpendenBestaetigung';
 
 interface EinrichtungFuerRechner {
@@ -54,12 +63,45 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
     }
   }
 
+  // "Bei Zielerreichung" — Jahre bis zum Ziel MIT der Spende (nicht ohne),
+  // wie im Task-29-Brief gefordert.
   const jahre = computeYearsToGoal({
     startCapital: kapitalStand,
     targetCapital: einrichtung.zielKapital,
     donation: betrag,
     frequency: frequenz,
   });
+  const zielErreichbar = isFinite(jahre);
+
+  // Zukunftswert MEINES Beitrags zum Zielzeitpunkt — bewusst unabhängig vom
+  // Startkapital der Einrichtung (siehe zukunftswert()-Kommentar): Bei
+  // "einmalig" wächst der einmalige Betrag über die Jahre; bei "jährlich"
+  // ist es der Renten-Zukunftswert der wiederkehrenden Spenden (dieselbe
+  // Formel wie computeYearsToGoal intern nutzt, mit Startkapital 0 aufgerufen
+  // — keine Formel-Duplikation). Nur sinnvoll, wenn das Ziel erreichbar ist
+  // (endliche jahre); bei Infinity würde die Formel selbst Infinity liefern.
+  const zukunftswertMeinerSpende = zielErreichbar
+    ? frequenz === 'jaehrlich'
+      ? futureValueWithAnnualDonation(0, betrag, NET_GROWTH_RATE, jahre)
+      : zukunftswert(betrag, jahre)
+    : 0;
+
+  // Verkürzung des Wegs zum Ziel durch die Spende, in Monaten (sekundäre
+  // Botschaft). Bei unerreichbarem Ziel liefert die Funktion 0 (keine
+  // ausweisbare Verkürzung) — wird dann ohnehin nicht angezeigt.
+  const verkuerzung = verkuerzungMonate(
+    { startCapital: kapitalStand, targetCapital: einrichtung.zielKapital },
+    betrag,
+    frequenz
+  );
+
+  // Dauerförderungs-Perspektive für den Fall, dass das Ziel unerreichbar ist
+  // (Infinity darf laut Akzeptanzkriterium nie die Hauptbotschaft sein).
+  // KORREKTUR aus dem Brief: Ohne definierten Zielzeitpunkt kann nur die "ab
+  // sofort"-Untergrenze (jahre=0-Default) ausgewiesen werden, nicht die
+  // gewachsene Ausschüttung — das wird im Text ehrlich als Untergrenze
+  // benannt, die mit dem Kapital weiterwächst.
+  const dauerhaftAbSofort = dauerhafteJahresfoerderung(betrag);
 
   const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
   const level = currentLevel(annualDonationPerChild);
@@ -120,9 +162,47 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
         </button>
       </div>
 
+      {zielErreichbar ? (
+        <div data-testid="zukunftswert-hero">
+          <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>
+            {frequenz === 'jaehrlich'
+              ? `Deine jährlichen ${formatEuro(betrag)} wachsen bis zur Zielerreichung zusammen auf ~${formatEuro(zukunftswertMeinerSpende)} an.`
+              : `Deine ${formatEuro(betrag)} sind bei Zielerreichung auf ~${formatEuro(zukunftswertMeinerSpende)} angewachsen.`}
+          </p>
+          <ProgressBar
+            value={zukunftswertMeinerSpende}
+            max={einrichtung.zielKapital}
+            label={`${formatEuro(zukunftswertMeinerSpende)} von ${formatEuro(einrichtung.zielKapital)} — dein Anteil am Ziel`}
+          />
+          <p className="muted" style={{ fontSize: '0.8rem' }}>
+            Angenommene Netto-Wachstumsrate: {NET_GROWTH_RATE * 100} % pro Jahr, konstant bis zur
+            Zielerreichung — eine Modellrechnung auf Basis des heutigen Finanzmodells, keine garantierte Prognose.
+          </p>
+        </div>
+      ) : (
+        // Fallback laut Akzeptanzkriterium: "nicht erreichbar" (Infinity)
+        // erscheint nie als Hauptbotschaft — stattdessen die
+        // Dauerförderungs-Perspektive (KORREKTUR: "ab sofort"-Untergrenze,
+        // die mit dem Kapital weiterwächst, siehe dauerhafteJahresfoerderung()).
+        <div data-testid="dauerfoerderung-perspektive">
+          <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>
+            Dein Beitrag trägt schon ab sofort dauerhaft mit ~{formatEuro(dauerhaftAbSofort)}/Jahr bei.
+          </p>
+          <p className="muted">
+            Diese Zahl ist eine ehrliche Untergrenze: Sie wächst mit, sobald der Finanztopf wächst — für
+            dieses Ziel lässt sich der Zeitpunkt der vollen Kapitalreife derzeit nicht seriös vorhersagen.
+          </p>
+        </div>
+      )}
+
+      {zielErreichbar && verkuerzung > 0 && (
+        <p data-testid="verkuerzung" className="muted">
+          Und verkürzen den Weg zum Ziel um {formatMonate(verkuerzung)}.
+        </p>
+      )}
+
       <div data-testid="years-result">
-        <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>{formatDuration(jahre)}</p>
-        <p className="muted">bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
+        <p className="muted" style={{ fontSize: '0.9rem' }}>{formatDuration(jahre)} bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
       </div>
 
       <div data-testid="impact-beispiel">

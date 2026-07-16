@@ -2,6 +2,11 @@ export function formatEuro(value: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
 }
 
+export function formatMonate(monate: number): string {
+  const n = Math.round(monate);
+  return `${n} ${n === 1 ? 'Monat' : 'Monate'}`;
+}
+
 export function formatDuration(years: number): string {
   if (!isFinite(years)) return 'nicht erreichbar';
   const totalMonths = Math.round(years * 12);

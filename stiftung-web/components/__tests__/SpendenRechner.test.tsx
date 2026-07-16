@@ -211,4 +211,69 @@ describe('SpendenRechner', () => {
     await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
     expect(await screen.findByText(/Spende konnte nicht gebucht werden/i)).toBeInTheDocument();
   });
+
+  describe('Rechner-Reframing (Zukunftswert-Story statt Wartezeit)', () => {
+    // Fixture: aktuellesKapital 3000, zielKapital 25000, Default-Betrag 50 €,
+    // einmalig. Handgerechnet (siehe spendenrechner.test.ts-Fixtures für die
+    // gleiche Formel): jahre ≈ 36,10 → Zukunftswert(50, 36,10) ≈ 409,84 € und
+    // verkuerzungMonate(…, 50, 'einmalig') = 3.
+
+    it('führt mit dem Zukunftswert der Spende (WIRKUNG), nicht mit der Wartezeit', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const hero = screen.getByTestId('zukunftswert-hero');
+      expect(normalisiert(hero.textContent)).toMatch(/50,00 €.*angewachsen/i);
+      expect(normalisiert(hero.textContent)).toMatch(/409,8[0-9] €/);
+    });
+
+    it('legt die Wachstumsannahme der Hero-Zahl offen (ehrliche Fußnote, keine unbelegte Zukunftsprognose)', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const hero = screen.getByTestId('zukunftswert-hero');
+      expect(normalisiert(hero.textContent)).toMatch(/Netto-Wachstumsrate.*6 ?%/i);
+    });
+
+    it('visualisiert den Anteil der Spende am Ziel als beschrifteten Mini-Balken (kein Color-only)', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const bar = screen.getByRole('progressbar');
+      expect(bar).toHaveAttribute('aria-valuemax', '25000');
+      const hero = screen.getByTestId('zukunftswert-hero');
+      // Pflicht-Label-Text (nicht nur Farbe): Betrag vs. Ziel als Text.
+      expect(normalisiert(hero.textContent)).toMatch(/409,8[0-9] €.*25\.000,00 €/);
+    });
+
+    it('zeigt sekundär, um wie viele Monate die Spende den Weg zum Ziel verkürzt', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      expect(normalisiert(screen.getByTestId('verkuerzung').textContent)).toMatch(/verkürz\w+ den Weg.*3 Monate/i);
+    });
+
+    it('zeigt die Jahre-bis-Ziel-Zahl nur noch als tertiäre Info (nicht mehr die Hero-Aussage)', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const jahreText = normalisiert(screen.getByTestId('years-result').textContent);
+      expect(jahreText).toMatch(/bis zum Ziel/i);
+      // Die Hero-Zeile selbst darf NICHT mehr die Wartezeit-Formulierung
+      // ("X Jahre und Y Monate") führen — die Wachstumsraten-Fußnote ("6 %
+      // pro Jahr") ist davon ausdrücklich ausgenommen, das ist keine
+      // Wartezeit-Angabe, sondern eine Annahmen-Offenlegung.
+      const heroText = normalisiert(screen.getByTestId('zukunftswert-hero').textContent);
+      // Die charakteristische Wartezeit-Formulierung ("X Jahre und Y Monate
+      // bis zum Ziel") darf in der Hero-Zeile nicht auftauchen.
+      expect(heroText).not.toMatch(/Jahre? und \d+ Monate?/i);
+      expect(heroText).not.toMatch(/bis zum Ziel/i);
+    });
+
+    it('zeigt bei unerreichbarem Ziel (Infinity) NIE die Wartezeit als Hauptbotschaft, sondern die Dauerförderungs-Perspektive', async () => {
+      const astronomisch = { ...einrichtung, aktuellesKapital: 0, zielKapital: 1e30 };
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={astronomisch} />);
+      // Nur bei "jährlich" kann computeYearsToGoal (MAX_YEARS-Deckel) für ein
+      // derart astronomisches Ziel tatsächlich Infinity liefern.
+      await user.click(screen.getByRole('button', { name: 'Jährlich' }));
+
+      expect(screen.queryByTestId('zukunftswert-hero')).not.toBeInTheDocument();
+      const fallback = screen.getByTestId('dauerfoerderung-perspektive');
+      expect(normalisiert(fallback.textContent)).toMatch(/dauerhaft/i);
+      expect(normalisiert(fallback.textContent)).not.toMatch(/nicht erreichbar/i);
+      // Die Jahre-Zahl darf als tertiäre Info weiterhin "nicht erreichbar" zeigen.
+      expect(normalisiert(screen.getByTestId('years-result').textContent)).toMatch(/nicht erreichbar/i);
+    });
+  });
 });

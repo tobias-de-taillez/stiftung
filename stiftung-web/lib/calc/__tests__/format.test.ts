@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatEuro, formatDuration } from '../format';
+import { formatEuro, formatDuration, formatMonate } from '../format';
 
 describe('formatEuro', () => {
   it('formatiert mit deutschem Format und Euro-Zeichen', () => {
@@ -26,5 +26,21 @@ describe('formatDuration', () => {
   });
   it('meldet Infinity als nicht erreichbar', () => {
     expect(formatDuration(Infinity)).toBe('nicht erreichbar');
+  });
+});
+
+describe('formatMonate', () => {
+  it('nutzt Singular bei genau einem Monat', () => {
+    expect(formatMonate(1)).toBe('1 Monat');
+  });
+
+  it('nutzt Plural bei 0 oder mehreren Monaten', () => {
+    expect(formatMonate(0)).toBe('0 Monate');
+    expect(formatMonate(3)).toBe('3 Monate');
+    expect(formatMonate(16)).toBe('16 Monate');
+  });
+
+  it('rundet auf ganze Monate', () => {
+    expect(formatMonate(16.4)).toBe('16 Monate');
   });
 });
