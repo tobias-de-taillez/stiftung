@@ -1516,8 +1516,8 @@ git commit -m "feat: API-Routes für Einrichtungen, Spenden-Buchung und Statisti
 
 **Interfaces:**
 - Produces:
-  - `bedarfProKind(e: { aktuellesKapital: number; zielKapital: number; kinderAnzahl: number }): number` — Pro-Kind-Lücke zum Ziel, mindestens 0.
-  - `verteilePool(pool: number, eintraege: { slug: string; bedarf: number }[]): { slug: string; anteil: number }[]` — verteilt `pool` proportional zum `bedarf`; Summe der `anteil`-Werte entspricht `pool` (Rundungsdifferenz geht an den letzten Eintrag); überall 0, wenn `pool <= 0` oder Gesamtbedarf 0 ist.
+  - `bedarfProKind(e: { aktuellesKapital: number; zielKapital: number; kinderAnzahl: number }): number` — Pro-Kind-Lücke zum Ziel, mindestens 0; 0 bei `kinderAnzahl <= 0`.
+  - `verteilePool(pool: number, eintraege: { slug: string; bedarf: number }[]): { slug: string; anteil: number }[]` — verteilt `pool` proportional zum `bedarf` (cent-genaue Floor-Verteilung); Summe der `anteil`-Werte entspricht `pool`; Anteile sind nie negativ; nicht-finite oder negative Bedarfe zählen als 0; Rundungsdifferenz geht an den letzten Eintrag mit Bedarf > 0; überall 0, wenn `pool <= 0` oder Gesamtbedarf 0 ist.
 
 Das ist die reine Formel, die "wer am wenigsten hat, wird am meisten gefördert" umsetzt (Leitbild-Kern) — ohne DB-Zugriff, dadurch trivial testbar.
 
@@ -1568,6 +1568,35 @@ describe('verteilePool', () => {
     const ergebnis = verteilePool(0, [{ slug: 'a', bedarf: 100 }]);
     expect(ergebnis.every((e) => e.anteil === 0)).toBe(true);
   });
+
+  it('verteilt nie negative Anteile (kleiner Pool, viele gleiche Bedarfe)', () => {
+    const ergebnis = verteilePool(0.02, [
+      { slug: 'a', bedarf: 1 },
+      { slug: 'b', bedarf: 1 },
+      { slug: 'c', bedarf: 1 },
+      { slug: 'd', bedarf: 1 },
+    ]);
+    expect(ergebnis.every((e) => e.anteil >= 0)).toBe(true);
+    expect(ergebnis.reduce((s, e) => s + e.anteil, 0)).toBeCloseTo(0.02, 10);
+  });
+
+  it('lässt nicht-finite Bedarfe die Verteilung nicht vergiften', () => {
+    const ergebnis = verteilePool(100, [
+      { slug: 'kaputt', bedarf: Number.NaN },
+      { slug: 'ok', bedarf: 50 },
+    ]);
+    expect(ergebnis.find((e) => e.slug === 'kaputt')!.anteil).toBe(0);
+    expect(ergebnis.find((e) => e.slug === 'ok')!.anteil).toBe(100);
+  });
+
+  it('gibt die Rundungsdifferenz an den letzten Eintrag mit Bedarf > 0, nie an bedarfslose', () => {
+    const ergebnis = verteilePool(0.01, [
+      { slug: 'beduerftig', bedarf: 1 },
+      { slug: 'satt', bedarf: 0 },
+    ]);
+    expect(ergebnis.find((e) => e.slug === 'beduerftig')!.anteil).toBe(0.01);
+    expect(ergebnis.find((e) => e.slug === 'satt')!.anteil).toBe(0);
+  });
 });
 ```
 
@@ -1586,23 +1615,37 @@ export interface BedarfsEintrag {
 }
 
 export function bedarfProKind(e: { aktuellesKapital: number; zielKapital: number; kinderAnzahl: number }): number {
-  const luecke = e.zielKapital / e.kinderAnzahl - e.aktuellesKapital / e.kinderAnzahl;
+  if (e.kinderAnzahl <= 0) return 0;
+  const luecke = (e.zielKapital - e.aktuellesKapital) / e.kinderAnzahl;
   return Math.max(0, luecke);
 }
 
+// Cent-genaue Floor-Verteilung: nie negative Anteile, Summe == Pool.
+// Nicht-finite oder negative Bedarfe zählen als 0; die Rundungsdifferenz
+// geht an den letzten Eintrag mit Bedarf > 0 (nie an bedarfslose).
 export function verteilePool(pool: number, eintraege: BedarfsEintrag[]): { slug: string; anteil: number }[] {
-  const gesamtBedarf = eintraege.reduce((sum, e) => sum + e.bedarf, 0);
+  const bedarfe = eintraege.map((e) => (Number.isFinite(e.bedarf) && e.bedarf > 0 ? e.bedarf : 0));
+  const gesamtBedarf = bedarfe.reduce((sum, b) => sum + b, 0);
   if (pool <= 0 || gesamtBedarf <= 0) {
     return eintraege.map((e) => ({ slug: e.slug, anteil: 0 }));
   }
-  let rest = Math.round(pool * 100) / 100;
-  return eintraege.map((e, i) => {
-    const isLast = i === eintraege.length - 1;
-    const rohAnteil = (pool * e.bedarf) / gesamtBedarf;
-    const anteil = isLast ? rest : Math.round(rohAnteil * 100) / 100;
-    rest = Math.round((rest - anteil) * 100) / 100;
-    return { slug: e.slug, anteil };
+
+  const poolCents = Math.round(pool * 100);
+  let lastPositive = -1;
+  for (let i = 0; i < bedarfe.length; i++) {
+    if (bedarfe[i] > 0) lastPositive = i;
+  }
+
+  let restCents = poolCents;
+  const anteileCents = bedarfe.map((b, i) => {
+    if (i === lastPositive) return 0;
+    const cents = Math.floor((poolCents * b) / gesamtBedarf);
+    restCents -= cents;
+    return cents;
   });
+  anteileCents[lastPositive] = restCents;
+
+  return eintraege.map((e, i) => ({ slug: e.slug, anteil: anteileCents[i] / 100 }));
 }
 ```
 
