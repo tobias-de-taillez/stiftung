@@ -15,6 +15,8 @@ interface EinrichtungFuerRechner {
   zielKapital: number;
 }
 
+const BETRAG_PRESETS = [25, 50, 100, 250];
+
 export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRechner }) {
   const [betrag, setBetrag] = useState(50);
   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
@@ -52,6 +54,20 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
+      <div role="group" aria-label="Betrag-Vorschläge" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {BETRAG_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={`pill ${betrag === preset ? 'pill-primary' : 'pill-secondary'}`}
+            aria-pressed={betrag === preset}
+            onClick={() => setBetrag(preset)}
+          >
+            {preset} €
+          </button>
+        ))}
+      </div>
+
       <label>
         <span className="eyebrow" style={{ display: 'block' }}>Spendenbetrag</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

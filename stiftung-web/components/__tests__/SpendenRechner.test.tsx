@@ -43,6 +43,29 @@ describe('SpendenRechner', () => {
     expect(jaehrlichButton).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('zeigt Preset-Buttons 25/50/100/250 € über dem Regler, mit aria-pressed auf dem aktiven Preset (Default 50 €)', () => {
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    const preset25 = screen.getByRole('button', { name: '25 €' });
+    const preset50 = screen.getByRole('button', { name: '50 €' });
+    const preset100 = screen.getByRole('button', { name: '100 €' });
+    const preset250 = screen.getByRole('button', { name: '250 €' });
+
+    expect(preset50).toHaveAttribute('aria-pressed', 'true');
+    expect(preset25).toHaveAttribute('aria-pressed', 'false');
+    expect(preset100).toHaveAttribute('aria-pressed', 'false');
+    expect(preset250).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('setzt den Spendenbetrag beim Klick auf einen Preset-Button', async () => {
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: '250 €' }));
+
+    expect(screen.getByRole('button', { name: '250 €' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '50 €' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByLabelText('Spendenbetrag')).toHaveValue(250);
+  });
+
   it('sendet POST an den Spenden-Endpoint und zeigt die Bestätigung mit neuem Kapitalstand', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

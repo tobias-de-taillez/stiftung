@@ -1,7 +1,13 @@
+import Link from 'next/link';
 import { Card } from '@/components/Card';
 import { BarChart } from '@/components/BarChart';
 import { formatEuro } from '@/lib/calc/format';
 import { statistik } from '@/lib/server/einrichtungenService';
+
+function fortschrittProzent(aktuellesKapital: number, zielKapital: number): number {
+  if (zielKapital <= 0) return 0;
+  return Math.round(Math.min(100, Math.max(0, (aktuellesKapital / zielKapital) * 100)));
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -46,11 +52,33 @@ export default async function StatistikPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
         <Card>
           <h2>Am besten gefördert</h2>
-          <ol>{stats.top5.map((e) => (<li key={e.id}>{e.name} — {formatEuro(e.foerderungProKind)} pro Kind</li>))}</ol>
+          <ol style={{ display: 'grid', gap: '0.6rem', paddingLeft: '1.2rem' }}>
+            {stats.top5.map((e) => (
+              <li key={e.id}>
+                <Link href={`/einrichtungen/${e.slug}`} style={{ textDecoration: 'none' }}>
+                  <strong>{e.name}</strong>
+                  <span className="muted"> — {e.ort} · {e.typ} · {fortschrittProzent(e.aktuellesKapital, e.zielKapital)} %</span>
+                  <br />
+                  <span>{formatEuro(e.foerderungProKind)} pro Kind</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
         </Card>
         <Card>
           <h2>Größter Förderbedarf</h2>
-          <ol>{stats.bottom5.map((e) => (<li key={e.id}>{e.name} — {formatEuro(e.foerderungProKind)} pro Kind</li>))}</ol>
+          <ol style={{ display: 'grid', gap: '0.6rem', paddingLeft: '1.2rem' }}>
+            {stats.bottom5.map((e) => (
+              <li key={e.id}>
+                <Link href={`/einrichtungen/${e.slug}`} style={{ textDecoration: 'none' }}>
+                  <strong>{e.name}</strong>
+                  <span className="muted"> — {e.ort} · {e.typ} · {fortschrittProzent(e.aktuellesKapital, e.zielKapital)} %</span>
+                  <br />
+                  <span>{formatEuro(e.foerderungProKind)} pro Kind</span>
+                </Link>
+              </li>
+            ))}
+          </ol>
         </Card>
       </div>
 
