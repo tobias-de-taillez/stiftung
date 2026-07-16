@@ -113,3 +113,25 @@ missverständlich gewesen wäre (welches N?).
 ## Concerns
 - Keine offenen Blocker. Ein bewusster Trade-off (Share-Text both/and statt
   strikt instead-of) ist oben dokumentiert.
+
+## Fix nach Review
+
+### Finding: Defensive Fallback bei unbekanntem Einrichtungstyp
+
+**Problem:** `impactBeispiel(typ, …)` akzeptierte nur das Union-Type `EinrichtungTyp`
+und crashte bei unbekannten Typen. Prisma speichert `typ` als generischer String —
+wenn ein neuer Typ in die DB kommt, bevor die UI aktualisiert ist, fiel die Detail-
+Seite aus.
+
+**Lösung:**
+- `impactBeispiele.ts`: Funktion erweitert auf `string`-Parameter, fallback auf
+  `tagespflege`-Tabel für unbekannte Typen (generischste Beispiele).
+- Exported `EinrichtungTyp`-Union beibhalten für typsichere Callers.
+- Cast `as EinrichtungTyp` in `page.tsx` entfernt; `SpendenRechner`-Interface
+  aktualisiert (`typ: string` statt `typ: EinrichtungTyp`).
+- Test hinzugefügt: `impactBeispiel('unbekannter-typ', 0.5)` → 'neues Spielzeug'
+  (tagespflege Tier-0), kein Crash.
+
+**Verifikation:**
+- `vitest run lib/data/__tests__/impactBeispiele.test.ts` → 12/12 ✓
+- `npm run verify` → exit 0, 129 Tests, Build erfolgreich ✓
