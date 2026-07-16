@@ -2371,7 +2371,7 @@ export function BarChart({
           const x = padding.left + i * (barWidth + barGap);
           const y = padding.top + (plotHeight - barHeight);
           return (
-            <g key={d.label}>
+            <g key={`${d.label}-${i}`}>
               <rect className="bar" x={x} y={y} width={barWidth} height={barHeight} fill="var(--sun)" rx={4} />
               <text x={x + barWidth / 2} y={height - padding.bottom + 16} textAnchor="middle" fontSize="11" fill="var(--muted)">{d.label}</text>
             </g>
