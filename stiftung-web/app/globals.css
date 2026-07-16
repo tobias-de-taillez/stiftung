@@ -19,6 +19,7 @@
   --radius: 22px;
   --radius-sm: 14px;
   --shadow: 0 18px 48px rgba(2, 7, 25, 0.32);
+  --shadow-hover: 0 26px 60px rgba(2, 7, 25, 0.4);
 }
 
 * {
@@ -65,6 +66,16 @@ a {
   padding: 1.5rem;
 }
 
+/* Klickbare Cards (in <Link> gewrappt) bekommen Lift + Shadow-Verstärkung beim Hover. */
+a .card {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+a:hover .card {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -75,6 +86,11 @@ a {
   border: none;
   cursor: pointer;
   text-decoration: none;
+  transition: filter 0.15s ease-out;
+}
+
+.pill:hover:not(:disabled) {
+  filter: brightness(1.12);
 }
 
 .pill:disabled {
@@ -113,6 +129,31 @@ a {
   max-width: 1080px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+/*
+ * ProgressBar-Füllung: animiert beim ersten Rendern von 0 auf die Zielbreite.
+ * Nur das "from" wird definiert — das implizite "to"-Keyframe übernimmt den
+ * per Inline-Style gesetzten width-Wert (Standardverhalten der CSS Animations
+ * Spec). Läuft rein über CSS, keine JS-Mount-Erkennung nötig; degradiert unter
+ * `prefers-reduced-motion` automatisch über den globalen Override unten
+ * (animation-duration wird dort auf 0.001ms gekappt).
+ */
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sun);
+  animation: progress-bar-fill-in 800ms ease-out;
+}
+
+.progress-bar-fill.is-complete {
+  background: var(--turquoise);
+}
+
+@keyframes progress-bar-fill-in {
+  from {
+    width: 0;
+  }
 }
 
 :focus-visible {
