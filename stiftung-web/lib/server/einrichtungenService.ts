@@ -48,7 +48,7 @@ export async function statistik() {
 
   const einJahrVorHeute = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
   const [direktSumme, fondsSumme] = await Promise.all([
-    prisma.spende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
+    prisma.spende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute }, quelle: { not: 'solidaritaet' } } }),
     prisma.fondsSpende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
   ]);
   const zuflussLetztesJahr = (direktSumme._sum.betrag ?? 0) + (fondsSumme._sum.betrag ?? 0);

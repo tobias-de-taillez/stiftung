@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../prismaClient';
 import { getFondsBestand, spendeAnFonds, verteileFonds } from '../solidaritaetsfondsService';
-import { UngueltigerBetragError } from '../einrichtungenService';
+import { UngueltigerBetragError, statistik } from '../einrichtungenService';
 
 beforeEach(async () => {
   await prisma.fondsSpende.deleteMany();
@@ -53,5 +53,12 @@ describe('verteileFonds', () => {
     await spendeAnFonds(200);
     await verteileFonds();
     expect(await getFondsBestand()).toBe(200);
+  });
+
+  it('zählt verteiltes Fondsgeld nicht doppelt in der Statistik', async () => {
+    await spendeAnFonds(300);
+    await verteileFonds();
+    const stats = await statistik();
+    expect(stats.zuflussLetztesJahr).toBe(300);
   });
 });
