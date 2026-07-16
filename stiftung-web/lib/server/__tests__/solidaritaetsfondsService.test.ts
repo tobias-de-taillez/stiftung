@@ -62,12 +62,14 @@ describe('verteileFonds', () => {
     expect(stats.zuflussLetztesJahr).toBe(300);
   });
 
-  it('lässt keinen Float-Staub im Bestand zurück (3 gleiche Bedarfe)', async () => {
+  it('lässt keinen Float-Staub im Bestand zurück (Bedarfe 1000/1037/1074, Pool 460)', async () => {
+    // Anteile 147.86 + 153.33 + 158.81 summieren in Float zu 460.00000000000006 —
+    // ohne Cent-Rundung am Bestand-Write bliebe -5.68e-14 stehen.
     await prisma.einrichtung.create({
-      data: { slug: 'c', name: 'Kita C', typ: 'kita', ort: 'X', kinderAnzahl: 10, aktuellesKapital: 0, zielKapital: 10000 },
+      data: { slug: 'c', name: 'Kita C', typ: 'kita', ort: 'X', kinderAnzahl: 10, aktuellesKapital: 0, zielKapital: 10740 },
     });
-    await prisma.einrichtung.updateMany({ data: { aktuellesKapital: 0, zielKapital: 10000, kinderAnzahl: 10 } });
-    await spendeAnFonds(100);
+    await prisma.einrichtung.update({ where: { slug: 'reich' }, data: { aktuellesKapital: 0, zielKapital: 10370 } });
+    await spendeAnFonds(460);
     await verteileFonds();
     expect(await getFondsBestand()).toBe(0);
   });
