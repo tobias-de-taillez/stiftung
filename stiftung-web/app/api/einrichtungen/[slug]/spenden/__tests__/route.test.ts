@@ -3,8 +3,10 @@ import { prisma } from '@/lib/server/prismaClient';
 import { POST } from '../route';
 
 beforeEach(async () => {
+  await prisma.fondsSpende.deleteMany();
   await prisma.spende.deleteMany();
   await prisma.einrichtung.deleteMany();
+  await prisma.solidaritaetsfonds.deleteMany();
   await prisma.einrichtung.create({
     data: { slug: 'api-test-kita', name: 'API-Test-Kita', typ: 'kita', ort: 'Teststadt', kinderAnzahl: 10, aktuellesKapital: 1000, zielKapital: 50000 },
   });
