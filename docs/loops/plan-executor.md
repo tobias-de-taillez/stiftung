@@ -36,7 +36,7 @@ Nach jedem Pass eine Ledger-Zeile in `docs/loops/STATE.md`: Task-Nr., Commits (S
 
 ## Stop-Bedingungen
 
-- ✅ Success: `grep -q "ALL TASKS DONE" docs/loops/STATE.md` — gesetzt erst, wenn Tasks 25–35 alle approved und committet sind.
+- ✅ Success: `grep -qx "ALL TASKS DONE" docs/loops/STATE.md` (exakter Zeilen-Match — `-q` allein matcht die Sentinel-Beschreibung in STATE.md, Dry-Run-Befund Pass 1) — gesetzt erst, wenn Tasks 25–35 alle approved und committet sind.
 - 🟰 No-Op: kein offener Task in STATE.md-Next ODER Working Tree dirty (uncommittete menschliche Arbeit) ⇒ ohne Änderung beenden + melden.
 - 🙋 Eskalation (Mensch fragen): Verifier meldet „plan-mandated"-Finding (der Plan benotet nicht die eigene Arbeit) · Task erfordert Architektur-Entscheidung außerhalb der Akzeptanzkriterien · Task 36 (explizit User-Gate) · Widerspruch zwischen Plan und Global Constraints.
 - 🛑 Hard Stops: derselbe Task fällt 2× durch Review ⇒ Abbruch + Eskalation · max. 4 Task-Pässe pro Session/Loop-Lauf · max. 15 Pässe gesamt über alle Läufe (11 Tasks + 4 Puffer) · pro Finding max. 1 Fix-Dispatch + 1 Re-Review, danach Eskalation.
@@ -57,4 +57,5 @@ Sauberer Checkout auf `begeisterung-pakete` (Branch existiert ab Pass 1; falls n
 
 ## Dry-Run-Protokoll
 
-Erste Iteration am 2026-07-16 manuell/beaufsichtigt gefahren (Pass 1 = Task 25). Befunde und Nachschärfungen: siehe Ledger-Zeile Pass 1 in STATE.md.
+Erste Iteration am 2026-07-16 manuell/beaufsichtigt gefahren (Pass 1 = Task 25, Commit 5f788ae, Verifier Approved 0C/0I).
+Befunde: (1) Success-Sentinel-Check `grep -q` matchte die Sentinel-BESCHREIBUNG in STATE.md → auf `grep -qx` (exakte Zeile) verschärft. (2) Maker-Verifier-Zyklus, verify-Kommando und Branch-Guard liefen wie definiert; Verifier verifizierte die CSS-Keyframe-Technik eigenständig per Browser-Repro. (3) No-Op-Pfad (Sentinel nicht gesetzt → Loop läuft weiter) mechanisch geprüft.
