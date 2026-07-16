@@ -3469,3 +3469,88 @@ nach Bedarf auf die am wenigsten geförderten Einrichtungen verteilt — der
 Kernmechanismus aus dem Leitbild, nicht nur eine informative Rangliste.
 
 **Nicht Teil dieses Plans** (nächste Schritte laut Leitbild/`projekt-status.md`, brauchen eigenen Plan): echtes Payment (Stripe/PayPal), KYC-Zugangsprüfung, Spender-Konten, Arbeits-Konto/Fonds-Konto-Split, Auszahlung an Einrichtungen, Deployment/Hosting, Zukunftswert-Framing im Rechner ("50€ → 40.000€"-Story, bewusst zurückgestellt).
+
+---
+
+# Erweiterung (2026-07-16): Jahres-Simulation — Fondsgewinne buchen und verteilen
+
+**Entscheidung (User):** Jahres-Simulation lässt alles um 6 % wachsen und verteilt danach automatisch den Fonds-Bestand ("Wachsen + sofort verteilen") — Leitbild-treu: kein Geld bleibt stecken. Gebaut auf demselben Branch (`website-rebuild-lokal`, PR #1).
+
+**Kontext:** Bis Task 21 wird die 6 %-Netto-Wachstumsrate nur angezeigt (Client-Rechner, `simulierterJahresertrag` in der Statistik), aber nie gebucht. Diese Erweiterung macht Zeitablauf simulierbar: ein "Jahresabschluss" bucht Erträge real in die DB und verteilt sie bedarfsproportional.
+
+**Ertrags-Semantik:**
+- Fonds-Bestand wächst um 6 % (`bestand *= 1.06`, cent-gerundet) — ruhendes Fondsgeld arbeitet mit.
+- Jedes `Einrichtung.aktuellesKapital` wächst um 6 % (cent-gerundet) — Ertrag verbleibt im Topf (keine Auszahlung in dieser Phase).
+- Danach wird der komplette Fonds-Bestand (Einzahlungen + Ertrag) über die bestehende Verteilungslogik bedarfsproportional gebucht.
+- Erträge erzeugen KEINE `Spende`-/`FondsSpende`-Zeilen → `zuflussLetztesJahr` zählt sie automatisch nicht als Spenden-Zufluss (gleiche Schutzlogik wie die quelle-Filterung aus Task 12).
+
+---
+
+### Task 22: Jahresabschluss-Service (Schema, simuliereJahr, echte DB-Tests)
+
+**Files:**
+- Modify: `stiftung-web/prisma/schema.prisma` (neues Modell `Jahresabschluss`)
+- Modify: `stiftung-web/lib/server/solidaritaetsfondsService.ts` (Verteilungs-Kern als tx-fähiger Helper extrahiert)
+- Create: `stiftung-web/lib/server/simulationService.ts`
+- Test: `stiftung-web/lib/server/__tests__/simulationService.test.ts`
+
+**Interfaces:**
+- Neues Prisma-Modell:
+  ```prisma
+  model Jahresabschluss {
+    id             String   @id @default(cuid())
+    nummer         Int
+    fondsErtrag    Float
+    kapitalErtrag  Float
+    verteiltGesamt Float
+    createdAt      DateTime @default(now())
+  }
+  ```
+- `solidaritaetsfondsService.ts`: interne Verteilung als `verteileMitClient(tx: Prisma.TransactionClient)` extrahieren; öffentliche `verteileFonds()` behält Signatur/Verhalten exakt (ruft den Helper in eigener `$transaction`) — alle bestehenden Tests müssen unverändert grün bleiben.
+- `simulationService.ts` exportiert:
+  - `simuliereJahr(): Promise<{ nummer: number; fondsErtrag: number; kapitalErtrag: number; verteiltGesamt: number; verteilung: { slug: string; name: string; anteil: number }[]; neuerFondsBestand: number }>`
+  - Ablauf in EINER `$transaction`: (1) Fonds-Ertrag = `round2(bestand * NET_GROWTH_RATE)` buchen; (2) pro Einrichtung Ertrag = `round2(kapital * NET_GROWTH_RATE)` buchen, Summe = `kapitalErtrag`; (3) `verteileMitClient(tx)` aufrufen; (4) `Jahresabschluss`-Zeile schreiben (`nummer` = bisherige Anzahl + 1, innerhalb der tx gezählt). `round2(x) = Math.round(x * 100) / 100`. `NET_GROWTH_RATE` aus `@/lib/calc/spendenrechner` importieren — keine zweite 0.06-Konstante.
+
+**Kern-Testfälle (echte Test-DB, beforeEach resettet ALLE fünf Tabellen FK-sicher: FondsSpende → Spende → Einrichtung → Solidaritaetsfonds → Jahresabschluss):**
+
+Fixture: `arm` (kapital 0, ziel 10000, 10 Kinder), `reich` (kapital 9000, ziel 10000, 10 Kinder).
+
+1. **Erträge korrekt gebucht:** 12× `spendeAnFonds(100)` → `simuliereJahr()` → `fondsErtrag === 72` (1200×0.06), `kapitalErtrag === 540` (nur reich: 9000×0.06), reich-Kapital vor Verteilung 9540.
+2. **Verteilung bedarfsproportional nach Wachstum:** gleicher Aufbau — Bedarf/Kind: arm 1000, reich 46 → Pool 1272 verteilt als arm 1216.06 / reich 55.94 (Floor-Cent, Rest an letzten Bedarfsträger). `verteiltGesamt === 1272`, `neuerFondsBestand === 0`.
+3. **Summenerhalt auf den Cent:** Gesamtvermögen vorher (Fonds + alle Kapitale) + fondsErtrag + kapitalErtrag === Gesamtvermögen nachher. (10200 + 612 === 10812.)
+4. **Erträge sind kein Spenden-Zufluss:** nach `simuliereJahr()` bleibt `statistik().zuflussLetztesJahr === 1200` (nur die 12 Einzahlungen; weder Erträge noch Verteilungs-Buchungen zählen).
+5. **Leerer Zustand:** `simuliereJahr()` ohne Fonds und ohne Kapital → alle Erträge 0, keine Verteilung, `nummer === 1`; zweiter Aufruf → `nummer === 2`.
+6. **Bestehende Fonds-Tests unverändert grün** (Refactor-Guard).
+
+Commit: `feat: Jahresabschluss-Service — 6% Erträge buchen und bedarfsproportional verteilen`
+
+---
+
+### Task 23: Simulations-API-Route
+
+**Files:**
+- Create: `stiftung-web/app/api/simulation/jahr/route.ts` (POST)
+- Test: `stiftung-web/app/api/simulation/jahr/__tests__/route.test.ts`
+
+**Interfaces:**
+- `POST /api/simulation/jahr` → 201 mit dem vollständigen `simuliereJahr()`-Ergebnis. Kein Body nötig. Dünner Handler, Fehler durchreichen (kein Swallowing). `export const dynamic = 'force-dynamic'` wie bei den übrigen DB-Routes.
+- Test (echte Test-DB, 5-Tabellen-Reset): POST → 201, Ergebnis-Shape vollständig, Einrichtungs-Kapital in DB real erhöht, zweiter POST → `nummer === 2`.
+
+Commit: `feat: API-Route für Jahres-Simulation`
+
+---
+
+### Task 24: "Jahr simulieren"-Button + E2E + Doku
+
+**Files:**
+- Modify: `stiftung-web/components/SolidaritaetsfondsPanel.tsx`
+- Modify: `stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx`
+- Modify: `stiftung-web/README.md`, `projekt-status.md` (Feature dokumentieren)
+
+**Interfaces:**
+- Panel bekommt Button `Jahr simulieren (+6 %)` (pill-secondary, disabled während loading — NICHT an `bestand > 0` gekoppelt: Simulation ist auch bei leerem Fonds sinnvoll, weil Einrichtungskapital wächst). POST auf `/api/simulation/jahr`; Ergebnisbox zeigt fondsErtrag, kapitalErtrag, verteiltGesamt + Verteilungsliste (bestehende Liste wiederverwenden); `bestand` aus `neuerFondsBestand` der Antwort setzen.
+- Tests (fetch-gemockt wie bestehende Panel-Tests): Erfolgsfall zeigt Erträge + Verteilung und setzt Bestand aus Antwort; Fehlerfall zeigt bestehenden Fehlertext.
+- Manuelle E2E: Fonds füllen, Jahr simulieren, auf /einrichtungen und /statistik prüfen, dass Kapitale gewachsen + Verteilung angekommen; Reload-Persistenz.
+- README: Abschnitt "Jahres-Simulation" (was passiert, Semantik der 6 %); projekt-status.md Feature-Zeile.
+
+Commit: `feat: Jahres-Simulation im Fonds-Panel (+6 % buchen und verteilen)`
