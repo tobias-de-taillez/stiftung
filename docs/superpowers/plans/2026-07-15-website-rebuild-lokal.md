@@ -2118,6 +2118,14 @@ describe('EinrichtungenFilter', () => {
     await user.type(screen.getByLabelText(/Suche/i), 'xyz-gibt-es-nicht');
     expect(screen.getByText(/Keine Einrichtung gefunden/i)).toBeInTheDocument();
   });
+
+  it('filtert per Suche nach Name oder Ort (trimmt Leerzeichen)', async () => {
+    const user = userEvent.setup();
+    render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
+    await user.type(screen.getByLabelText(/Suche/i), ' wirbelwind ');
+    expect(screen.getByText('Tagespflege Wirbelwind')).toBeInTheDocument();
+    expect(screen.queryByText('Grundschule Sonnenhügel')).not.toBeInTheDocument();
+  });
 });
 ```
 
@@ -2156,12 +2164,13 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
   const [typ, setTyp] = useState<TypFilter>('alle');
 
   const gefiltert = useMemo(() => {
+    const begriff = suche.trim().toLowerCase();
     return einrichtungen.filter((e) => {
       const passtTyp = typ === 'alle' || e.typ === typ;
       const passtSuche =
-        suche.trim() === '' ||
-        e.name.toLowerCase().includes(suche.toLowerCase()) ||
-        e.ort.toLowerCase().includes(suche.toLowerCase());
+        begriff === '' ||
+        e.name.toLowerCase().includes(begriff) ||
+        e.ort.toLowerCase().includes(begriff);
       return passtTyp && passtSuche;
     });
   }, [suche, typ, einrichtungen]);
