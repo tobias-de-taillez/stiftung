@@ -1,0 +1,96 @@
+'use client';
+
+import { useState } from 'react';
+import { Card } from './Card';
+import { StatusChip } from './StatusChip';
+import { formatEuro } from '@/lib/calc/format';
+
+export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: number }) {
+  const [bestand, setBestand] = useState(initialBestand);
+  const [betrag, setBetrag] = useState(50);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [verteilung, setVerteilung] = useState<{ slug: string; name: string; anteil: number }[] | null>(null);
+
+  async function handleSpenden() {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/solidaritaetsfonds/spenden', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ betrag }),
+      });
+      if (!res.ok) throw new Error('failed');
+      const json = await res.json();
+      setBestand(json.bestand);
+      setStatus('idle');
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  async function handleVerteilen() {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/solidaritaetsfonds/verteilen', { method: 'POST' });
+      if (!res.ok) throw new Error('failed');
+      const json = await res.json();
+      setVerteilung(json.verteilung);
+      setBestand(0);
+      setStatus('idle');
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  return (
+    <Card>
+      <StatusChip tone="forecast">Spielgeld — echte Buchung, kein echtes Geld</StatusChip>
+      <p className="eyebrow" style={{ marginTop: '0.75rem' }}>Aktueller Bestand</p>
+      <p className="hero-number" style={{ fontSize: '2.4rem' }}>{formatEuro(bestand)}</p>
+
+      <label style={{ display: 'block', marginTop: '1rem' }}>
+        <span className="eyebrow" style={{ display: 'block' }}>Allgemein spenden</span>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <input
+            aria-label="Betrag für den Solidaritätsfonds"
+            type="number"
+            min={5}
+            value={betrag}
+            onChange={(e) => setBetrag(Number(e.target.value) || 0)}
+            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
+          />
+          <button type="button" className="pill pill-primary" onClick={handleSpenden} disabled={status === 'loading'}>
+            In den Fonds einzahlen
+          </button>
+        </div>
+      </label>
+
+      <button
+        type="button"
+        className="pill pill-secondary"
+        style={{ marginTop: '1rem' }}
+        onClick={handleVerteilen}
+        disabled={status === 'loading' || bestand <= 0}
+      >
+        Jetzt verteilen
+      </button>
+
+      {status === 'error' && <p className="negative">Aktion fehlgeschlagen. Bitte erneut versuchen.</p>}
+
+      {verteilung && (
+        <div style={{ marginTop: '1rem' }}>
+          <p className="eyebrow">Letzte Verteilung</p>
+          {verteilung.length === 0 ? (
+            <p className="muted">Kein Bedarf — alle Einrichtungen haben ihr Pro-Kind-Ziel erreicht.</p>
+          ) : (
+            <ul>
+              {verteilung.map((v) => (
+                <li key={v.slug}>{v.name}: {formatEuro(v.anteil)}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
