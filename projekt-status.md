@@ -21,7 +21,12 @@ Code-Stand wurde entfernt (`78b98d2`), die lokale Version in 21 Tasks
   bedürftigste Einrichtung bekommt nachweislich am meisten (End-to-End
   verifiziert). Das ist der Kernmechanismus aus dem Leitbild, nicht nur eine
   informative Rangliste.
-- **83 Tests, alle grün:** 21 Testdateien (Vitest), Service-Layer,
+- **Jahres-Simulation aktiv:** Button „Jahr simulieren (+6 %)" im
+  Fonds-Panel bucht einen kompletten Jahresabschluss — 6 % Netto-Wachstum auf
+  Fonds-Bestand und auf das Kapital jeder Einrichtung, danach automatische
+  Verteilung, protokolliert als `Jahresabschluss`-Datensatz. Kein
+  Spenden-Zufluss, reines Kapitalwachstum.
+- **94 Tests, alle grün:** 23 Testdateien (Vitest), Service-Layer,
   Berechnungslogik und API-Routes abgedeckt; `npm run build` läuft ohne
   TypeScript-/ESLint-Fehler durch.
 

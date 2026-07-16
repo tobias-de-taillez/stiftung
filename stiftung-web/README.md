@@ -32,7 +32,7 @@ Die Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`, via
 dass jede Test-Suite in ihrem `beforeEach` alle vier Tabellen leert
 (FK-sichere Reihenfolge) und `fileParallelism: false` die Testdateien
 sequenziell ausführt. Neue DB-Test-Suiten müssen dieses beforeEach-Muster
-übernehmen. Aktueller Stand: 21 Testdateien, 85 Tests, alle PASS.
+übernehmen. Aktueller Stand: 23 Testdateien, 94 Tests, alle PASS.
 
 ## Struktur
 
@@ -49,6 +49,25 @@ pro Einrichtung den Pro-Kind-Abstand zum Ziel (`bedarfProKind`) und teilt den
 Fonds-Bestand proportional dazu auf — Einrichtungen mit dem größten Rückstand
 bekommen am meisten. Besteht nirgends Bedarf, bleibt der Fonds bewusst
 unangetastet statt sinnlos verteilt zu werden.
+
+## Jahres-Simulation
+
+Auf der Solidaritätsfonds-Seite bucht der Button „Jahr simulieren (+6 %)"
+einen kompletten Jahresabschluss: Er schreibt 6 % Netto-Wachstum
+(`NET_GROWTH_RATE`) sowohl auf den Fonds-Bestand als auch auf das
+`aktuellesKapital` jeder einzelnen Einrichtung, verteilt den Fonds
+anschließend wie gewohnt bedarfsproportional und protokolliert das Ergebnis
+als `Jahresabschluss`-Zeile (fortlaufende `nummer`, `fondsErtrag`,
+`kapitalErtrag`, `verteiltGesamt`). Der Button ist bewusst nicht an
+`bestand > 0` gekoppelt — die Simulation ist auch bei leerem Fonds sinnvoll,
+weil das Einrichtungskapital unabhängig vom Fonds wächst. Wichtig: `fondsErtrag`
+und `kapitalErtrag` sind Kapitalwachstum, kein Spenden-Zufluss — dafür
+entstehen keine neuen `Spende`/`FondsSpende`-Datensätze, und sie verändern
+nicht die Spendenstatistik (`zuflussLetztesJahr`), nur die Kapitalstände. Der
+anschließende Verteilungsschritt bucht wie bei „Jetzt verteilen" weiterhin
+`Spende`-Zeilen mit `quelle: 'solidaritaet'` pro begünstigter Einrichtung —
+diese werden in der Statistik separat herausgefiltert, tauchen also ebenfalls
+nicht im Zufluss auf.
 
 ## Was hier bewusst fehlt (lokale Version)
 

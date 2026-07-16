@@ -10,6 +10,7 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
   const [betrag, setBetrag] = useState(50);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [verteilung, setVerteilung] = useState<{ slug: string; name: string; anteil: number }[] | null>(null);
+  const [jahresErgebnis, setJahresErgebnis] = useState<{ fondsErtrag: number; kapitalErtrag: number; verteiltGesamt: number } | null>(null);
 
   async function handleSpenden() {
     setStatus('loading');
@@ -36,6 +37,25 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
       const json = await res.json();
       setVerteilung(json.verteilung);
       setBestand((b) => Math.round((b - json.verteiltGesamt) * 100) / 100);
+      setStatus('idle');
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  async function handleSimulieren() {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/simulation/jahr', { method: 'POST' });
+      if (!res.ok) throw new Error('failed');
+      const json = await res.json();
+      setJahresErgebnis({
+        fondsErtrag: json.fondsErtrag,
+        kapitalErtrag: json.kapitalErtrag,
+        verteiltGesamt: json.verteiltGesamt,
+      });
+      setVerteilung(json.verteilung);
+      setBestand(json.neuerFondsBestand);
       setStatus('idle');
     } catch {
       setStatus('error');
@@ -75,7 +95,26 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
         Jetzt verteilen
       </button>
 
+      <button
+        type="button"
+        className="pill pill-secondary"
+        style={{ marginTop: '1rem', marginLeft: '0.75rem' }}
+        onClick={handleSimulieren}
+        disabled={status === 'loading'}
+      >
+        Jahr simulieren (+6 %)
+      </button>
+
       {status === 'error' && <p className="negative">Aktion fehlgeschlagen. Bitte erneut versuchen.</p>}
+
+      {jahresErgebnis && (
+        <div style={{ marginTop: '1rem' }}>
+          <p className="eyebrow">Jahresabschluss</p>
+          <p>Fonds-Ertrag: {formatEuro(jahresErgebnis.fondsErtrag)}</p>
+          <p>Kapital-Ertrag (alle Einrichtungen): {formatEuro(jahresErgebnis.kapitalErtrag)}</p>
+          <p>Verteilt: {formatEuro(jahresErgebnis.verteiltGesamt)}</p>
+        </div>
+      )}
 
       {verteilung && (
         <div style={{ marginTop: '1rem' }}>
