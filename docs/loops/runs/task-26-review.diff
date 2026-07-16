@@ -1,0 +1,475 @@
+# Review package: ed60a81..ac02f1e
+
+## Commits
+ac02f1e feat(conversion): Conversion-Pfad — Live-CTA, Nav-Active-State, Rechner-Presets
+
+## Files changed
+ stiftung-web/app/__tests__/page.test.tsx           | 45 ++++++++++++++++++----
+ stiftung-web/app/error.tsx                         |  7 ++++
+ stiftung-web/app/loading.tsx                       |  5 +++
+ stiftung-web/app/page.tsx                          | 30 +++++++++++++--
+ stiftung-web/app/statistik/page.tsx                | 32 ++++++++++++++-
+ stiftung-web/components/Nav.tsx                    |  9 +++--
+ stiftung-web/components/NavLink.tsx                | 19 +++++++++
+ stiftung-web/components/SpendenRechner.tsx         | 16 ++++++++
+ stiftung-web/components/__tests__/Nav.test.tsx     | 27 ++++++++++++-
+ .../components/__tests__/SpendenRechner.test.tsx   | 23 +++++++++++
+ 10 files changed, 195 insertions(+), 18 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/app/__tests__/page.test.tsx b/stiftung-web/app/__tests__/page.test.tsx
+index 6127038..987023d 100644
+--- a/stiftung-web/app/__tests__/page.test.tsx
++++ b/stiftung-web/app/__tests__/page.test.tsx
+@@ -1,22 +1,51 @@
+ import { render, screen } from '@testing-library/react';
+-import { describe, it, expect } from 'vitest';
++import { describe, it, expect, beforeEach } from 'vitest';
++import { prisma } from '@/lib/server/prismaClient';
+ import Page from '../page';
+ 
++beforeEach(async () => {
++  await prisma.fondsSpende.deleteMany();
++  await prisma.spende.deleteMany();
++  await prisma.einrichtung.deleteMany();
++  await prisma.solidaritaetsfonds.deleteMany();
++  await prisma.jahresabschluss.deleteMany();
++  // Zwei Einrichtungen mit eindeutig unterschiedlicher Förderung pro Kind,
++  // damit stats.bottom5[0] (größter Förderbedarf) deterministisch ist.
++  await prisma.einrichtung.create({
++    data: { slug: 'landing-test-gut-gefoerdert', name: 'Gut geförderte Kita', typ: 'kita', ort: 'Musterstadt', kinderAnzahl: 10, aktuellesKapital: 10000, zielKapital: 50000 },
++  });
++  await prisma.einrichtung.create({
++    data: { slug: 'landing-test-bedarf', name: 'Tagespflege mit Bedarf', typ: 'tagespflege', ort: 'Beispielstadt', kinderAnzahl: 10, aktuellesKapital: 100, zielKapital: 20000 },
++  });
++});
++
+ describe('Landing Page', () => {
+-  it('zeigt die Mission und einen Spenden-CTA', () => {
+-    render(<Page />);
++  it('zeigt die Mission, Live-Zahlen und einen primären "Jetzt spenden"-CTA zur Einrichtung mit dem größten Förderbedarf', async () => {
++    render(await Page());
+     expect(screen.getByText(/Bildung darf niemals vom Geldbeutel/i)).toBeInTheDocument();
+-    expect(screen.getByRole('link', { name: /Einrichtung finden/i })).toHaveAttribute('href', '/einrichtungen');
++
++    const liveZahlen = screen.getByText(/Einrichtungen/, { selector: 'p' });
++    expect(liveZahlen).toHaveTextContent('2 Einrichtungen');
++    expect(liveZahlen).toHaveTextContent('20 Kinder');
++    expect(liveZahlen).toHaveTextContent('10.100,00 €');
++
++    const cta = screen.getByRole('link', { name: /Jetzt spenden/i });
++    expect(cta).toHaveAttribute('href', '/einrichtungen/landing-test-bedarf');
++    expect(cta).toHaveClass('pill-primary');
+   });
+ 
+-  it('zeigt sekundäre CTAs zu Statistik und Solidaritätsfonds', () => {
+-    render(<Page />);
++  it('zeigt sekundäre CTAs zu Einrichtung finden, Statistik und Solidaritätsfonds', async () => {
++    render(await Page());
++    const einrichtungFinden = screen.getByRole('link', { name: /Einrichtung finden/i });
++    expect(einrichtungFinden).toHaveAttribute('href', '/einrichtungen');
++    expect(einrichtungFinden).toHaveClass('pill-secondary');
+     expect(screen.getByRole('link', { name: /Statistik ansehen/i })).toHaveAttribute('href', '/statistik');
+     expect(screen.getByRole('link', { name: /Solidaritätsfonds/i })).toHaveAttribute('href', '/solidaritaetsfonds');
+   });
+ 
+-  it('zeigt das Beispiel-Zielkapital von 2 Mio. € (20.000 € Ausschüttung / 1%)', () => {
+-    render(<Page />);
++  it('zeigt das Beispiel-Zielkapital von 2 Mio. € (20.000 € Ausschüttung / 1%) in der "Wie das Modell funktioniert"-Sektion', async () => {
++    render(await Page());
++    expect(screen.getByText(/Wie das Modell funktioniert/i)).toBeInTheDocument();
+     expect(screen.getByText(/2\.000\.000,00\s*€/)).toBeInTheDocument();
+   });
+ });
+diff --git a/stiftung-web/app/error.tsx b/stiftung-web/app/error.tsx
+new file mode 100644
+index 0000000..089c1c3
+--- /dev/null
++++ b/stiftung-web/app/error.tsx
+@@ -0,0 +1,7 @@
++'use client';
++
++import { ErrorState } from '@/components/ErrorState';
++
++export default function Error({ error, reset }: { error: Error; reset: () => void }) {
++  return <ErrorState error={error} reset={reset} label="Startseite konnte nicht geladen werden." />;
++}
+diff --git a/stiftung-web/app/loading.tsx b/stiftung-web/app/loading.tsx
+new file mode 100644
+index 0000000..198c4a1
+--- /dev/null
++++ b/stiftung-web/app/loading.tsx
+@@ -0,0 +1,5 @@
++import { LoadingState } from '@/components/LoadingState';
++
++export default function Loading() {
++  return <LoadingState label="Startseite wird geladen …" />;
++}
+diff --git a/stiftung-web/app/page.tsx b/stiftung-web/app/page.tsx
+index c0477b1..e708e84 100644
+--- a/stiftung-web/app/page.tsx
++++ b/stiftung-web/app/page.tsx
+@@ -1,40 +1,64 @@
+ import Link from 'next/link';
+ import { Card } from '@/components/Card';
+-import { capitalForAnnualPayout } from '@/lib/calc/spendenrechner';
++import { capitalForAnnualPayout, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+ import { formatEuro } from '@/lib/calc/format';
++import { statistik } from '@/lib/server/einrichtungenService';
+ 
+-export default function Page() {
++export const dynamic = 'force-dynamic';
++
++export default async function Page() {
+   const beispielZiel = capitalForAnnualPayout(20000);
++  const stats = await statistik();
++  const zielEinrichtung = stats.bottom5[0];
++  const zielHref = zielEinrichtung ? `/einrichtungen/${zielEinrichtung.slug}` : '/einrichtungen';
++  // Verdopplungszeit aus der bestehenden Konstante NET_GROWTH_RATE abgeleitet
++  // (keine zweite Marketing-Zahl): t = ln(2) / ln(1 + r).
++  const verdopplungsjahre = Math.round(Math.log(2) / Math.log(1 + NET_GROWTH_RATE));
+ 
+   return (
+     <div style={{ padding: '3rem 0', display: 'grid', gap: '2rem' }}>
+       <section>
+         <p className="eyebrow">Deutsche Bildungsstiftung</p>
+         <h1 className="hero-number" style={{ maxWidth: '18ch' }}>
+           Gemeinsam zur Bildungsrevolution
+         </h1>
+         <p style={{ maxWidth: '60ch', fontSize: '1.1rem' }}>
+           Bildung darf niemals vom Geldbeutel der Familie abhängen. Wir bauen
+           unabhängiges, dauerhaftes Bildungskapital auf, damit jede
+           Bildungs- und Betreuungseinrichtung in Deutschland ihre Kinder
+           fördern kann — unabhängig davon, wie reich ihr Umfeld ist.
+         </p>
++        <p className="muted">
++          {stats.anzahlEinrichtungen} Einrichtungen · {stats.gesamtKinder} Kinder ·{' '}
++          {formatEuro(stats.gesamtKapital)} Bildungskapital
++        </p>
+         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+-          <Link href="/einrichtungen" className="pill pill-primary">Einrichtung finden</Link>
++          <Link href={zielHref} className="pill pill-primary">Jetzt spenden</Link>
++          <Link href="/einrichtungen" className="pill pill-secondary">Einrichtung finden</Link>
+           <Link href="/statistik" className="pill pill-secondary">Statistik ansehen</Link>
+           <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
+         </div>
+       </section>
+ 
+       <Card>
+         <p className="eyebrow">So wirkt Ihre Spende</p>
++        <p style={{ maxWidth: '60ch' }}>
++          Schon 5 € wachsen für immer weiter: Bei einer Netto-Wachstumsrate
++          von {Math.round(NET_GROWTH_RATE * 100)} % pro Jahr verdoppelt sich
++          jede gespendete Summe rein rechnerisch alle rund {verdopplungsjahre}{' '}
++          Jahre — das Kapital wird nie ausgegeben, nur sein Ertrag.
++        </p>
++      </Card>
++
++      <Card>
++        <p className="eyebrow">Wie das Modell funktioniert</p>
+         <p style={{ maxWidth: '60ch' }}>
+           Für eine jährliche Ausschüttung von 20.000 € an eine Einrichtung
+           braucht der Finanztopf ein Kapital von{' '}
+           <strong>{formatEuro(beispielZiel)}</strong> — bei einer
+           Netto-Wachstumsrate von 6 % pro Jahr wächst jede Spende dauerhaft
+           weiter, ohne dass das Kapital verbraucht wird.
+         </p>
+       </Card>
+     </div>
+   );
+diff --git a/stiftung-web/app/statistik/page.tsx b/stiftung-web/app/statistik/page.tsx
+index 8670860..3eb04b6 100644
+--- a/stiftung-web/app/statistik/page.tsx
++++ b/stiftung-web/app/statistik/page.tsx
+@@ -1,15 +1,21 @@
++import Link from 'next/link';
+ import { Card } from '@/components/Card';
+ import { BarChart } from '@/components/BarChart';
+ import { formatEuro } from '@/lib/calc/format';
+ import { statistik } from '@/lib/server/einrichtungenService';
+ 
++function fortschrittProzent(aktuellesKapital: number, zielKapital: number): number {
++  if (zielKapital <= 0) return 0;
++  return Math.round(Math.min(100, Math.max(0, (aktuellesKapital / zielKapital) * 100)));
++}
++
+ export const dynamic = 'force-dynamic';
+ 
+ export default async function StatistikPage() {
+   const stats = await statistik();
+ 
+   return (
+     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
+       <div>
+         <h1>Statistik</h1>
+         <p className="muted">
+@@ -39,25 +45,47 @@ export default async function StatistikPage() {
+         <BarChart
+           data={stats.top5.map((e) => ({ label: e.name, value: Math.round(e.foerderungProKind) }))}
+           xAxisLabel="Einrichtung"
+           yAxisLabel="Förderung pro Kind (€)"
+         />
+       </Card>
+ 
+       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+         <Card>
+           <h2>Am besten gefördert</h2>
+-          <ol>{stats.top5.map((e) => (<li key={e.id}>{e.name} — {formatEuro(e.foerderungProKind)} pro Kind</li>))}</ol>
++          <ol style={{ display: 'grid', gap: '0.6rem', paddingLeft: '1.2rem' }}>
++            {stats.top5.map((e) => (
++              <li key={e.id}>
++                <Link href={`/einrichtungen/${e.slug}`} style={{ textDecoration: 'none' }}>
++                  <strong>{e.name}</strong>
++                  <span className="muted"> — {e.ort} · {e.typ} · {fortschrittProzent(e.aktuellesKapital, e.zielKapital)} %</span>
++                  <br />
++                  <span>{formatEuro(e.foerderungProKind)} pro Kind</span>
++                </Link>
++              </li>
++            ))}
++          </ol>
+         </Card>
+         <Card>
+           <h2>Größter Förderbedarf</h2>
+-          <ol>{stats.bottom5.map((e) => (<li key={e.id}>{e.name} — {formatEuro(e.foerderungProKind)} pro Kind</li>))}</ol>
++          <ol style={{ display: 'grid', gap: '0.6rem', paddingLeft: '1.2rem' }}>
++            {stats.bottom5.map((e) => (
++              <li key={e.id}>
++                <Link href={`/einrichtungen/${e.slug}`} style={{ textDecoration: 'none' }}>
++                  <strong>{e.name}</strong>
++                  <span className="muted"> — {e.ort} · {e.typ} · {fortschrittProzent(e.aktuellesKapital, e.zielKapital)} %</span>
++                  <br />
++                  <span>{formatEuro(e.foerderungProKind)} pro Kind</span>
++                </Link>
++              </li>
++            ))}
++          </ol>
+         </Card>
+       </div>
+ 
+       <Card>
+         <p className="eyebrow">Solidaritätsfonds</p>
+         <p>Nicht direkt zugeordnete Spenden werden nach Bedarf verteilt — wer pro Kind am wenigsten hat, bekommt am meisten.</p>
+         <a href="/solidaritaetsfonds" className="pill pill-secondary">Zum Solidaritätsfonds</a>
+       </Card>
+     </div>
+   );
+diff --git a/stiftung-web/components/Nav.tsx b/stiftung-web/components/Nav.tsx
+index 1d0f47d..9de08c6 100644
+--- a/stiftung-web/components/Nav.tsx
++++ b/stiftung-web/components/Nav.tsx
+@@ -1,11 +1,12 @@
+ import Link from 'next/link';
++import { NavLink } from './NavLink';
+ 
+ export function Nav() {
+   return (
+     <header
+       style={{
+         position: 'sticky',
+         top: 0,
+         zIndex: 10,
+         backdropFilter: 'blur(12px)',
+         background: 'var(--nav-bg)',
+@@ -13,19 +14,19 @@ export function Nav() {
+       }}
+     >
+       <nav
+         className="container"
+         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}
+       >
+         <Link href="/" className="eyebrow" style={{ color: 'var(--cream)' }}>
+           Deutsche Bildungsstiftung
+         </Link>
+         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+-          <Link href="/" className="pill pill-secondary">Startseite</Link>
+-          <Link href="/einrichtungen" className="pill pill-secondary">Einrichtungen</Link>
+-          <Link href="/statistik" className="pill pill-secondary">Statistik</Link>
+-          <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
++          <NavLink href="/">Startseite</NavLink>
++          <NavLink href="/einrichtungen">Einrichtungen</NavLink>
++          <NavLink href="/statistik">Statistik</NavLink>
++          <NavLink href="/solidaritaetsfonds">Solidaritätsfonds</NavLink>
+         </div>
+       </nav>
+     </header>
+   );
+ }
+diff --git a/stiftung-web/components/NavLink.tsx b/stiftung-web/components/NavLink.tsx
+new file mode 100644
+index 0000000..a361a1b
+--- /dev/null
++++ b/stiftung-web/components/NavLink.tsx
+@@ -0,0 +1,19 @@
++'use client';
++
++import Link from 'next/link';
++import { usePathname } from 'next/navigation';
++
++export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
++  const pathname = usePathname();
++  const isActive = href === '/' ? pathname === '/' : !!pathname?.startsWith(href);
++
++  return (
++    <Link
++      href={href}
++      className={`pill ${isActive ? 'pill-primary' : 'pill-secondary'}`}
++      aria-current={isActive ? 'page' : undefined}
++    >
++      {children}
++    </Link>
++  );
++}
+diff --git a/stiftung-web/components/SpendenRechner.tsx b/stiftung-web/components/SpendenRechner.tsx
+index 7abd90f..6a39ef8 100644
+--- a/stiftung-web/components/SpendenRechner.tsx
++++ b/stiftung-web/components/SpendenRechner.tsx
+@@ -8,20 +8,22 @@ import { StatusChip } from './StatusChip';
+ import { SpendenBestaetigung } from './SpendenBestaetigung';
+ 
+ interface EinrichtungFuerRechner {
+   slug: string;
+   name: string;
+   kinderAnzahl: number;
+   aktuellesKapital: number;
+   zielKapital: number;
+ }
+ 
++const BETRAG_PRESETS = [25, 50, 100, 250];
++
+ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRechner }) {
+   const [betrag, setBetrag] = useState(50);
+   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
+   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+   const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
+   const [spendeId, setSpendeId] = useState<string | null>(null);
+ 
+   async function handleSpenden() {
+     setStatus('loading');
+     try {
+@@ -45,20 +47,34 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+     targetCapital: einrichtung.zielKapital,
+     donation: betrag,
+     frequency: frequenz,
+   });
+ 
+   const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
+   const level = currentLevel(annualDonationPerChild);
+ 
+   return (
+     <div style={{ display: 'grid', gap: '1rem' }}>
++      <div role="group" aria-label="Betrag-Vorschläge" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
++        {BETRAG_PRESETS.map((preset) => (
++          <button
++            key={preset}
++            type="button"
++            className={`pill ${betrag === preset ? 'pill-primary' : 'pill-secondary'}`}
++            aria-pressed={betrag === preset}
++            onClick={() => setBetrag(preset)}
++          >
++            {preset} €
++          </button>
++        ))}
++      </div>
++
+       <label>
+         <span className="eyebrow" style={{ display: 'block' }}>Spendenbetrag</span>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+           <input
+             aria-label="Spendenbetrag (Regler)"
+             type="range"
+             min={5}
+             max={2000}
+             step={5}
+             value={betrag}
+diff --git a/stiftung-web/components/__tests__/Nav.test.tsx b/stiftung-web/components/__tests__/Nav.test.tsx
+index d8aa0c2..8ec8d14 100644
+--- a/stiftung-web/components/__tests__/Nav.test.tsx
++++ b/stiftung-web/components/__tests__/Nav.test.tsx
+@@ -1,13 +1,38 @@
+ import { render, screen } from '@testing-library/react';
+-import { describe, it, expect } from 'vitest';
++import { describe, it, expect, vi } from 'vitest';
++import { usePathname } from 'next/navigation';
+ import { Nav } from '../Nav';
+ 
++vi.mock('next/navigation', () => ({
++  usePathname: vi.fn(() => '/'),
++}));
++
+ describe('Nav', () => {
+   it('zeigt Links zu Startseite, Einrichtungen, Statistik und Solidaritätsfonds', () => {
+     render(<Nav />);
+     expect(screen.getByRole('link', { name: /Startseite/i })).toHaveAttribute('href', '/');
+     expect(screen.getByRole('link', { name: /Einrichtungen/i })).toHaveAttribute('href', '/einrichtungen');
+     expect(screen.getByRole('link', { name: /Statistik/i })).toHaveAttribute('href', '/statistik');
+     expect(screen.getByRole('link', { name: /Solidaritätsfonds/i })).toHaveAttribute('href', '/solidaritaetsfonds');
+   });
++
++  it('markiert die aktive Route mit gefüllter Pille und aria-current="page"', () => {
++    vi.mocked(usePathname).mockReturnValue('/einrichtungen');
++    render(<Nav />);
++    const aktiv = screen.getByRole('link', { name: /^Einrichtungen$/i });
++    expect(aktiv).toHaveClass('pill-primary');
++    expect(aktiv).toHaveAttribute('aria-current', 'page');
++
++    const inaktiv = screen.getByRole('link', { name: /Statistik/i });
++    expect(inaktiv).toHaveClass('pill-secondary');
++    expect(inaktiv).not.toHaveAttribute('aria-current');
++  });
++
++  it('markiert die Startseite nur bei exaktem Pfad "/" als aktiv (kein Präfix-Treffer)', () => {
++    vi.mocked(usePathname).mockReturnValue('/einrichtungen');
++    render(<Nav />);
++    const start = screen.getByRole('link', { name: /Startseite/i });
++    expect(start).toHaveClass('pill-secondary');
++    expect(start).not.toHaveAttribute('aria-current');
++  });
+ });
+diff --git a/stiftung-web/components/__tests__/SpendenRechner.test.tsx b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+index 41a4ec7..2b9ced1 100644
+--- a/stiftung-web/components/__tests__/SpendenRechner.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+@@ -36,20 +36,43 @@ describe('SpendenRechner', () => {
+   });
+ 
+   it('wechselt zwischen einmalig und jährlich', async () => {
+     const user = userEvent.setup();
+     render(<SpendenRechner einrichtung={einrichtung} />);
+     const jaehrlichButton = screen.getByRole('button', { name: 'Jährlich' });
+     await user.click(jaehrlichButton);
+     expect(jaehrlichButton).toHaveAttribute('aria-pressed', 'true');
+   });
+ 
++  it('zeigt Preset-Buttons 25/50/100/250 € über dem Regler, mit aria-pressed auf dem aktiven Preset (Default 50 €)', () => {
++    render(<SpendenRechner einrichtung={einrichtung} />);
++    const preset25 = screen.getByRole('button', { name: '25 €' });
++    const preset50 = screen.getByRole('button', { name: '50 €' });
++    const preset100 = screen.getByRole('button', { name: '100 €' });
++    const preset250 = screen.getByRole('button', { name: '250 €' });
++
++    expect(preset50).toHaveAttribute('aria-pressed', 'true');
++    expect(preset25).toHaveAttribute('aria-pressed', 'false');
++    expect(preset100).toHaveAttribute('aria-pressed', 'false');
++    expect(preset250).toHaveAttribute('aria-pressed', 'false');
++  });
++
++  it('setzt den Spendenbetrag beim Klick auf einen Preset-Button', async () => {
++    const user = userEvent.setup();
++    render(<SpendenRechner einrichtung={einrichtung} />);
++    await user.click(screen.getByRole('button', { name: '250 €' }));
++
++    expect(screen.getByRole('button', { name: '250 €' })).toHaveAttribute('aria-pressed', 'true');
++    expect(screen.getByRole('button', { name: '50 €' })).toHaveAttribute('aria-pressed', 'false');
++    expect(screen.getByLabelText('Spendenbetrag')).toHaveValue(250);
++  });
++
+   it('sendet POST an den Spenden-Endpoint und zeigt die Bestätigung mit neuem Kapitalstand', async () => {
+     const fetchMock = vi.fn().mockResolvedValue({
+       ok: true,
+       json: async () => ({
+         einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+         spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
+       }),
+     });
+     vi.stubGlobal('fetch', fetchMock);
+ 
