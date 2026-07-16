@@ -3554,3 +3554,147 @@ Commit: `feat: API-Route für Jahres-Simulation`
 - README: Abschnitt "Jahres-Simulation" (was passiert, Semantik der 6 %); projekt-status.md Feature-Zeile.
 
 Commit: `feat: Jahres-Simulation im Fonds-Panel (+6 % buchen und verteilen)`
+
+---
+
+# Erweiterung 2 (2026-07-16): Begeisterungs-Pakete aus der Gap-Analyse
+
+**Quelle:** Gap-Analyse (4 unabhängige Perspektiven: Vision-Treue, Emotion/Conversion, Visuelles Design, Gamification — 32 Findings, alle mit Code-Evidenz). Kernbefund: korrektes Finanz-Backend mit Broschüren-UI. Die Daten für Begeisterung liegen in der DB, werden aber nie inszeniert; null Animationen, demotivierendes Rechner-Framing, Gamification falsch verdrahtet.
+
+**Zusätzliche Global Constraints für Tasks 25–36:**
+
+- Keine neuen Runtime-Dependencies: Animationen/Konfetti/Count-ups als eigene CSS/SVG/React-Primitives (kein framer-motion, kein canvas-confetti).
+- Jede Animation respektiert `prefers-reduced-motion` (globaler Override existiert in `globals.css` — neue Animationen müssen darunter sauber degradieren: Endzustand sofort, keine Bewegung).
+- Alle bestehenden 95 Tests bleiben grün; jede neue Logik (Hooks, Berechnungen, Schwellen-Erkennung) bekommt Tests; reine CSS-/Copy-Änderungen brauchen keine.
+- Token-Disziplin unverändert (nur `var(--token)`).
+- Mechanischer Gesamt-Check pro Task: `npm run test` UND `npm run build` grün, `npx tsc --noEmit` leer.
+- Rechen-Wahrheit: alle neuen Wirkungs-Aussagen ("erwirtschaftet X €/Jahr", "verkürzt um Y Monate") nutzen die bestehenden Konstanten `NET_GROWTH_RATE`/`ANNUAL_PAYOUT_RATE` aus `lib/calc/spendenrechner.ts` — keine zweiten Konstanten, keine Marketing-Zahlen ohne Formel.
+
+---
+
+## Paket 1 „Puls" — Quick-Wins: die Seite reagiert (Tasks 25–28)
+
+### Task 25: Motion-Fundament
+
+**Files:** Modify: `stiftung-web/app/globals.css`, `components/ProgressBar.tsx`; Create: `stiftung-web/lib/hooks/useCountUp.ts` + Test.
+
+**Akzeptanzkriterien:**
+- `.pill` und klickbare `.card`s haben transition + sichtbaren Hover-Zustand (Card: Lift `translateY(-2px)` + Shadow-Verstärkung; Pill: Helligkeits-Shift). Nav-Links eingeschlossen.
+- `ProgressBar` füllt beim ersten Rendern animiert von 0 auf Zielbreite (CSS-Transition, ~800ms ease-out) und zeigt zusätzlich die Prozentzahl als Text (z. B. „4 %"); bei ≥100 % wechselt der Balken auf `var(--turquoise)` und das Label ergänzt „Ziel erreicht". aria-Attribute unverändert korrekt.
+- `useCountUp(target, durationMs)`-Hook (requestAnimationFrame, ease-out, respektiert reduced-motion → sofort Endwert). Unit-Test: liefert am Ende exakt target; mit reduced-motion sofort.
+- Evidenz-Gaps: globals.css ohne jede Transition (grep 0 Treffer außer reduced-motion-Block); ProgressBar.tsx:12 width ohne Transition; DESIGN.md-Regel „Status nie nur über Farbe — immer Zahl daneben" (Prozent fehlt bisher).
+
+### Task 26: Conversion-Pfad
+
+**Files:** Modify: `stiftung-web/app/page.tsx`, `components/Nav.tsx`, `components/SpendenRechner.tsx`, `app/statistik/page.tsx`; ggf. Create: `components/NavLink.tsx`.
+
+**Akzeptanzkriterien:**
+- Landing-Hero: primärer CTA „Jetzt spenden" (führt zur Einrichtung mit größtem Pro-Kind-Förderbedarf — Server-seitig via bestehendem `statistik().bottom5[0]` ermittelt); „Einrichtung finden" wird sekundär. Landing zeigt Live-Zahlen aus `statistik()` („X Einrichtungen · Y Kinder · Z € Bildungskapital") statt nur des statischen Rechenbeispiels.
+- Der 2.000.000-€-Anker wandert aus der Hero-Wirkungs-Karte in eine untergeordnete „Wie das Modell funktioniert"-Sektion; die Wirkungs-Karte führt stattdessen mit Kleinspender-Perspektive („Schon 5 € wachsen für immer…" mit ehrlicher Formel-Basis).
+- Spendenrechner: Preset-Buttons 25 / 50 / 100 / 250 € über dem Slider (Klick setzt Betrag, aria-pressed auf aktivem Preset).
+- Nav markiert die aktive Route (usePathname, gefüllte Pille + `aria-current="page"` — DESIGN.md-Regel).
+- Statistik-Ranking: jeder Eintrag in „Am besten gefördert"/„Größter Förderbedarf" ist Link zur Detailseite und zeigt Ort · Typ · Fortschritt in % zusätzlich zum Pro-Kind-Wert.
+- Tests: Nav-Active-State (RTL, gemockter pathname), Presets setzen Betrag, Landing-Test auf neuen CTA angepasst.
+
+### Task 27: Feier-Moment nach der Spende
+
+**Files:** Modify: `stiftung-web/components/SpendenBestaetigung.tsx`, `components/SpendenRechner.tsx`; Create: `components/Konfetti.tsx` (reines CSS/SVG-Partikel-Burst, einmalig, reduced-motion-safe).
+
+**Akzeptanzkriterien:**
+- Reihenfolge der Bestätigung: (1) Konfetti-Burst + „Danke für Ihre Spende!" prominent, (2) animierter Vorher→Nachher-Fortschrittsbalken (alter Stand als blasser Geisterbalken, neuer Stand füllt animiert nach; Prozentzuwachs als Text), (3) neuer Kapitalstand mit Count-up (`useCountUp` aus Task 25), (4) Share/Quittung, (5) Spielgeld-Hinweis als LETZTES Element (dezenter `muted`-Text statt auffälligem Chip — ehrlich, aber kein Dämpfer vor dem Danke).
+- Der SpendenRechner übergibt der Bestätigung `altesKapital` zusätzlich (hat er bereits im Prop `einrichtung`).
+- Tests: Bestätigung rendert Geisterbalken-Werte korrekt (alt/neu), Spielgeld-Hinweis existiert weiterhin (Regressionsschutz Ehrlichkeits-Constraint), bestehende Tests angepasst.
+
+### Task 28: Impact-Beispiele + Share-Text mit Wirkung
+
+**Files:** Create: `stiftung-web/lib/data/impactBeispiele.ts` + Test; Modify: `components/SpendenRechner.tsx`, `components/SpendenBestaetigung.tsx`, `app/einrichtungen/[slug]/page.tsx`.
+
+**Akzeptanzkriterien:**
+- `impactBeispiel(typ, jahresAusschuettung)`: mappt Einrichtungstyp + jährlichen Ausschüttungsbetrag auf konkrete Beispiele (tagespflege: Spielzeug/Bastelmaterial/Ausflug; kita: Bücherkiste/Musikinstrumente; schule: Klassensatz Schulmaterial/Experimentierkasten — gestaffelt nach Betrag, mind. 3 Stufen je Typ). Pure Funktion + Tests.
+- Rechner zeigt unter dem Ergebnis: „Deine Spende erwirtschaftet dauerhaft ~X €/Jahr — das ist z. B. [Beispiel], jedes Jahr aufs Neue." (X = betrag × ANNUAL_PAYOUT_RATE bei einmalig; ehrliche Formel-Fußnote).
+- Share-Text erzählt Wirkung statt Transaktion: enthält Delta („verkürzt den Weg zum Ziel um …") oder Impact-Beispiel — Daten aus vorhandener Rechner-Mathematik.
+- Brainstorming-Evidenz: Abs. 5 („Solche Beispiele … motivieren ihn, den Spendenknopf zu drücken"), Abs. 7 (Erfolg teilen).
+
+---
+
+## Paket 2 „Story" — der Rechner erzählt die richtige Geschichte (Tasks 29–31)
+
+### Task 29: Rechner-Reframing (Zukunftswert-Story)
+
+**Files:** Modify: `stiftung-web/lib/calc/spendenrechner.ts` (+ Tests), `components/SpendenRechner.tsx`.
+
+**Akzeptanzkriterien:**
+- Neue pure Funktionen (mit Tests): `zukunftswert(betrag, jahre)` (FV zum Zielzeitpunkt der Einrichtung), `verkuerzungMonate(einrichtung, betrag, frequenz)` (Delta Jahre-bis-Ziel ohne/mit Spende, in Monaten), `dauerhafteJahresfoerderung(betrag)` (= betrag × ANNUAL_PAYOUT_RATE... KORREKTUR: Ausschüttung entsteht aus dem ANGEWACHSENEN Kapital — Formel: FV(betrag) × ANNUAL_PAYOUT_RATE zum Zielzeitpunkt; einfache Variante betrag × 0.01 nur als „ab sofort"-Untergrenze ausweisen).
+- Hero-Anzeige des Rechners wird die WIRKUNG, nicht die Wartezeit: primär „Deine 50 € sind bei Zielerreichung auf ~X € angewachsen" + Anteil am Ziel visualisiert (Mini-Balken: mein Beitrag vs. Ziel — die Brainstorming-Kernvisualisierung 50 €→40.000 € im Verhältnis zu 2 Mio); sekundär „…und verkürzen den Weg um Y Monate"; die Jahre-bis-Ziel-Zahl bleibt als tertiäre Info. „nicht erreichbar" (Infinity) erscheint nie als Hauptbotschaft — stattdessen wird bei unerreichbarem Ziel die Dauerförderungs-Perspektive gezeigt.
+- Alle Formeln aus bestehenden Konstanten; Property-Test: verkuerzungMonate ≥ 0 und monoton in betrag.
+
+### Task 30: Level-System-Reparatur (zurück zur Original-Vision)
+
+**Files:** Modify: `stiftung-web/lib/data/levels.ts` (+ Tests), `components/ProgressBar.tsx` oder Create: `components/LevelLeiter.tsx`, Modify: `app/einrichtungen/[slug]/page.tsx`, `components/SpendenRechner.tsx`.
+
+**Akzeptanzkriterien:**
+- **Einrichtungs-Level (Brainstorming-Vision):** Bronze→Diamant als Zwischenziele des FINANZTOPFS — definiert als Anteile des Zielkapitals (z. B. Bronze 10 %, Silber 25 %, Gold 50 %, Platin 75 %, Diamant 100 %). Sichtbar als Marker auf dem Fortschrittsbalken der Detailseite + „Nächstes Ziel: Silber — noch X €"-Zeile. Pure Funktion `einrichtungsLevel(aktuell, ziel)` + Tests.
+- **Spender-Badge repariert:** absolute, erreichbare Schwellen unabhängig von Kinderzahl (25/100/250/1.000/2.500 €), gilt auch für Einmalspenden. `currentLevel`-Signatur entsprechend umgestellt, Tests angepasst. Chip zeigt zusätzlich „noch X € bis [nächstes Level]".
+- Evidenz: Brainstorming Abs. 4 (Level = Ausschüttungs-Stufen der Einrichtung), Gap „Bronze bei 60-Kinder-Kita = 3.000 €/Jahr, Slider-Max 2.000".
+
+### Task 31: Meilenstein-Erkennung + Feier
+
+**Files:** Modify: `stiftung-web/lib/server/einrichtungenService.ts` (+ Tests), `app/api/einrichtungen/[slug]/spenden/route.ts`, `components/SpendenBestaetigung.tsx`.
+
+**Akzeptanzkriterien:**
+- `spenden()` erkennt überschrittene Einrichtungs-Level (aus Task 30) und Prozent-Meilensteine (25/50/75/100) und liefert sie im Ergebnis (`erreichteMeilensteine: string[]`). DB-Integrationstest: Spende über Schwelle → Meilenstein im Response; Spende ohne Schwelle → leer.
+- Bestätigung feiert Meilensteine prominent („🎉 Silber erreicht!" — Banner über dem Danke, mit Konfetti-Wiederverwendung aus Task 27).
+- Simulation (`simuliereJahr`) liefert Meilensteine pro Einrichtung ebenfalls (gleiche Erkennungs-Helper-Funktion, kein Duplikat).
+
+---
+
+## Paket 3 „Leben" — tote Daten inszenieren (Tasks 32–36)
+
+### Task 32: Simulations-Zeitraffer
+
+**Files:** Modify: `stiftung-web/components/SolidaritaetsfondsPanel.tsx` (+ Tests); ggf. Create: `components/ZeitrafferErgebnis.tsx`.
+
+**Akzeptanzkriterien:**
+- Nach „Jahr simulieren" läuft eine inszenierte Sequenz statt drei Textzeilen: (1) „Kapital wächst +6 %…" mit Count-up des Kapital-Ertrags, (2) „Fonds verteilt an die Bedürftigsten…" — Verteilungsliste baut sich gestaffelt auf (Einträge erscheinen nacheinander, Beträge zählen hoch, größter Empfänger hervorgehoben), (3) Abschluss-Summe. Gesamtdauer ≤ 4 s, reduced-motion → alles sofort.
+- Reine Client-Inszenierung der vorhandenen API-Antwort (fondsErtrag, kapitalErtrag, verteilung[]) — kein API-Umbau.
+- Tests: Endzustand nach Sequenz zeigt alle Werte (fake timers oder reduced-motion-Pfad).
+
+### Task 33: Live-Ticker + Spenderzähler
+
+**Files:** Create: `stiftung-web/app/api/spenden/letzte/route.ts` (+ Test), `components/SpendenTicker.tsx` (+ Test); Modify: `app/page.tsx`, `app/statistik/page.tsx`, `lib/server/einrichtungenService.ts` (+ Test).
+
+**Akzeptanzkriterien:**
+- `GET /api/spenden/letzte` → letzte 10 Spenden anonymisiert (`{ betrag, einrichtungName, quelle, vorMinuten }`) — quelle 'solidaritaet' wird als „Solidaritätsfonds-Verteilung" gelabelt, KEINE personenbezogenen Daten (existieren eh nicht).
+- Ticker-Komponente („Vor 2 Min: 50 € für Kita Regenbogen") auf Landing + Statistik, Polling alle 15 s, Empty-State („Sei die erste Spende!"), neue Einträge gleiten animiert herein.
+- Spenderzähler in der Landing-Live-Zeile („N Spenden bisher" aus count).
+- DB-Test für die Route (5-Tabellen-Reset-Regel gilt).
+
+### Task 34: Transparenz auf Detailseite + Jahresabschluss-Historie
+
+**Files:** Modify: `stiftung-web/app/einrichtungen/[slug]/page.tsx`, `lib/server/einrichtungenService.ts` (+ Tests), `app/statistik/page.tsx`, `lib/server/simulationService.ts` (Read-Helper).
+
+**Akzeptanzkriterien:**
+- Detailseite zeigt: Förderung pro Kind, Spendenhistorie (letzte 10: Datum, Betrag, Quelle — Solidaritäts-Zuflüsse explizit gelabelt „aus dem Solidaritätsfonds" mit turquoise-Akzent: der Leitbild-Kernmechanismus wird sichtbar), Anzahl Unterstützungen gesamt.
+- Statistik-Seite: Jahresabschluss-Historie als Tabelle (Nr., Fonds-Ertrag, Kapital-Ertrag, Verteilt, Datum) aus der bereits persistierten `Jahresabschluss`-Tabelle; der Kennzahlen-Block „Simulierter Jahresertrag" verweist auf echte Abschlüsse, wenn vorhanden.
+- DB-Tests für neue Service-Reads.
+
+### Task 35: Landing-Belebung (Desktop-Layout)
+
+**Files:** Modify: `stiftung-web/app/page.tsx`, ggf. `app/globals.css`.
+
+**Akzeptanzkriterien:**
+- Hero zweispaltig ab 800px: links Text/CTAs, rechts Visual-Slot — initial gefüllt mit einer großen animierten Kennzahl-Komposition (Gesamtkapital mit Count-up, wachsender Mini-Balkenwald der 8 Einrichtungen aus echten Daten) — bis Task 36 ggf. eine Illustration liefert. Unter 800px einspaltig (bestehende Responsive-Regel).
+- Ticker (Task 33) und Live-Zahlen (Task 26) harmonisch integriert; keine leere dunkle Fläche rechts mehr bei 1080px-Container.
+
+### Task 36 (OPTIONAL — nur nach explizitem User-Go): Eigene Bildwelt „Wachstum"
+
+**Files:** Create: `stiftung-web/components/WachstumsIllustration.tsx` + Einbindung Landing/Detailseite/Karten.
+
+**Akzeptanzkriterien:**
+- Bedeutungstragende SVG-Illustration in Hausstil-Manier (DESIGN.md §3-Prinzip, eigene Metapher statt Weltraum): Pflanze/Baum, deren Wuchsstufe (Samen → Keimling → Bäumchen → Baum → Baum mit Früchten) den Finanztopf-Füllstand (die 5 Einrichtungs-Level aus Task 30) codiert. Nur eigene CSS/SVG-Primitives, Token-Farben, sanfte Wind-Animation (reduced-motion-safe), `aria-hidden` + textliche Zustandsangabe daneben (Status nie nur visuell).
+- Erscheint auf Detailseite (groß, neben Finanztopf), Einrichtungs-Karten (klein) und Landing-Hero-Slot.
+- L-Aufwand — eigenes Design-Review-Gate vor Merge.
+
+---
+
+**Ausführungs-Reihenfolge:** Paket 1 (25–28) → Paket 2 (29–31) → Paket 3 (32–35), Task 36 nur nach explizitem Go. Jeder Task einzeln review-gated wie Tasks 1–24. Mechanischer Check pro Task: `cd stiftung-web && npm run test && npm run build && npx tsc --noEmit`.
