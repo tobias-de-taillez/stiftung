@@ -77,7 +77,7 @@ describe('SpendenBestaetigung', () => {
     expect(screen.getByText(/Demo-Dokument/i)).toBeInTheDocument();
   });
 
-  it('rendert den Geisterbalken mit korrekten Alt-/Neu-Werten und zeigt den Prozentzuwachs als Text', () => {
+  it('rendert den Geisterbalken mit korrekten Alt-/Neu-Werten und zeigt den Ziel-Fortschritt als Text', () => {
     const { container } = render(<SpendenBestaetigung {...props} />);
     const ghost = container.querySelector('.vorher-nachher-ghost') as HTMLElement;
     const fill = container.querySelector('.vorher-nachher-fill') as HTMLElement;
@@ -89,8 +89,17 @@ describe('SpendenBestaetigung', () => {
     expect(fill.style.width).toBe('12.2%');
 
     expect(screen.getByText(/3\.000,00 € → 3\.050,00 €/)).toBeInTheDocument();
-    // (3050 - 3000) / 3000 * 100 = 1,666...% → gerundet "1,7 %"
-    expect(screen.getByText(/\+1,7 %/)).toBeInTheDocument();
+    // Ziel-anchorierter Text statt relativem Wachstum: 12,0 % → 12,2 % des Ziels
+    expect(screen.getByText('Von 12,0 % auf 12,2 % des Ziels')).toBeInTheDocument();
+  });
+
+  it('zeigt bei großen Einrichtungen den echten Ziel-Fortschritt statt einer irreführenden Relativ-Prozentzahl (Regressionsschutz)', () => {
+    // Vorher-Bug: (neu-alt)/alt*100 rundet bei großen Kapitalständen auf
+    // "+0,0 %" und widerspricht damit dem sichtbar wachsenden Balken. Der
+    // Ziel-Fortschritt bleibt dagegen immer konsistent mit dem Balken.
+    render(<SpendenBestaetigung {...props} altesKapital={800} neuesKapital={850} zielKapital={20000} />);
+    expect(screen.getByText('Von 4,0 % auf 4,3 % des Ziels')).toBeInTheDocument();
+    expect(screen.queryByText(/^\+0,0 %$/)).not.toBeInTheDocument();
   });
 
   it('zeigt den Spielgeld-Hinweis als letztes Element, als dezenten Text statt als Chip', () => {

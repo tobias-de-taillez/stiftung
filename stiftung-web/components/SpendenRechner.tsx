@@ -21,6 +21,14 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
   const [betrag, setBetrag] = useState(50);
   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  // kapitalStand ist der jeweils aktuelle Live-Stand (startet beim Seitenlade-
+  // Snapshot, wandert nach jeder erfolgreichen Spende weiter). altesKapital
+  // hält den Vorher-Stand der zuletzt gebuchten Spende separat fest, damit er
+  // nicht durch das Update von kapitalStand überschrieben wird, bevor die
+  // Bestätigung ihn anzeigt — sonst zeigt eine zweite Spende wieder den
+  // Seitenlade-Stand statt des tatsächlichen Vorher-Werts.
+  const [kapitalStand, setKapitalStand] = useState(einrichtung.aktuellesKapital);
+  const [altesKapital, setAltesKapital] = useState(einrichtung.aktuellesKapital);
   const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
   const [spendeId, setSpendeId] = useState<string | null>(null);
 
@@ -34,7 +42,9 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
       });
       if (!res.ok) throw new Error('request_failed');
       const { einrichtung: updated, spende } = await res.json();
+      setAltesKapital(kapitalStand);
       setNeuesKapital(updated.aktuellesKapital);
+      setKapitalStand(updated.aktuellesKapital);
       setSpendeId(spende.id);
       setStatus('done');
     } catch {
@@ -43,7 +53,7 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
   }
 
   const jahre = computeYearsToGoal({
-    startCapital: einrichtung.aktuellesKapital,
+    startCapital: kapitalStand,
     targetCapital: einrichtung.zielKapital,
     donation: betrag,
     frequency: frequenz,
@@ -126,7 +136,7 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
           betrag={betrag}
           frequenz={frequenz}
           einrichtungName={einrichtung.name}
-          altesKapital={einrichtung.aktuellesKapital}
+          altesKapital={altesKapital}
           neuesKapital={neuesKapital}
           zielKapital={einrichtung.zielKapital}
           spendeId={spendeId}

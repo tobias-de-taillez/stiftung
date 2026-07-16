@@ -43,8 +43,11 @@ export function SpendenBestaetigung({
   const altPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (altesKapital / zielKapital) * 100))) : 0;
   const neuPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (neuesKapital / zielKapital) * 100))) : 0;
   const istZielErreicht = neuPct >= 100;
-  const prozentZuwachs = altesKapital > 0 ? ((neuesKapital - altesKapital) / altesKapital) * 100 : 0;
-  const prozentZuwachsText = `+${prozentZuwachs.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
+  const formatProzent = (wert: number) => wert.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  // Ziel-anchored statt relatives Wachstum: (neu-alt)/alt zeigt bei großen
+  // Einrichtungen "+0,0 %" und widerspricht damit dem sichtbar wachsenden
+  // Balken darunter. altPct/neuPct sind bereits für den Balken berechnet.
+  const zielFortschrittText = `Von ${formatProzent(altPct)} % auf ${formatProzent(neuPct)} % des Ziels`;
 
   return (
     <Card>
@@ -55,7 +58,7 @@ export function SpendenBestaetigung({
         <p>{formatEuro(betrag)} {frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'} für {einrichtungName}.</p>
       </div>
 
-      {/* (2) Vorher→Nachher-Balken (Geisterbalken = alter Stand) + Prozentzuwachs */}
+      {/* (2) Vorher→Nachher-Balken (Geisterbalken = alter Stand) + Ziel-Fortschritt */}
       <div data-testid="vorher-nachher" style={{ marginTop: '1.25rem' }}>
         <p className="eyebrow" style={{ marginBottom: '0.4rem' }}>Kapitalstand-Zuwachs</p>
         <div
@@ -77,7 +80,7 @@ export function SpendenBestaetigung({
             {formatEuro(altesKapital)} → {formatEuro(neuesKapital)}
           </p>
           <p className="muted" style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-            {prozentZuwachsText}
+            {zielFortschrittText}
           </p>
         </div>
       </div>

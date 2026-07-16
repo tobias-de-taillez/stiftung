@@ -111,6 +111,43 @@ describe('SpendenRechner', () => {
     expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
   });
 
+  it('verwendet bei einer zweiten Spende den tatsächlichen Kapitalstand als Vorher-Wert statt des Seitenlade-Snapshots (Regressionsschutz)', async () => {
+    // Vorher-Bug: altesKapital wurde immer aus einrichtung.aktuellesKapital
+    // (Seitenlade-Snapshot) gelesen, sodass eine zweite Spende wieder den
+    // ursprünglichen Stand als "Vorher" zeigte statt des Stands nach der
+    // ersten Spende.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+          spende: { id: 'spende-1', betrag: 50, frequenz: 'einmalig' },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          einrichtung: { ...einrichtung, aktuellesKapital: 3150 },
+          spende: { id: 'spende-2', betrag: 100, frequenz: 'einmalig' },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+    expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+    // Nachher-Wert der zweiten Spende:
+    expect(await screen.findByText(/^3\.150,00 €$/)).toBeInTheDocument();
+    // Vorher-Wert der zweiten Spende muss der Nachher-Wert der ersten sein
+    // (3.050,00 €), nicht der Seitenlade-Stand (3.000,00 €).
+    expect(screen.getByText(/3\.050,00 € → 3\.150,00 €/)).toBeInTheDocument();
+  });
+
   it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
     const user = userEvent.setup();
