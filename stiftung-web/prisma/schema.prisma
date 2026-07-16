@@ -1,0 +1,42 @@
+// stiftung-web/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Einrichtung {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  typ              String
+  ort              String
+  kinderAnzahl     Int
+  aktuellesKapital Float
+  zielKapital      Float
+  spenden          Spende[]
+}
+
+model Spende {
+  id            String      @id @default(cuid())
+  einrichtungId String
+  einrichtung   Einrichtung @relation(fields: [einrichtungId], references: [id])
+  betrag        Float
+  frequenz      String
+  quelle        String      @default("direkt")
+  createdAt     DateTime    @default(now())
+}
+
+model Solidaritaetsfonds {
+  id      String @id @default("main")
+  bestand Float  @default(0)
+}
+
+model FondsSpende {
+  id        String   @id @default(cuid())
+  betrag    Float
+  createdAt DateTime @default(now())
+}
