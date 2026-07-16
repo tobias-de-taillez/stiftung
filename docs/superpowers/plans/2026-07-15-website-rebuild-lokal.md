@@ -23,7 +23,7 @@
 - Jeder Chart hat beschriftete Achsen (keine Ausnahme).
 - Jede Ansicht mit Daten braucht sichtbare Zustände: Loading, Empty, Populated, Error — **explizit auch Server-Component-Seiten, die aus der lokalen SQLite-DB laden** (`/einrichtungen`, `/einrichtungen/[slug]`, `/statistik`, `/solidaritaetsfonds`): jede bekommt ein `loading.tsx` und ein `error.tsx` nach Next.js-App-Router-Konvention, auch wenn der lokale DB-Read quasi instant ist (Pre-Flight-Entscheidung, 2026-07-16).
 - `prefers-reduced-motion` deaktiviert Animationen; `:focus-visible` sichtbar (3px, `--focus`-Token).
-- Backend-Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`), reset via `prisma db push --force-reset` vor jedem Testlauf (`pretest`-Skript) — keine In-Memory-Mocks der Datenbank-Schicht.
+- Backend-Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`) — keine In-Memory-Mocks der Datenbank-Schicht. Reset-Mechanik: Schema-Sync via `prisma db push --skip-generate` im `pretest`-Skript + Daten-Isolation via `beforeEach` (deleteMany + Reseed) in den Tests. `--force-reset` entfällt bewusst: Prisma ≥ 6.19 blockiert es hart in Agent-Umgebungen (CLAUDECODE-Gate, erfordert interaktive menschliche Bestätigung) — Entscheidung 2026-07-16, Task-9-Befund.
 - Node.js ≥ 18, npm als Paketmanager.
 
 ---
@@ -1144,7 +1144,7 @@ git commit -m "feat: Prisma-Schema (Einrichtung/Spende/Solidaritaetsfonds/FondsS
 Im `"scripts"`-Block von `package.json`:
 
 ```json
-"pretest": "DATABASE_URL=\"file:./test.db\" npx prisma db push --force-reset --skip-generate"
+"pretest": "DATABASE_URL=\"file:./test.db\" npx prisma db push --skip-generate"
 ```
 
 Prisma löst relative `file:`-Pfade relativ zum **schema.prisma-Verzeichnis** auf (empirisch verifiziert, Task-8-Befund 2026-07-16), nicht relativ zum CWD — `file:./test.db` landet also korrekt in `stiftung-web/prisma/test.db`. Falls `vitest.config.ts` noch den alten Wert `file:./prisma/test.db` enthält (Task-1-Stand), auf `file:./test.db` korrigieren — sonst entsteht `prisma/prisma/test.db`.
