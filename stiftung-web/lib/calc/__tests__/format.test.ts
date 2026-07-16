@@ -20,6 +20,10 @@ describe('formatDuration', () => {
   it('zeigt nur Jahre bei vollen Jahren', () => {
     expect(formatDuration(5)).toBe('5 Jahre');
   });
+  it('nutzt Singular bei genau einem Jahr bzw. Monat', () => {
+    expect(formatDuration(1)).toBe('1 Jahr');
+    expect(formatDuration(13 / 12)).toBe('1 Jahr und 1 Monat');
+  });
   it('meldet Infinity als nicht erreichbar', () => {
     expect(formatDuration(Infinity)).toBe('nicht erreichbar');
   });

@@ -7,7 +7,9 @@ export function formatDuration(years: number): string {
   const totalMonths = Math.round(years * 12);
   const y = Math.floor(totalMonths / 12);
   const m = totalMonths % 12;
-  if (y === 0) return `${m} Monate`;
-  if (m === 0) return `${y} Jahre`;
-  return `${y} Jahre und ${m} Monate`;
+  const jahre = y === 1 ? 'Jahr' : 'Jahre';
+  const monate = m === 1 ? 'Monat' : 'Monate';
+  if (y === 0) return `${m} ${monate}`;
+  if (m === 0) return `${y} ${jahre}`;
+  return `${y} ${jahre} und ${m} ${monate}`;
 }
