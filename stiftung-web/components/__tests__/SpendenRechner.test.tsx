@@ -1,7 +1,27 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SpendenRechner } from '../SpendenRechner';
+
+// SpendenBestaetigung nutzt useCountUp für den Kapitalstand — ohne
+// reduced-motion liefe die Zahl über requestAnimationFrame hoch und die
+// synchronen/`findByText`-Assertions unten wären flaky (siehe
+// SpendenBestaetigung.test.tsx für dieselbe Begründung).
+beforeEach(() => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+  );
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -85,7 +105,10 @@ describe('SpendenRechner', () => {
       expect.objectContaining({ method: 'POST' })
     );
     expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
-    expect(await screen.findByText(/3.050,00 €/)).toBeInTheDocument();
+    // Anchored: "3.050,00 €" taucht sowohl im Vorher→Nachher-Text als auch im
+    // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
+    // das <strong> (siehe SpendenBestaetigung.test.tsx für die Begründung).
+    expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
   });
 
   it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {

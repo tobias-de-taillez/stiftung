@@ -156,6 +156,86 @@ a:hover .card {
   }
 }
 
+/*
+ * Vorher→Nachher-Balken der Spenden-Bestätigung: Geisterbalken (alter Stand,
+ * blass) liegt unter dem animierten Fill (neuer Stand). Der Fill nutzt
+ * dieselbe progress-bar-fill-in-Animation wie ProgressBar und erbt damit auch
+ * denselben globalen prefers-reduced-motion-Override weiter unten.
+ */
+.vorher-nachher-track {
+  position: relative;
+  background: var(--surface-2);
+  border-radius: 999px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.vorher-nachher-ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cream);
+  opacity: 0.28;
+}
+
+.vorher-nachher-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sun);
+  animation: progress-bar-fill-in 900ms ease-out;
+}
+
+.vorher-nachher-fill.is-complete {
+  background: var(--turquoise);
+}
+
+/*
+ * Konfetti-Burst: reines CSS, einmalig beim Mounten der Bestätigung. Jede
+ * Drift-Variante ist ein fixes Keyframe (kein JS-Custom-Property-Bedarf),
+ * Zufälligkeit kommt aus Startposition, Verzögerung und Dauer pro Partikel.
+ */
+.konfetti-burst {
+  position: relative;
+  height: 0;
+}
+
+.konfetti-partikel {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.konfetti-partikel-a { animation-name: konfetti-fall-a; }
+.konfetti-partikel-b { animation-name: konfetti-fall-b; }
+.konfetti-partikel-c { animation-name: konfetti-fall-c; }
+
+@keyframes konfetti-fall-a {
+  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
+  to { transform: translate(-36px, 92px) rotate(-220deg); opacity: 0; }
+}
+@keyframes konfetti-fall-b {
+  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
+  to { transform: translate(0, 104px) rotate(180deg); opacity: 0; }
+}
+@keyframes konfetti-fall-c {
+  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
+  to { transform: translate(36px, 88px) rotate(220deg); opacity: 0; }
+}
+
+/* Reduced-motion: Container komplett ausblenden statt eingefroren stehen lassen. */
+@media (prefers-reduced-motion: reduce) {
+  .konfetti-burst {
+    display: none;
+  }
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

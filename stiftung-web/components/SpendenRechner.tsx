@@ -126,7 +126,9 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
           betrag={betrag}
           frequenz={frequenz}
           einrichtungName={einrichtung.name}
+          altesKapital={einrichtung.aktuellesKapital}
           neuesKapital={neuesKapital}
+          zielKapital={einrichtung.zielKapital}
           spendeId={spendeId}
         />
       )}
