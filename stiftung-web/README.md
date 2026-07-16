@@ -1,0 +1,80 @@
+# Deutsche Bildungsstiftung — lokale Website
+
+Lokale Demo-Version (Next.js + SQLite/Prisma). Kein echtes Payment, kein
+echtes Geld — aber ein echtes, laufendes Backend: Spenden werden real in
+einer lokalen SQLite-Datenbank gebucht ("Spielgeld"), inklusive eines aktiv
+wirkenden Solidaritäts-Umverteilungsmechanismus.
+
+## Lokal starten
+
+```bash
+echo 'DATABASE_URL="file:./dev.db"' > .env
+npm install
+npx prisma generate
+npm run db:push
+npm run db:seed
+npm run dev
+```
+
+Alternativ die mitgelieferte Vorlage kopieren: `cp .env.example .env`.
+
+Danach `http://localhost:3000` öffnen.
+
+## Tests
+
+```bash
+npm run test
+```
+
+Die Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`, via
+`DATABASE_URL` in `vitest.config.ts`) — keine gemockte Datenbank. Das
+`pretest`-Skript synchronisiert nur das Schema; die Isolation kommt daher,
+dass jede Test-Suite in ihrem `beforeEach` alle vier Tabellen leert
+(FK-sichere Reihenfolge) und `fileParallelism: false` die Testdateien
+sequenziell ausführt. Neue DB-Test-Suiten müssen dieses beforeEach-Muster
+übernehmen. Aktueller Stand: 23 Testdateien, 94 Tests, alle PASS.
+
+## Struktur
+
+- `app/` — Seiten (Landing, Einrichtungen, Statistik, Solidaritätsfonds) + `app/api/**` (Backend-HTTP-Schnittstelle)
+- `components/` — UI-Bausteine (Design-Tokens aus `app/globals.css`)
+- `lib/calc/` — clientseitige Spendenrechner-Simulation + Solidaritäts-Verteilungsformel (beide pure Funktionen, DB-unabhängig)
+- `lib/server/` — Backend-Service-Layer (Prisma-Zugriff, Buchungslogik, Fonds-Verteilung, Statistik)
+- `prisma/` — DB-Schema und Seed-Daten (8 Einrichtungen, Tagespflege-Schwerpunkt nach Leitbild Phase 1)
+
+## Solidaritätsfonds
+
+Nicht zweckgebundene Spenden sammeln sich im Fonds. Eine Verteilung berechnet
+pro Einrichtung den Pro-Kind-Abstand zum Ziel (`bedarfProKind`) und teilt den
+Fonds-Bestand proportional dazu auf — Einrichtungen mit dem größten Rückstand
+bekommen am meisten. Besteht nirgends Bedarf, bleibt der Fonds bewusst
+unangetastet statt sinnlos verteilt zu werden.
+
+## Jahres-Simulation
+
+Auf der Solidaritätsfonds-Seite bucht der Button „Jahr simulieren (+6 %)"
+einen kompletten Jahresabschluss: Er schreibt 6 % Netto-Wachstum
+(`NET_GROWTH_RATE`) sowohl auf den Fonds-Bestand als auch auf das
+`aktuellesKapital` jeder einzelnen Einrichtung, verteilt den Fonds
+anschließend wie gewohnt bedarfsproportional und protokolliert das Ergebnis
+als `Jahresabschluss`-Zeile (fortlaufende `nummer`, `fondsErtrag`,
+`kapitalErtrag`, `verteiltGesamt`). Der Button ist bewusst nicht an
+`bestand > 0` gekoppelt — die Simulation ist auch bei leerem Fonds sinnvoll,
+weil das Einrichtungskapital unabhängig vom Fonds wächst. Wichtig: `fondsErtrag`
+und `kapitalErtrag` sind Kapitalwachstum, kein Spenden-Zufluss — dafür
+entstehen keine neuen `Spende`/`FondsSpende`-Datensätze, und sie verändern
+nicht die Spendenstatistik (`zuflussLetztesJahr`), nur die Kapitalstände. Der
+anschließende Verteilungsschritt bucht wie bei „Jetzt verteilen" weiterhin
+`Spende`-Zeilen mit `quelle: 'solidaritaet'` pro begünstigter Einrichtung —
+diese werden in der Statistik separat herausgefiltert, tauchen also ebenfalls
+nicht im Zufluss auf.
+
+## Was hier bewusst fehlt (lokale Version)
+
+- Kein echtes Payment (Stripe/PayPal) — Buchung ist real in der DB, aber ohne echtes Zahlungsmittel ("Spielgeld").
+- Kein Login/KYC — Spenden sind anonym.
+- Keine Auszahlung an Einrichtungen (nur Zufluss modelliert, kein Abfluss aus der Stiftung heraus).
+- Kein Arbeits-Konto/Fonds-Konto-Split — pro Einrichtung nur ein `aktuellesKapital`-Feld.
+
+Diese Punkte sind laut Leitbild (`../leitbild.md`) die nächsten Schritte für
+eine Produktions-Version.

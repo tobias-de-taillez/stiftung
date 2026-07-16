@@ -18,12 +18,12 @@
 - Finanzmodell exakt aus `projekt-status.md`: 7 % Brutto-Rendite, 1 % jährliche Ausschüttung, **6 % Netto-Wachstumsrate**. Formel: benötigtes Kapital = gewünschter Jahresbetrag / 0.01.
 - **Solidaritätsprinzip ist aktiv, nicht nur sichtbar:** Der Solidaritätsfonds verteilt real nach Bedarfs-Score (Pro-Kind-Lücke zum Ziel) — Einrichtungen mit dem größten Rückstand bekommen proportional am meisten. Kein Geld bleibt ungenutzt liegen, solange irgendwo Bedarf besteht (bleibt der Bedarf bei 0, bleibt der Fonds-Bestand bewusst unangetastet, statt sinnlos verteilt zu werden).
 - Design: Farbtokens/Radien/Typografie aus `docs/DESIGN.md` im `wealth`-Projekt (`/Users/tdetaillez/CodingInternal/wealth/docs/DESIGN.md`) übernehmen, aber **keine** Planet/Orbit/Satellit-Illustration, keine Mission-Terminologie. Nur visuelle Primitives.
-- Farben ausschließlich als `var(--token)`, keine rohen Hex-Werte außerhalb des Token-Blocks in `globals.css`.
+- Farben ausschließlich als `var(--token)`, keine rohen Hex-Werte außerhalb des Token-Blocks in `globals.css` — **keine Ausnahme, auch nicht für den QR-Code-Hintergrund** (Task 18): dafür trägt der Token-Block ein eigenes `--qr-bg: #fff;` (Pre-Flight-Entscheidung, 2026-07-16). Gilt auch für rgba-Literale: Rahmen-/Nav-Transparenzen sind als `--border`, `--border-subtle`, `--nav-bg` tokenisiert (Entscheidung 2026-07-16, Task-2-Review).
 - Eine Schriftfamilie: `Inter, ui-rounded, "SF Pro Rounded", system-ui, sans-serif`.
 - Jeder Chart hat beschriftete Achsen (keine Ausnahme).
-- Jede Ansicht mit Daten braucht sichtbare Zustände: Loading, Empty, Populated, Error.
+- Jede Ansicht mit Daten braucht sichtbare Zustände: Loading, Empty, Populated, Error — **explizit auch Server-Component-Seiten, die aus der lokalen SQLite-DB laden** (`/einrichtungen`, `/einrichtungen/[slug]`, `/statistik`, `/solidaritaetsfonds`): jede bekommt ein `loading.tsx` und ein `error.tsx` nach Next.js-App-Router-Konvention, auch wenn der lokale DB-Read quasi instant ist (Pre-Flight-Entscheidung, 2026-07-16).
 - `prefers-reduced-motion` deaktiviert Animationen; `:focus-visible` sichtbar (3px, `--focus`-Token).
-- Backend-Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`), reset via `prisma db push --force-reset` vor jedem Testlauf (`pretest`-Skript) — keine In-Memory-Mocks der Datenbank-Schicht.
+- Backend-Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`) — keine In-Memory-Mocks der Datenbank-Schicht. Reset-Mechanik: Schema-Sync via `prisma db push --skip-generate` im `pretest`-Skript + Daten-Isolation via `beforeEach` (deleteMany + Reseed) in den Tests. `--force-reset` entfällt bewusst: Prisma ≥ 6.19 blockiert es hart in Agent-Umgebungen (CLAUDECODE-Gate, erfordert interaktive menschliche Bestätigung) — Entscheidung 2026-07-16, Task-9-Befund. **Folgeregel (Task-9-Review):** Da `test.db` jetzt über Testläufe hinweg persistiert, muss JEDE DB-Test-Suite in ihrem `beforeEach` ALLE vier Tabellen zurücksetzen (FondsSpende → Spende → Einrichtung → Solidaritaetsfonds, FK-sichere Reihenfolge), nicht nur die selbst genutzten. Die Task-9-Suite (`einrichtungenService.test.ts`, resettet nur Spende+Einrichtung) ist bei Task 12 entsprechend nachzuziehen.
 - Node.js ≥ 18, npm als Paketmanager.
 
 ---
@@ -82,14 +82,14 @@ stiftung-web/
 - [ ] **Step 1: Next.js-Grundgerüst erzeugen**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
-npx create-next-app@14 stiftung-web --typescript --eslint --app --src-dir=false --import-alias "@/*" --tailwind=false --use-npm
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
+npx create-next-app@14 stiftung-web --typescript --eslint --app --no-src-dir --import-alias "@/*" --no-tailwind --use-npm
 ```
 
 - [ ] **Step 2: Vitest + React Testing Library installieren**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/stiftung-web"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/stiftung-web"
 npm install --save-dev vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event
 ```
 
@@ -108,7 +108,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     env: {
-      DATABASE_URL: 'file:./prisma/test.db',
+      DATABASE_URL: 'file:./test.db',
     },
   },
   resolve: {
@@ -159,7 +159,7 @@ Expected: Next.js-Default-Seite lädt ohne Fehler. Server stoppen.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web
 git commit -m "chore: Next.js-Scaffold für lokale Website + Vitest-Setup"
 ```
@@ -173,7 +173,7 @@ git commit -m "chore: Next.js-Scaffold für lokale Website + Vitest-Setup"
 - Modify: `stiftung-web/app/layout.tsx`
 
 **Interfaces:**
-- Produces: CSS-Variablen (`--space`, `--surface`, `--cream`, `--muted`, `--turquoise`, `--coral`, `--sun`, `--lavender`, `--ink`, `--focus`, `--radius`, `--shadow`), Klassen `.card`, `.pill`, `.status`, `.positive`, `.negative`, `.forecast`, `.muted`.
+- Produces: CSS-Variablen (`--space`, `--surface`, `--cream`, `--muted`, `--turquoise`, `--coral`, `--sun`, `--lavender`, `--ink`, `--focus`, `--qr-bg`, `--border`, `--border-subtle`, `--nav-bg`, `--radius`, `--shadow`), Klassen `.card`, `.pill`, `.status`, `.positive`, `.negative`, `.forecast`, `.muted`. `--qr-bg` ist bewusst der einzige feste Weißwert im Token-Block — QR-Codes brauchen echten Weiß-Kontrast unabhängig vom Theme (genutzt in Task 18). `--border`/`--border-subtle`/`--nav-bg` tokenisieren die früheren rgba-Literale (Entscheidung 2026-07-16, Task-2-Review: „Farben ausschließlich als var(--token)" gilt auch für rgba, nicht nur Hex).
 
 - [ ] **Step 1: `globals.css` mit Tokens und Basis-Primitives schreiben**
 
@@ -193,6 +193,10 @@ git commit -m "chore: Next.js-Scaffold für lokale Website + Vitest-Setup"
   --lavender: #8798e8;
   --ink: #101939;
   --focus: #fff;
+  --qr-bg: #fff;
+  --border: rgba(135, 152, 232, 0.35);
+  --border-subtle: rgba(135, 152, 232, 0.25);
+  --nav-bg: rgba(9, 19, 47, 0.75);
 
   --radius: 22px;
   --radius-sm: 14px;
@@ -237,7 +241,7 @@ a {
 
 .card {
   background: linear-gradient(145deg, var(--surface), var(--space-2));
-  border: 1px solid rgba(135, 152, 232, 0.35);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 1.5rem;
@@ -268,7 +272,7 @@ a {
 .pill-secondary {
   background: var(--surface-2);
   color: var(--cream);
-  border: 1px solid rgba(135, 152, 232, 0.35);
+  border: 1px solid var(--border);
 }
 
 .status {
@@ -349,7 +353,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 - [ ] **Step 3: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/app/globals.css stiftung-web/app/layout.tsx
 git commit -m "feat: Design-Tokens und Basis-Layout (Hausstil ohne Weltraum-Illustration)"
 ```
@@ -403,8 +407,8 @@ export function Nav() {
         top: 0,
         zIndex: 10,
         backdropFilter: 'blur(12px)',
-        background: 'rgba(9, 19, 47, 0.75)',
-        borderBottom: '1px solid rgba(135, 152, 232, 0.25)',
+        background: 'var(--nav-bg)',
+        borderBottom: '1px solid var(--border-subtle)',
       }}
     >
       <nav
@@ -439,24 +443,26 @@ Expected: Nav sichtbar, 4 Links, keine Konsolenfehler. Server stoppen.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/components/Nav.tsx stiftung-web/components/__tests__/Nav.test.tsx
 git commit -m "feat: Navigation-Komponente mit vier Pillen-Links"
 ```
 
 ---
 
-### Task 4: Basis-UI-Primitives (Card, ProgressBar, StatusChip)
+### Task 4: Basis-UI-Primitives (Card, ProgressBar, StatusChip, LoadingState, ErrorState)
 
 **Files:**
-- Create: `stiftung-web/components/Card.tsx`, `components/ProgressBar.tsx`, `components/StatusChip.tsx`
-- Test: `stiftung-web/components/__tests__/Card.test.tsx`, `ProgressBar.test.tsx`, `StatusChip.test.tsx`
+- Create: `stiftung-web/components/Card.tsx`, `components/ProgressBar.tsx`, `components/StatusChip.tsx`, `components/LoadingState.tsx`, `components/ErrorState.tsx`
+- Test: `stiftung-web/components/__tests__/Card.test.tsx`, `ProgressBar.test.tsx`, `StatusChip.test.tsx`, `LoadingState.test.tsx`, `ErrorState.test.tsx`
 
 **Interfaces:**
 - Produces:
   - `Card({ children, className? }): JSX.Element`
   - `ProgressBar({ value, max, label }): JSX.Element` — `role="progressbar"` mit `aria-valuenow`/`aria-valuemin`/`aria-valuemax`, `label` sichtbar.
   - `StatusChip({ tone, children }): JSX.Element` — `tone: 'positive' | 'negative' | 'forecast' | 'muted'`.
+  - `LoadingState({ label? }): JSX.Element` — sichtbarer Ladezustand für Server-Component-Seiten, die aus der DB laden; wiederverwendet in den `loading.tsx`-Dateien der Tasks 15/17/18/20.
+  - `ErrorState({ error, reset, label? }): JSX.Element` — sichtbarer Fehlerzustand mit Retry-Button; `error: Error`, `reset: () => void` (Next.js-`error.tsx`-Konvention). Wiederverwendet in den `error.tsx`-Dateien der Tasks 15/17/18/20 — jede `error.tsx` bleibt eine eigene Datei (Next.js-Pflicht-Konvention pro Route-Segment), rendert aber nur `ErrorState`.
 
 - [ ] **Step 1: Failing Tests schreiben**
 
@@ -506,9 +512,52 @@ describe('StatusChip', () => {
 });
 ```
 
+```tsx
+// stiftung-web/components/__tests__/LoadingState.test.tsx
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { LoadingState } from '../LoadingState';
+
+describe('LoadingState', () => {
+  it('zeigt einen sichtbaren Ladehinweis (role="status")', () => {
+    render(<LoadingState />);
+    expect(screen.getByRole('status')).toHaveTextContent(/Lädt/i);
+  });
+
+  it('zeigt ein optionales Label statt des Standardtexts', () => {
+    render(<LoadingState label="Einrichtungen werden geladen …" />);
+    expect(screen.getByRole('status')).toHaveTextContent('Einrichtungen werden geladen …');
+  });
+});
+```
+
+```tsx
+// stiftung-web/components/__tests__/ErrorState.test.tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi } from 'vitest';
+import { ErrorState } from '../ErrorState';
+
+describe('ErrorState', () => {
+  it('zeigt einen sichtbaren Fehlertext und einen Retry-Button', async () => {
+    const reset = vi.fn();
+    const user = userEvent.setup();
+    render(<ErrorState error={new Error('db down')} reset={reset} />);
+    expect(screen.getByText(/schiefgelaufen/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /erneut versuchen/i }));
+    expect(reset).toHaveBeenCalled();
+  });
+
+  it('zeigt ein optionales Label statt des Standardtexts', () => {
+    render(<ErrorState error={new Error('x')} reset={() => {}} label="Statistik konnte nicht geladen werden." />);
+    expect(screen.getByText('Statistik konnte nicht geladen werden.')).toBeInTheDocument();
+  });
+});
+```
+
 - [ ] **Step 2: Tests ausführen, Fehlschlag verifizieren**
 
-Run: `npm run test -- Card ProgressBar StatusChip`
+Run: `npm run test -- Card ProgressBar StatusChip LoadingState ErrorState`
 Expected: FAIL — Module nicht gefunden.
 
 - [ ] **Step 3: Komponenten implementieren**
@@ -548,17 +597,53 @@ export function StatusChip({ tone, children }: { tone: 'positive' | 'negative' |
 }
 ```
 
+```tsx
+// stiftung-web/components/LoadingState.tsx
+export function LoadingState({ label = 'Lädt …' }: { label?: string }) {
+  return (
+    <p role="status" className="muted" style={{ padding: '2rem 0' }}>
+      {label}
+    </p>
+  );
+}
+```
+
+```tsx
+// stiftung-web/components/ErrorState.tsx
+'use client';
+
+export function ErrorState({
+  error,
+  reset,
+  label = 'Etwas ist beim Laden schiefgelaufen.',
+}: {
+  error: Error;
+  reset: () => void;
+  label?: string;
+}) {
+  return (
+    <div style={{ padding: '2rem 0' }} role="alert">
+      <p className="negative">{label}</p>
+      <p className="muted" style={{ fontSize: '0.8rem' }}>{error.message}</p>
+      <button type="button" className="pill pill-secondary" onClick={reset}>
+        Erneut versuchen
+      </button>
+    </div>
+  );
+}
+```
+
 - [ ] **Step 4: Tests erneut ausführen**
 
-Run: `npm run test -- Card ProgressBar StatusChip`
+Run: `npm run test -- Card ProgressBar StatusChip LoadingState ErrorState`
 Expected: alle PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
-git add stiftung-web/components/Card.tsx stiftung-web/components/ProgressBar.tsx stiftung-web/components/StatusChip.tsx stiftung-web/components/__tests__
-git commit -m "feat: Basis-UI-Primitives (Card, ProgressBar, StatusChip)"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
+git add stiftung-web/components/Card.tsx stiftung-web/components/ProgressBar.tsx stiftung-web/components/StatusChip.tsx stiftung-web/components/LoadingState.tsx stiftung-web/components/ErrorState.tsx stiftung-web/components/__tests__
+git commit -m "feat: Basis-UI-Primitives (Card, ProgressBar, StatusChip, LoadingState, ErrorState)"
 ```
 
 ---
@@ -598,6 +683,10 @@ describe('formatDuration', () => {
   it('zeigt nur Jahre bei vollen Jahren', () => {
     expect(formatDuration(5)).toBe('5 Jahre');
   });
+  it('nutzt Singular bei genau einem Jahr bzw. Monat', () => {
+    expect(formatDuration(1)).toBe('1 Jahr');
+    expect(formatDuration(13 / 12)).toBe('1 Jahr und 1 Monat');
+  });
   it('meldet Infinity als nicht erreichbar', () => {
     expect(formatDuration(Infinity)).toBe('nicht erreichbar');
   });
@@ -622,9 +711,11 @@ export function formatDuration(years: number): string {
   const totalMonths = Math.round(years * 12);
   const y = Math.floor(totalMonths / 12);
   const m = totalMonths % 12;
-  if (y === 0) return `${m} Monate`;
-  if (m === 0) return `${y} Jahre`;
-  return `${y} Jahre und ${m} Monate`;
+  const jahre = y === 1 ? 'Jahr' : 'Jahre';
+  const monate = m === 1 ? 'Monat' : 'Monate';
+  if (y === 0) return `${m} ${monate}`;
+  if (m === 0) return `${y} ${jahre}`;
+  return `${y} ${jahre} und ${m} ${monate}`;
 }
 ```
 
@@ -636,7 +727,7 @@ Expected: PASS. (Falls `Intl.NumberFormat` ein geschütztes Leerzeichen statt no
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/lib/calc/format.ts stiftung-web/lib/calc/__tests__/format.test.ts
 git commit -m "feat: Formatierungs-Helfer für Euro-Beträge und Zeitdauern"
 ```
@@ -774,7 +865,7 @@ Expected: alle PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/lib/calc/spendenrechner.ts stiftung-web/lib/calc/__tests__/spendenrechner.test.ts
 git commit -m "feat: Spendenrechner-Simulationslogik (6% Netto-Wachstum, Bisektion für jährliche Spenden)"
 ```
@@ -861,7 +952,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/lib/data/levels.ts stiftung-web/lib/data/__tests__/levels.test.ts
 git commit -m "feat: Gamification-Level-Stufen (Bronze bis Diamant)"
 ```
@@ -883,8 +974,8 @@ Das Schema wird von Anfang an vollständig geschrieben (inkl. der später genutz
 - [ ] **Step 1: Prisma installieren**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/stiftung-web"
-npm install prisma @prisma/client
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/stiftung-web"
+npm install prisma@6 @prisma/client@6
 npm install --save-dev tsx
 ```
 
@@ -939,7 +1030,7 @@ model FondsSpende {
 
 ```bash
 # stiftung-web/.env
-DATABASE_URL="file:./prisma/dev.db"
+DATABASE_URL="file:./dev.db"
 ```
 
 - [ ] **Step 4: `.gitignore` ergänzen**
@@ -1020,7 +1111,7 @@ Expected: `Seed abgeschlossen: 8 Einrichtungen.`, Datei `stiftung-web/prisma/dev
 - [ ] **Step 8: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/prisma/schema.prisma stiftung-web/prisma/seed.ts stiftung-web/.gitignore stiftung-web/package.json stiftung-web/package-lock.json
 git commit -m "feat: Prisma-Schema (Einrichtung/Spende/Solidaritaetsfonds/FondsSpende) + SQLite-Seed-Daten"
 ```
@@ -1048,13 +1139,15 @@ git commit -m "feat: Prisma-Schema (Einrichtung/Spende/Solidaritaetsfonds/FondsS
   - `statistik(): Promise<{ anzahlEinrichtungen: number; gesamtKapital: number; gesamtKinder: number; durchschnittlichesVolumen: number; zuflussLetztesJahr: number; simulierterJahresertrag: number; top5: (Einrichtung & { foerderungProKind: number })[]; bottom5: (Einrichtung & { foerderungProKind: number })[] }>`
 - Tests laufen gegen die echte Datei `prisma/test.db`. Kein Mocking der DB-Schicht.
 
-- [ ] **Step 1: `pretest`-Script ergänzen**
+- [ ] **Step 1: `pretest`-Script ergänzen und vitest-DATABASE_URL korrigieren**
 
 Im `"scripts"`-Block von `package.json`:
 
 ```json
-"pretest": "DATABASE_URL=\"file:./prisma/test.db\" npx prisma db push --force-reset --skip-generate"
+"pretest": "DATABASE_URL=\"file:./test.db\" npx prisma db push --skip-generate"
 ```
+
+Prisma löst relative `file:`-Pfade relativ zum **schema.prisma-Verzeichnis** auf (empirisch verifiziert, Task-8-Befund 2026-07-16), nicht relativ zum CWD — `file:./test.db` landet also korrekt in `stiftung-web/prisma/test.db`. Falls `vitest.config.ts` noch den alten Wert `file:./prisma/test.db` enthält (Task-1-Stand), auf `file:./test.db` korrigieren — sonst entsteht `prisma/prisma/test.db`.
 
 - [ ] **Step 2: Failing Test schreiben**
 
@@ -1218,7 +1311,7 @@ export async function statistik() {
 
   const einJahrVorHeute = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
   const [direktSumme, fondsSumme] = await Promise.all([
-    prisma.spende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
+    prisma.spende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute }, quelle: { not: 'solidaritaet' } } }),
     prisma.fondsSpende.aggregate({ _sum: { betrag: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
   ]);
   const zuflussLetztesJahr = (direktSumme._sum.betrag ?? 0) + (fondsSumme._sum.betrag ?? 0);
@@ -1244,7 +1337,7 @@ Expected: `pretest` setzt `prisma/test.db` zurück, dann alle Tests PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/lib/server stiftung-web/package.json
 git commit -m "feat: Backend-Service-Layer (Einrichtungen, Spenden, erweiterte Statistik) mit echten DB-Tests"
 ```
@@ -1408,7 +1501,7 @@ Expected: JSON-Antworten, `aktuellesKapital` von `tagesmutter-wirbelwind-muenche
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/app/api
 git commit -m "feat: API-Routes für Einrichtungen, Spenden-Buchung und Statistik"
 ```
@@ -1423,8 +1516,8 @@ git commit -m "feat: API-Routes für Einrichtungen, Spenden-Buchung und Statisti
 
 **Interfaces:**
 - Produces:
-  - `bedarfProKind(e: { aktuellesKapital: number; zielKapital: number; kinderAnzahl: number }): number` — Pro-Kind-Lücke zum Ziel, mindestens 0.
-  - `verteilePool(pool: number, eintraege: { slug: string; bedarf: number }[]): { slug: string; anteil: number }[]` — verteilt `pool` proportional zum `bedarf`; Summe der `anteil`-Werte entspricht `pool` (Rundungsdifferenz geht an den letzten Eintrag); überall 0, wenn `pool <= 0` oder Gesamtbedarf 0 ist.
+  - `bedarfProKind(e: { aktuellesKapital: number; zielKapital: number; kinderAnzahl: number }): number` — Pro-Kind-Lücke zum Ziel, mindestens 0; 0 bei `kinderAnzahl <= 0`.
+  - `verteilePool(pool: number, eintraege: { slug: string; bedarf: number }[]): { slug: string; anteil: number }[]` — verteilt `pool` proportional zum `bedarf` (cent-genaue Floor-Verteilung); Summe der `anteil`-Werte entspricht `pool`; Anteile sind nie negativ; nicht-finite oder negative Bedarfe zählen als 0; Rundungsdifferenz geht an den letzten Eintrag mit Bedarf > 0; überall 0, wenn `pool <= 0` oder Gesamtbedarf 0 ist.
 
 Das ist die reine Formel, die "wer am wenigsten hat, wird am meisten gefördert" umsetzt (Leitbild-Kern) — ohne DB-Zugriff, dadurch trivial testbar.
 
@@ -1475,6 +1568,35 @@ describe('verteilePool', () => {
     const ergebnis = verteilePool(0, [{ slug: 'a', bedarf: 100 }]);
     expect(ergebnis.every((e) => e.anteil === 0)).toBe(true);
   });
+
+  it('verteilt nie negative Anteile (kleiner Pool, viele gleiche Bedarfe)', () => {
+    const ergebnis = verteilePool(0.02, [
+      { slug: 'a', bedarf: 1 },
+      { slug: 'b', bedarf: 1 },
+      { slug: 'c', bedarf: 1 },
+      { slug: 'd', bedarf: 1 },
+    ]);
+    expect(ergebnis.every((e) => e.anteil >= 0)).toBe(true);
+    expect(ergebnis.reduce((s, e) => s + e.anteil, 0)).toBeCloseTo(0.02, 10);
+  });
+
+  it('lässt nicht-finite Bedarfe die Verteilung nicht vergiften', () => {
+    const ergebnis = verteilePool(100, [
+      { slug: 'kaputt', bedarf: Number.NaN },
+      { slug: 'ok', bedarf: 50 },
+    ]);
+    expect(ergebnis.find((e) => e.slug === 'kaputt')!.anteil).toBe(0);
+    expect(ergebnis.find((e) => e.slug === 'ok')!.anteil).toBe(100);
+  });
+
+  it('gibt die Rundungsdifferenz an den letzten Eintrag mit Bedarf > 0, nie an bedarfslose', () => {
+    const ergebnis = verteilePool(0.01, [
+      { slug: 'beduerftig', bedarf: 1 },
+      { slug: 'satt', bedarf: 0 },
+    ]);
+    expect(ergebnis.find((e) => e.slug === 'beduerftig')!.anteil).toBe(0.01);
+    expect(ergebnis.find((e) => e.slug === 'satt')!.anteil).toBe(0);
+  });
 });
 ```
 
@@ -1493,23 +1615,37 @@ export interface BedarfsEintrag {
 }
 
 export function bedarfProKind(e: { aktuellesKapital: number; zielKapital: number; kinderAnzahl: number }): number {
-  const luecke = e.zielKapital / e.kinderAnzahl - e.aktuellesKapital / e.kinderAnzahl;
+  if (e.kinderAnzahl <= 0) return 0;
+  const luecke = (e.zielKapital - e.aktuellesKapital) / e.kinderAnzahl;
   return Math.max(0, luecke);
 }
 
+// Cent-genaue Floor-Verteilung: nie negative Anteile, Summe == Pool.
+// Nicht-finite oder negative Bedarfe zählen als 0; die Rundungsdifferenz
+// geht an den letzten Eintrag mit Bedarf > 0 (nie an bedarfslose).
 export function verteilePool(pool: number, eintraege: BedarfsEintrag[]): { slug: string; anteil: number }[] {
-  const gesamtBedarf = eintraege.reduce((sum, e) => sum + e.bedarf, 0);
+  const bedarfe = eintraege.map((e) => (Number.isFinite(e.bedarf) && e.bedarf > 0 ? e.bedarf : 0));
+  const gesamtBedarf = bedarfe.reduce((sum, b) => sum + b, 0);
   if (pool <= 0 || gesamtBedarf <= 0) {
     return eintraege.map((e) => ({ slug: e.slug, anteil: 0 }));
   }
-  let rest = Math.round(pool * 100) / 100;
-  return eintraege.map((e, i) => {
-    const isLast = i === eintraege.length - 1;
-    const rohAnteil = (pool * e.bedarf) / gesamtBedarf;
-    const anteil = isLast ? rest : Math.round(rohAnteil * 100) / 100;
-    rest = Math.round((rest - anteil) * 100) / 100;
-    return { slug: e.slug, anteil };
+
+  const poolCents = Math.round(pool * 100);
+  let lastPositive = -1;
+  for (let i = 0; i < bedarfe.length; i++) {
+    if (bedarfe[i] > 0) lastPositive = i;
+  }
+
+  let restCents = poolCents;
+  const anteileCents = bedarfe.map((b, i) => {
+    if (i === lastPositive) return 0;
+    const cents = Math.floor((poolCents * b) / gesamtBedarf);
+    restCents -= cents;
+    return cents;
   });
+  anteileCents[lastPositive] = restCents;
+
+  return eintraege.map((e, i) => ({ slug: e.slug, anteil: anteileCents[i] / 100 }));
 }
 ```
 
@@ -1521,7 +1657,7 @@ Expected: alle PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/lib/calc/solidaritaet.ts stiftung-web/lib/calc/__tests__/solidaritaet.test.ts
 git commit -m "feat: Solidaritäts-Verteilungsformel (Bedarf pro Kind, proportionale Poolverteilung)"
 ```
@@ -1695,7 +1831,7 @@ Expected: alle PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/lib/server/solidaritaetsfondsService.ts stiftung-web/lib/server/__tests__/solidaritaetsfondsService.test.ts
 git commit -m "feat: Solidaritätsfonds-Service (Einzahlen, bedarfsbasierte Verteilung) mit echten DB-Tests"
 ```
@@ -1824,7 +1960,7 @@ Expected: alle PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/app/api/solidaritaetsfonds
 git commit -m "feat: Solidaritätsfonds-API-Routes (Bestand, Einzahlen, Verteilen)"
 ```
@@ -1853,6 +1989,17 @@ describe('Landing Page', () => {
     render(<Page />);
     expect(screen.getByText(/Bildung darf niemals vom Geldbeutel/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Einrichtung finden/i })).toHaveAttribute('href', '/einrichtungen');
+  });
+
+  it('zeigt sekundäre CTAs zu Statistik und Solidaritätsfonds', () => {
+    render(<Page />);
+    expect(screen.getByRole('link', { name: /Statistik ansehen/i })).toHaveAttribute('href', '/statistik');
+    expect(screen.getByRole('link', { name: /Solidaritätsfonds/i })).toHaveAttribute('href', '/solidaritaetsfonds');
+  });
+
+  it('zeigt das Beispiel-Zielkapital von 2 Mio. € (20.000 € Ausschüttung / 1%)', () => {
+    render(<Page />);
+    expect(screen.getByText(/2\.000\.000,00\s*€/)).toBeInTheDocument();
   });
 });
 ```
@@ -1917,7 +2064,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/app/page.tsx stiftung-web/app/__tests__/page.test.tsx
 git commit -m "feat: Landing-Page mit Mission und Spenden-CTA"
 ```
@@ -1928,11 +2075,12 @@ git commit -m "feat: Landing-Page mit Mission und Spenden-CTA"
 
 **Files:**
 - Create: `stiftung-web/app/einrichtungen/page.tsx` (Server Component)
+- Create: `stiftung-web/app/einrichtungen/loading.tsx`, `app/einrichtungen/error.tsx`
 - Create: `stiftung-web/components/EinrichtungenFilter.tsx` (Client Component)
 - Test: `stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx`
 
 **Interfaces:**
-- Consumes: `listEinrichtungen` (Task 9), `Card`, `ProgressBar` (Task 4), `formatEuro` (Task 5).
+- Consumes: `listEinrichtungen` (Task 9), `Card`, `ProgressBar`, `LoadingState`, `ErrorState` (Task 4), `formatEuro` (Task 5).
 - Produces: `EinrichtungenFilter({ einrichtungen }): JSX.Element` (Client Component, reiner UI-Filter über bereits geladene Daten — kein eigener Fetch, testbar ohne DB).
 
 - [ ] **Step 1: Failing Test für `EinrichtungenFilter` schreiben**
@@ -1969,6 +2117,14 @@ describe('EinrichtungenFilter', () => {
     render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
     await user.type(screen.getByLabelText(/Suche/i), 'xyz-gibt-es-nicht');
     expect(screen.getByText(/Keine Einrichtung gefunden/i)).toBeInTheDocument();
+  });
+
+  it('filtert per Suche nach Name oder Ort (trimmt Leerzeichen)', async () => {
+    const user = userEvent.setup();
+    render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
+    await user.type(screen.getByLabelText(/Suche/i), ' wirbelwind ');
+    expect(screen.getByText('Tagespflege Wirbelwind')).toBeInTheDocument();
+    expect(screen.queryByText('Grundschule Sonnenhügel')).not.toBeInTheDocument();
   });
 });
 ```
@@ -2008,12 +2164,13 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
   const [typ, setTyp] = useState<TypFilter>('alle');
 
   const gefiltert = useMemo(() => {
+    const begriff = suche.trim().toLowerCase();
     return einrichtungen.filter((e) => {
       const passtTyp = typ === 'alle' || e.typ === typ;
       const passtSuche =
-        suche.trim() === '' ||
-        e.name.toLowerCase().includes(suche.toLowerCase()) ||
-        e.ort.toLowerCase().includes(suche.toLowerCase());
+        begriff === '' ||
+        e.name.toLowerCase().includes(begriff) ||
+        e.ort.toLowerCase().includes(begriff);
       return passtTyp && passtSuche;
     });
   }, [suche, typ, einrichtungen]);
@@ -2028,7 +2185,7 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
             value={suche}
             onChange={(e) => setSuche(e.target.value)}
             placeholder="Name oder Ort"
-            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
         </label>
         <label>
@@ -2037,7 +2194,7 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
             aria-label="Typ"
             value={typ}
             onChange={(e) => setTyp(e.target.value as TypFilter)}
-            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ padding: '0.6rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           >
             <option value="alle">Alle</option>
             <option value="tagespflege">Tagespflege</option>
@@ -2099,17 +2256,39 @@ export default async function EinrichtungenPage() {
 }
 ```
 
-- [ ] **Step 6: Manuell im Browser verifizieren**
+- [ ] **Step 6: `loading.tsx` und `error.tsx` für die Route ergänzen**
+
+```tsx
+// stiftung-web/app/einrichtungen/loading.tsx
+import { LoadingState } from '@/components/LoadingState';
+
+export default function Loading() {
+  return <LoadingState label="Einrichtungen werden geladen …" />;
+}
+```
+
+```tsx
+// stiftung-web/app/einrichtungen/error.tsx
+'use client';
+
+import { ErrorState } from '@/components/ErrorState';
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return <ErrorState error={error} reset={reset} label="Einrichtungen konnten nicht geladen werden." />;
+}
+```
+
+- [ ] **Step 7: Manuell im Browser verifizieren**
 
 Run: `npm run dev`, `http://localhost:3000/einrichtungen` öffnen.
 Expected: 8 Seed-Einrichtungen aus der Dev-DB sichtbar, Filter funktioniert. Server stoppen.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
-git add stiftung-web/app/einrichtungen/page.tsx stiftung-web/components/EinrichtungenFilter.tsx stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx
-git commit -m "feat: Einrichtungen-Liste lädt aus DB, Filter als reine Client-Komponente"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
+git add stiftung-web/app/einrichtungen/page.tsx stiftung-web/app/einrichtungen/loading.tsx stiftung-web/app/einrichtungen/error.tsx stiftung-web/components/EinrichtungenFilter.tsx stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx
+git commit -m "feat: Einrichtungen-Liste lädt aus DB, Filter als reine Client-Komponente, Loading-/Error-States"
 ```
 
 ---
@@ -2192,7 +2371,7 @@ export function BarChart({
           const x = padding.left + i * (barWidth + barGap);
           const y = padding.top + (plotHeight - barHeight);
           return (
-            <g key={d.label}>
+            <g key={`${d.label}-${i}`}>
               <rect className="bar" x={x} y={y} width={barWidth} height={barHeight} fill="var(--sun)" rx={4} />
               <text x={x + barWidth / 2} y={height - padding.bottom + 16} textAnchor="middle" fontSize="11" fill="var(--muted)">{d.label}</text>
             </g>
@@ -2216,7 +2395,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/components/BarChart.tsx stiftung-web/components/__tests__/BarChart.test.tsx
 git commit -m "feat: SVG-BarChart mit Pflicht-Achsenbeschriftung"
 ```
@@ -2227,9 +2406,10 @@ git commit -m "feat: SVG-BarChart mit Pflicht-Achsenbeschriftung"
 
 **Files:**
 - Create: `stiftung-web/app/statistik/page.tsx`
+- Create: `stiftung-web/app/statistik/loading.tsx`, `app/statistik/error.tsx`
 
 **Interfaces:**
-- Consumes: `statistik` (Task 9, bereits mit erweiterten Feldern), `Card` (Task 4), `BarChart` (Task 16), `formatEuro` (Task 5).
+- Consumes: `statistik` (Task 9, bereits mit erweiterten Feldern), `Card`, `LoadingState`, `ErrorState` (Task 4), `BarChart` (Task 16), `formatEuro` (Task 5).
 
 Reine Server Component ohne eigene Client-Logik — die zugrundeliegende `statistik()`-Funktion und `Card`/`BarChart` sind bereits getestet. Verifikation hier bewusst über manuellen Browser-Check (Step 2), kein weiterer RTL-Test für reine Verdrahtung.
 
@@ -2301,17 +2481,39 @@ export default async function StatistikPage() {
 }
 ```
 
-- [ ] **Step 2: Manuell im Browser verifizieren**
+- [ ] **Step 2: `loading.tsx` und `error.tsx` für die Route ergänzen**
+
+```tsx
+// stiftung-web/app/statistik/loading.tsx
+import { LoadingState } from '@/components/LoadingState';
+
+export default function Loading() {
+  return <LoadingState label="Statistik wird geladen …" />;
+}
+```
+
+```tsx
+// stiftung-web/app/statistik/error.tsx
+'use client';
+
+import { ErrorState } from '@/components/ErrorState';
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return <ErrorState error={error} reset={reset} label="Statistik konnte nicht geladen werden." />;
+}
+```
+
+- [ ] **Step 3: Manuell im Browser verifizieren**
 
 Run: `npm run dev`, `http://localhost:3000/statistik` öffnen.
 Expected: Gesamtzahlen, drei neue Stat-Kacheln (Ø-Volumen, Zufluss, simulierter Ertrag), Balkendiagramm mit beschrifteten Achsen, Top-5/Bottom-5-Listen, Link zum Solidaritätsfonds. Server stoppen.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
-git add stiftung-web/app/statistik/page.tsx
-git commit -m "feat: Statistik-Seite mit erweiterten Kennzahlen und Solidaritätsfonds-Verweis"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
+git add stiftung-web/app/statistik/page.tsx stiftung-web/app/statistik/loading.tsx stiftung-web/app/statistik/error.tsx
+git commit -m "feat: Statistik-Seite mit erweiterten Kennzahlen, Solidaritätsfonds-Verweis, Loading-/Error-States"
 ```
 
 ---
@@ -2322,16 +2524,17 @@ git commit -m "feat: Statistik-Seite mit erweiterten Kennzahlen und Solidarität
 - Create: `stiftung-web/components/SpendenRechner.tsx` (Client Component, Basisversion ohne Buchen — Buchen folgt in Task 19)
 - Test: `stiftung-web/components/__tests__/SpendenRechner.test.tsx`
 - Create: `stiftung-web/app/einrichtungen/[slug]/page.tsx` (Server Component)
+- Create: `stiftung-web/app/einrichtungen/[slug]/loading.tsx`, `app/einrichtungen/[slug]/error.tsx`
 - Test: `stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx`
 
 **Interfaces:**
-- Consumes: `computeYearsToGoal` (Task 6), `formatEuro`, `formatDuration` (Task 5), `currentLevel` (Task 7), `getEinrichtungBySlug` (Task 9), `ProgressBar`, `StatusChip`, `Card` (Task 4).
+- Consumes: `computeYearsToGoal` (Task 6), `formatEuro`, `formatDuration` (Task 5), `currentLevel` (Task 7), `getEinrichtungBySlug` (Task 9), `ProgressBar`, `StatusChip`, `Card`, `LoadingState`, `ErrorState` (Task 4).
 - Produces: `SpendenRechner({ einrichtung }): JSX.Element` — Regler + Zahleneingabe, Frequenz-Toggle, zeigt live clientseitig simulierte Jahre bis Ziel (kein Netzwerk-Call bei jedem Slider-Tick).
 
 - [ ] **Step 1: `qrcode`-Paket installieren**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/stiftung-web"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/stiftung-web"
 npm install qrcode
 npm install --save-dev @types/qrcode
 ```
@@ -2442,7 +2645,7 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
             min={5}
             value={betrag}
             onChange={(e) => setBetrag(Number(e.target.value) || 0)}
-            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
           <span>€</span>
         </div>
@@ -2559,7 +2762,7 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
             alt={`QR-Code zu ${einrichtung!.name}`}
             width={140}
             height={140}
-            style={{ borderRadius: 'var(--radius-sm)', background: '#fff', padding: '8px' }}
+            style={{ borderRadius: 'var(--radius-sm)', background: 'var(--qr-bg)', padding: '8px' }}
           />
           <p className="muted" style={{ maxWidth: '32ch' }}>
             QR-Code scannen, um direkt auf dieser Seite zu landen — praktisch für Vorträge oder Spendenaktionen vor Ort.
@@ -2571,22 +2774,44 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
 }
 ```
 
-- [ ] **Step 9: Test erneut ausführen**
+- [ ] **Step 9: `loading.tsx` und `error.tsx` für die Route ergänzen**
+
+```tsx
+// stiftung-web/app/einrichtungen/[slug]/loading.tsx
+import { LoadingState } from '@/components/LoadingState';
+
+export default function Loading() {
+  return <LoadingState label="Einrichtung wird geladen …" />;
+}
+```
+
+```tsx
+// stiftung-web/app/einrichtungen/[slug]/error.tsx
+'use client';
+
+import { ErrorState } from '@/components/ErrorState';
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return <ErrorState error={error} reset={reset} label="Einrichtung konnte nicht geladen werden." />;
+}
+```
+
+- [ ] **Step 10: Test erneut ausführen**
 
 Run: `npm run test -- app/einrichtungen`
 Expected: alle PASS (Liste, Filter, Detail inkl. QR-Code).
 
-- [ ] **Step 10: Manuell im Browser verifizieren**
+- [ ] **Step 11: Manuell im Browser verifizieren**
 
 Run: `npm run dev`, eine Einrichtungs-URL öffnen (z. B. `http://localhost:3000/einrichtungen/tagesmutter-wirbelwind-muenchen`).
 Expected: Regler bewegen → Jahres-Anzeige ändert sich sofort ohne Netzwerk-Request (DevTools-Network-Tab prüfen). QR-Code sichtbar und mit einem Handy scannbar (führt zur gleichen URL). Server stoppen.
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/app/einrichtungen/\[slug\] stiftung-web/components/SpendenRechner.tsx stiftung-web/components/__tests__/SpendenRechner.test.tsx stiftung-web/package.json stiftung-web/package-lock.json
-git commit -m "feat: Einrichtungs-Detailseite mit live simuliertem Spendenrechner und QR-Code"
+git commit -m "feat: Einrichtungs-Detailseite mit live simuliertem Spendenrechner, QR-Code, Loading-/Error-States"
 ```
 
 ---
@@ -2860,7 +3085,7 @@ Expected: Button zeigt kurz "Wird gebucht …", danach Bestätigungs-Card mit ne
 - [ ] **Step 10: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/components/SpendenRechner.tsx stiftung-web/components/SpendenBestaetigung.tsx stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx stiftung-web/components/__tests__/SpendenRechner.test.tsx
 git commit -m "feat: echte Spielgeld-Buchung mit Share-Button und Mock-Spendenquittung"
 ```
@@ -2873,9 +3098,10 @@ git commit -m "feat: echte Spielgeld-Buchung mit Share-Button und Mock-Spendenqu
 - Create: `stiftung-web/components/SolidaritaetsfondsPanel.tsx` (Client Component)
 - Test: `stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx`
 - Create: `stiftung-web/app/solidaritaetsfonds/page.tsx` (Server Component)
+- Create: `stiftung-web/app/solidaritaetsfonds/loading.tsx`, `app/solidaritaetsfonds/error.tsx`
 
 **Interfaces:**
-- Consumes: `getFondsBestand` (Task 12), `Card`, `StatusChip` (Task 4), `formatEuro` (Task 5).
+- Consumes: `getFondsBestand` (Task 12), `Card`, `StatusChip`, `LoadingState`, `ErrorState` (Task 4), `formatEuro` (Task 5).
 - Produces: `SolidaritaetsfondsPanel({ initialBestand }): JSX.Element` — Bestand-Anzeige, Einzahl-Formular (POST `/api/solidaritaetsfonds/spenden`), "Jetzt verteilen"-Button (POST `/api/solidaritaetsfonds/verteilen`), Ergebnis-Liste.
 
 - [ ] **Step 1: Failing Test schreiben**
@@ -2917,8 +3143,30 @@ describe('SolidaritaetsfondsPanel', () => {
     expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
     expect(screen.getByText('0,00 €')).toBeInTheDocument();
   });
+
+  it('zeigt Fehlertext, wenn die Einzahlung fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel initialBestand={120} />);
+    await user.click(screen.getByRole('button', { name: /In den Fonds einzahlen/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+
+  it('lässt den Bestand unverändert, wenn Verteilung ohne Bedarf zurückkommt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ verteiltGesamt: 0, verteilung: [] }),
+    }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel initialBestand={120} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
+    expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
+    expect(screen.getByText(/120,00\s*€/)).toBeInTheDocument();
+  });
 });
 ```
+
+Hinweis: Der zweite Test ist die Regressionsprobe für das Backend-Invariant „bei fehlendem Bedarf bleibt der Bestand unangetastet" (siehe Task 12/13) — er schlägt fehl, solange Step 3 `setBestand(0)` statt einer aus `verteiltGesamt` abgeleiteten Aktualisierung verwendet.
 
 - [ ] **Step 2: Test ausführen, Fehlschlag verifizieren**
 
@@ -2966,7 +3214,7 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
       if (!res.ok) throw new Error('failed');
       const json = await res.json();
       setVerteilung(json.verteilung);
-      setBestand(0);
+      setBestand((b) => Math.round((b - json.verteiltGesamt) * 100) / 100);
       setStatus('idle');
     } catch {
       setStatus('error');
@@ -2988,7 +3236,7 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
             min={5}
             value={betrag}
             onChange={(e) => setBetrag(Number(e.target.value) || 0)}
-            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(135,152,232,.35)', background: 'var(--surface)', color: 'var(--cream)' }}
+            style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
           <button type="button" className="pill pill-primary" onClick={handleSpenden} disabled={status === 'loading'}>
             In den Fonds einzahlen
@@ -3070,16 +3318,38 @@ export default async function SolidaritaetsfondsPage() {
 }
 ```
 
-- [ ] **Step 6: Manuell im Browser verifizieren**
+- [ ] **Step 6: `loading.tsx` und `error.tsx` für die Route ergänzen**
+
+```tsx
+// stiftung-web/app/solidaritaetsfonds/loading.tsx
+import { LoadingState } from '@/components/LoadingState';
+
+export default function Loading() {
+  return <LoadingState label="Solidaritätsfonds wird geladen …" />;
+}
+```
+
+```tsx
+// stiftung-web/app/solidaritaetsfonds/error.tsx
+'use client';
+
+import { ErrorState } from '@/components/ErrorState';
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return <ErrorState error={error} reset={reset} label="Solidaritätsfonds konnte nicht geladen werden." />;
+}
+```
+
+- [ ] **Step 7: Manuell im Browser verifizieren**
 
 Run: `npm run dev`, `http://localhost:3000/solidaritaetsfonds` öffnen. Betrag eingeben, "In den Fonds einzahlen" klicken → Bestand steigt. "Jetzt verteilen" klicken → Ergebnis-Liste erscheint, Bestand auf 0. Auf `/einrichtungen` prüfen, dass die begünstigten Einrichtungen einen höheren Kapitalstand zeigen. Server stoppen.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/components/SolidaritaetsfondsPanel.tsx stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx stiftung-web/app/solidaritaetsfonds
-git commit -m "feat: Solidaritätsfonds-Seite (einzahlen, verteilen, Ergebnis anzeigen)"
+git commit -m "feat: Solidaritätsfonds-Seite (einzahlen, verteilen, Ergebnis anzeigen), Loading-/Error-States"
 ```
 
 ---
@@ -3088,11 +3358,11 @@ git commit -m "feat: Solidaritätsfonds-Seite (einzahlen, verteilen, Ergebnis an
 
 **Files:**
 - Create: `stiftung-web/README.md`
-- Modify: `/Volumes/external/TobiCodetEndlichWieder/stiftung/projekt-status.md`
+- Modify: `/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/projekt-status.md`
 
 - [ ] **Step 1: Vollständigen Testlauf ausführen**
 
-Run: `cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/stiftung-web" && npm run test`
+Run: `cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/stiftung-web" && npm run test`
 Expected: `pretest` setzt Test-DB zurück, alle Tests aus Task 1–20 PASS.
 
 - [ ] **Step 2: Production-Build verifizieren**
@@ -3170,16 +3440,16 @@ Run: `npm run dev`, dann im Browser:
 6. `http://localhost:3000/statistik` — Ø-Volumen, Zufluss, simulierter Ertrag, Balkendiagramm, Top-/Bottom-Listen.
 7. `http://localhost:3000/solidaritaetsfonds` — einzahlen, verteilen, Ergebnis-Liste prüfen, danach auf `/einrichtungen` verifizieren, dass die bedürftigste Einrichtung mehr bekommen hat als eine bereits gut finanzierte.
 
-Expected: keine Konsolenfehler, alle Interaktionen wie beschrieben, Persistenz nach Reload bestätigt, Solidaritätsfonds bevorzugt nachweislich die bedürftigste Einrichtung. Server danach stoppen.
+Expected: keine Konsolenfehler, alle Interaktionen wie beschrieben, Persistenz nach Reload bestätigt, Solidaritätsfonds bevorzugt nachweislich die bedürftigste Einrichtung. Beim schnellen Neuladen der vier DB-gestützten Seiten (`/einrichtungen`, `/einrichtungen/[slug]`, `/statistik`, `/solidaritaetsfonds`) ist kurz `loading.tsx` sichtbar (ggf. Netzwerk-Drosselung in DevTools nutzen, da lokale SQLite-Reads sonst zu schnell sind, um es zu sehen). Server danach stoppen.
 
 - [ ] **Step 5: `projekt-status.md` im Repo-Root aktualisieren**
 
-In `/Volumes/external/TobiCodetEndlichWieder/stiftung/projekt-status.md` den Abschnitt "Aktueller Stand" ergänzen: Code-Stand liegt jetzt unter `stiftung-web/` (Next.js + Prisma/SQLite), Backend ist real und getestet (kein Mock), Solidaritätsfonds aktiv, Payment/KYC weiterhin offen.
+In `/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal/projekt-status.md` den Abschnitt "Aktueller Stand" ergänzen: Code-Stand liegt jetzt unter `stiftung-web/` (Next.js + Prisma/SQLite), Backend ist real und getestet (kein Mock), Solidaritätsfonds aktiv, Payment/KYC weiterhin offen.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd "/Volumes/external/TobiCodetEndlichWieder/stiftung"
+cd "/Volumes/external/TobiCodetEndlichWieder/stiftung/.claude/worktrees/website-rebuild-lokal"
 git add stiftung-web/README.md projekt-status.md
 git commit -m "docs: README für lokale Ausführung + Projekt-Status aktualisiert"
 ```
@@ -3199,3 +3469,88 @@ nach Bedarf auf die am wenigsten geförderten Einrichtungen verteilt — der
 Kernmechanismus aus dem Leitbild, nicht nur eine informative Rangliste.
 
 **Nicht Teil dieses Plans** (nächste Schritte laut Leitbild/`projekt-status.md`, brauchen eigenen Plan): echtes Payment (Stripe/PayPal), KYC-Zugangsprüfung, Spender-Konten, Arbeits-Konto/Fonds-Konto-Split, Auszahlung an Einrichtungen, Deployment/Hosting, Zukunftswert-Framing im Rechner ("50€ → 40.000€"-Story, bewusst zurückgestellt).
+
+---
+
+# Erweiterung (2026-07-16): Jahres-Simulation — Fondsgewinne buchen und verteilen
+
+**Entscheidung (User):** Jahres-Simulation lässt alles um 6 % wachsen und verteilt danach automatisch den Fonds-Bestand ("Wachsen + sofort verteilen") — Leitbild-treu: kein Geld bleibt stecken. Gebaut auf demselben Branch (`website-rebuild-lokal`, PR #1).
+
+**Kontext:** Bis Task 21 wird die 6 %-Netto-Wachstumsrate nur angezeigt (Client-Rechner, `simulierterJahresertrag` in der Statistik), aber nie gebucht. Diese Erweiterung macht Zeitablauf simulierbar: ein "Jahresabschluss" bucht Erträge real in die DB und verteilt sie bedarfsproportional.
+
+**Ertrags-Semantik:**
+- Fonds-Bestand wächst um 6 % (`bestand *= 1.06`, cent-gerundet) — ruhendes Fondsgeld arbeitet mit.
+- Jedes `Einrichtung.aktuellesKapital` wächst um 6 % (cent-gerundet) — Ertrag verbleibt im Topf (keine Auszahlung in dieser Phase).
+- Danach wird der komplette Fonds-Bestand (Einzahlungen + Ertrag) über die bestehende Verteilungslogik bedarfsproportional gebucht.
+- Erträge erzeugen KEINE `Spende`-/`FondsSpende`-Zeilen → `zuflussLetztesJahr` zählt sie automatisch nicht als Spenden-Zufluss (gleiche Schutzlogik wie die quelle-Filterung aus Task 12).
+
+---
+
+### Task 22: Jahresabschluss-Service (Schema, simuliereJahr, echte DB-Tests)
+
+**Files:**
+- Modify: `stiftung-web/prisma/schema.prisma` (neues Modell `Jahresabschluss`)
+- Modify: `stiftung-web/lib/server/solidaritaetsfondsService.ts` (Verteilungs-Kern als tx-fähiger Helper extrahiert)
+- Create: `stiftung-web/lib/server/simulationService.ts`
+- Test: `stiftung-web/lib/server/__tests__/simulationService.test.ts`
+
+**Interfaces:**
+- Neues Prisma-Modell:
+  ```prisma
+  model Jahresabschluss {
+    id             String   @id @default(cuid())
+    nummer         Int
+    fondsErtrag    Float
+    kapitalErtrag  Float
+    verteiltGesamt Float
+    createdAt      DateTime @default(now())
+  }
+  ```
+- `solidaritaetsfondsService.ts`: interne Verteilung als `verteileMitClient(tx: Prisma.TransactionClient)` extrahieren; öffentliche `verteileFonds()` behält Signatur/Verhalten exakt (ruft den Helper in eigener `$transaction`) — alle bestehenden Tests müssen unverändert grün bleiben.
+- `simulationService.ts` exportiert:
+  - `simuliereJahr(): Promise<{ nummer: number; fondsErtrag: number; kapitalErtrag: number; verteiltGesamt: number; verteilung: { slug: string; name: string; anteil: number }[]; neuerFondsBestand: number }>`
+  - Ablauf in EINER `$transaction`: (1) Fonds-Ertrag = `round2(bestand * NET_GROWTH_RATE)` buchen; (2) pro Einrichtung Ertrag = `round2(kapital * NET_GROWTH_RATE)` buchen, Summe = `kapitalErtrag`; (3) `verteileMitClient(tx)` aufrufen; (4) `Jahresabschluss`-Zeile schreiben (`nummer` = bisherige Anzahl + 1, innerhalb der tx gezählt). `round2(x) = Math.round(x * 100) / 100`. `NET_GROWTH_RATE` aus `@/lib/calc/spendenrechner` importieren — keine zweite 0.06-Konstante.
+
+**Kern-Testfälle (echte Test-DB, beforeEach resettet ALLE fünf Tabellen FK-sicher: FondsSpende → Spende → Einrichtung → Solidaritaetsfonds → Jahresabschluss):**
+
+Fixture: `arm` (kapital 0, ziel 10000, 10 Kinder), `reich` (kapital 9000, ziel 10000, 10 Kinder).
+
+1. **Erträge korrekt gebucht:** 12× `spendeAnFonds(100)` → `simuliereJahr()` → `fondsErtrag === 72` (1200×0.06), `kapitalErtrag === 540` (nur reich: 9000×0.06), reich-Kapital vor Verteilung 9540.
+2. **Verteilung bedarfsproportional nach Wachstum:** gleicher Aufbau — Bedarf/Kind: arm 1000, reich 46 → Pool 1272 verteilt als arm 1216.06 / reich 55.94 (Floor-Cent, Rest an letzten Bedarfsträger). `verteiltGesamt === 1272`, `neuerFondsBestand === 0`.
+3. **Summenerhalt auf den Cent:** Gesamtvermögen vorher (Fonds + alle Kapitale) + fondsErtrag + kapitalErtrag === Gesamtvermögen nachher. (10200 + 612 === 10812.)
+4. **Erträge sind kein Spenden-Zufluss:** nach `simuliereJahr()` bleibt `statistik().zuflussLetztesJahr === 1200` (nur die 12 Einzahlungen; weder Erträge noch Verteilungs-Buchungen zählen).
+5. **Leerer Zustand:** `simuliereJahr()` ohne Fonds und ohne Kapital → alle Erträge 0, keine Verteilung, `nummer === 1`; zweiter Aufruf → `nummer === 2`.
+6. **Bestehende Fonds-Tests unverändert grün** (Refactor-Guard).
+
+Commit: `feat: Jahresabschluss-Service — 6% Erträge buchen und bedarfsproportional verteilen`
+
+---
+
+### Task 23: Simulations-API-Route
+
+**Files:**
+- Create: `stiftung-web/app/api/simulation/jahr/route.ts` (POST)
+- Test: `stiftung-web/app/api/simulation/jahr/__tests__/route.test.ts`
+
+**Interfaces:**
+- `POST /api/simulation/jahr` → 201 mit dem vollständigen `simuliereJahr()`-Ergebnis. Kein Body nötig. Dünner Handler, Fehler durchreichen (kein Swallowing). `export const dynamic = 'force-dynamic'` wie bei den übrigen DB-Routes.
+- Test (echte Test-DB, 5-Tabellen-Reset): POST → 201, Ergebnis-Shape vollständig, Einrichtungs-Kapital in DB real erhöht, zweiter POST → `nummer === 2`.
+
+Commit: `feat: API-Route für Jahres-Simulation`
+
+---
+
+### Task 24: "Jahr simulieren"-Button + E2E + Doku
+
+**Files:**
+- Modify: `stiftung-web/components/SolidaritaetsfondsPanel.tsx`
+- Modify: `stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx`
+- Modify: `stiftung-web/README.md`, `projekt-status.md` (Feature dokumentieren)
+
+**Interfaces:**
+- Panel bekommt Button `Jahr simulieren (+6 %)` (pill-secondary, disabled während loading — NICHT an `bestand > 0` gekoppelt: Simulation ist auch bei leerem Fonds sinnvoll, weil Einrichtungskapital wächst). POST auf `/api/simulation/jahr`; Ergebnisbox zeigt fondsErtrag, kapitalErtrag, verteiltGesamt + Verteilungsliste (bestehende Liste wiederverwenden); `bestand` aus `neuerFondsBestand` der Antwort setzen.
+- Tests (fetch-gemockt wie bestehende Panel-Tests): Erfolgsfall zeigt Erträge + Verteilung und setzt Bestand aus Antwort; Fehlerfall zeigt bestehenden Fehlertext.
+- Manuelle E2E: Fonds füllen, Jahr simulieren, auf /einrichtungen und /statistik prüfen, dass Kapitale gewachsen + Verteilung angekommen; Reload-Persistenz.
+- README: Abschnitt "Jahres-Simulation" (was passiert, Semantik der 6 %); projekt-status.md Feature-Zeile.
+
+Commit: `feat: Jahres-Simulation im Fonds-Panel (+6 % buchen und verteilen)`

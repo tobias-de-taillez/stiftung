@@ -1,5 +1,52 @@
 # Projekt-Status: Deutsche Bildungsstiftung
 
+## Aktueller Stand 2026-07-16
+
+**Status:** ✅ Lokale Website neu aufgebaut, echtes getestetes Backend, Solidaritätsfonds aktiv
+
+Der Code-Stand liegt jetzt vollständig unter [`stiftung-web/`](stiftung-web/) —
+ein Next.js-14-Projekt (App Router, TypeScript) mit Prisma/SQLite statt des
+früheren Vanilla-Stacks (HTML/CSS/JS, siehe Historie unten). Der alte
+Code-Stand wurde entfernt (`78b98d2`), die lokale Version in 21 Tasks
+(`docs/superpowers/plans/2026-07-15-website-rebuild-lokal.md`) neu gebaut.
+
+**Was jetzt real ist (kein Mock mehr):**
+- **Echtes Backend:** Spenden werden per API-Route über Prisma real in einer
+  lokalen SQLite-Datenbank gebucht und persistieren über Reloads hinweg —
+  "Spielgeld", aber keine gemockte Datenschicht. Service-Layer und
+  API-Routes sind gegen eine echte Test-SQLite-Datei integrationsgetestet.
+- **Aktiver Solidaritätsfonds:** Nicht zweckgebundene Spenden sammeln sich im
+  Fonds; eine Verteilung berechnet pro Einrichtung den Pro-Kind-Abstand zum
+  Ziel-Kapital und teilt den Fonds-Bestand proportional dazu auf — die
+  bedürftigste Einrichtung bekommt nachweislich am meisten (End-to-End
+  verifiziert). Das ist der Kernmechanismus aus dem Leitbild, nicht nur eine
+  informative Rangliste.
+- **Jahres-Simulation aktiv:** Button „Jahr simulieren (+6 %)" im
+  Fonds-Panel bucht einen kompletten Jahresabschluss — 6 % Netto-Wachstum auf
+  Fonds-Bestand und auf das Kapital jeder Einrichtung, danach automatische
+  Verteilung, protokolliert als `Jahresabschluss`-Datensatz. Kein
+  Spenden-Zufluss, reines Kapitalwachstum.
+- **94 Tests, alle grün:** 23 Testdateien (Vitest), Service-Layer,
+  Berechnungslogik und API-Routes abgedeckt; `npm run build` läuft ohne
+  TypeScript-/ESLint-Fehler durch.
+
+**Was weiterhin offen ist:**
+- Kein echtes Payment (Stripe/PayPal) — reine Spielgeld-Buchung.
+- Kein Login/KYC — Spenden sind anonym.
+- Keine Auszahlung an Einrichtungen (nur Zufluss modelliert).
+- Kein Arbeits-Konto/Fonds-Konto-Split.
+- Deployment/Hosting noch nicht adressiert.
+
+Details: [`stiftung-web/README.md`](stiftung-web/README.md).
+
+---
+
+## Historie
+
+Die folgenden Abschnitte beschreiben den **früheren** Projektstand (Vanilla-
+Stack, Vercel-Demo) vor dem Neuaufbau und dienen nur noch als Verlaufs-
+Dokumentation. Sie sind nicht mehr aktuell.
+
 ## Aktueller Stand (30. Dezember 2024)
 
 **Version:** 1.2.0
