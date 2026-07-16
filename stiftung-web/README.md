@@ -23,10 +23,13 @@ Danach `http://localhost:3000` öffnen.
 npm run test
 ```
 
-Setzt vor jedem Lauf automatisch `prisma/test.db` zurück (`pretest`-Skript)
-und testet Service-Layer und API-Routes gegen eine echte SQLite-Datei —
-keine gemockte Datenbank. Aktueller Stand: 21 Testdateien, 83 Tests, alle
-PASS.
+Die Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`, via
+`DATABASE_URL` in `vitest.config.ts`) — keine gemockte Datenbank. Das
+`pretest`-Skript synchronisiert nur das Schema; die Isolation kommt daher,
+dass jede Test-Suite in ihrem `beforeEach` alle vier Tabellen leert
+(FK-sichere Reihenfolge) und `fileParallelism: false` die Testdateien
+sequenziell ausführt. Neue DB-Test-Suiten müssen dieses beforeEach-Muster
+übernehmen. Aktueller Stand: 21 Testdateien, 83 Tests, alle PASS.
 
 ## Struktur
 
