@@ -54,10 +54,17 @@ describe('SpendenBestaetigung', () => {
     expect(screen.getByText(/Spielgeld/i)).toBeInTheDocument();
   });
 
-  it('zeigt einen WhatsApp-Share-Link mit dem Spendentext', () => {
+  it('zeigt einen WhatsApp-Share-Link, dessen Text die Wirkung statt nur die Transaktion erzählt (Ziel-Fortschritt-Delta)', () => {
     render(<SpendenBestaetigung {...props} />);
     const link = screen.getByRole('link', { name: /WhatsApp/i });
-    expect(link.getAttribute('href')).toContain('wa.me');
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('wa.me');
+    const decodedText = decodeURIComponent(href);
+    // altesKapital 3000 / zielKapital 25000 = 12,0 %; neuesKapital 3050 / 25000 = 12,2 %
+    // — dieselben Werte wie im Ziel-Fortschritt-Text unter dem Balken.
+    expect(decodedText).toMatch(/12,0 %/);
+    expect(decodedText).toMatch(/12,2 %/);
+    expect(decodedText).toMatch(/Ziel/);
   });
 
   it('nutzt navigator.share, wenn verfügbar', async () => {

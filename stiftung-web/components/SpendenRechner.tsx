@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { computeYearsToGoal } from '@/lib/calc/spendenrechner';
+import { ANNUAL_PAYOUT_RATE, computeYearsToGoal } from '@/lib/calc/spendenrechner';
 import { formatDuration, formatEuro } from '@/lib/calc/format';
 import { currentLevel } from '@/lib/data/levels';
+import { impactBeispiel, type EinrichtungTyp } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
 import { SpendenBestaetigung } from './SpendenBestaetigung';
 
 interface EinrichtungFuerRechner {
   slug: string;
   name: string;
+  typ: EinrichtungTyp;
   kinderAnzahl: number;
   aktuellesKapital: number;
   zielKapital: number;
@@ -61,6 +63,13 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
 
   const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
   const level = currentLevel(annualDonationPerChild);
+
+  // Wirkungs-Zeile: X = Spendenbetrag × ANNUAL_PAYOUT_RATE (1%) — dieselbe
+  // Ausschüttungsquote, mit der auch capitalForAnnualPayout rechnet. Bei
+  // "jährlich" gilt dieselbe Formel je gespendetem Betrag (nicht kumuliert
+  // über die Jahre) — siehe Fußnote, die das ehrlich einordnet.
+  const jahresertrag = betrag * ANNUAL_PAYOUT_RATE;
+  const wirkungsBeispiel = impactBeispiel(einrichtung.typ, jahresertrag);
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
@@ -114,6 +123,21 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
       <div data-testid="years-result">
         <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>{formatDuration(jahre)}</p>
         <p className="muted">bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
+      </div>
+
+      <div data-testid="impact-beispiel">
+        <p>
+          {frequenz === 'jaehrlich'
+            ? `Jede deiner jährlichen Spenden erwirtschaftet je gespendetem Betrag dauerhaft ~${formatEuro(jahresertrag)}/Jahr — das ist z. B. ${wirkungsBeispiel}, jedes Jahr aufs Neue.`
+            : `Deine Spende erwirtschaftet dauerhaft ~${formatEuro(jahresertrag)}/Jahr — das ist z. B. ${wirkungsBeispiel}, jedes Jahr aufs Neue.`}
+        </p>
+        <p className="muted" style={{ fontSize: '0.8rem' }}>
+          Formel: {formatEuro(betrag)} × 1 % jährliche Ausschüttungsquote = {formatEuro(jahresertrag)}/Jahr. Dein
+          Spendenbetrag selbst bleibt dauerhaft im Finanztopf angelegt — ausgeschüttet wird nur dieser jährliche
+          Ertrag, Jahr für Jahr aufs Neue, ohne dass das Kapital schrumpft. Die Beispiele oben stehen dafür, wofür
+          solche wiederkehrenden Ausschüttungen über viele Spenden hinweg eingesetzt werden.
+          {frequenz === 'jaehrlich' && ' Bei jährlicher Spende gilt diese Rechnung für jeden gespendeten Jahresbetrag erneut.'}
+        </p>
       </div>
 
       {level && <StatusChip tone={level.tone}>{level.name}-Spender:in</StatusChip>}

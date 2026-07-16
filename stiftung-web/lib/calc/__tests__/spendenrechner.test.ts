@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { NET_GROWTH_RATE, capitalForAnnualPayout, computeYearsToGoal } from '../spendenrechner';
+import { ANNUAL_PAYOUT_RATE, NET_GROWTH_RATE, capitalForAnnualPayout, computeYearsToGoal } from '../spendenrechner';
 
 describe('capitalForAnnualPayout', () => {
   it('berechnet benötigtes Kapital für gewünschte Jahresausschüttung (1%)', () => {
     expect(capitalForAnnualPayout(20000)).toBe(2000000);
+  });
+
+  it('exportiert die jährliche Ausschüttungsquote von 1%, konsistent mit capitalForAnnualPayout', () => {
+    expect(ANNUAL_PAYOUT_RATE).toBe(0.01);
   });
 });
 

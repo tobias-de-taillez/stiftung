@@ -1,7 +1,7 @@
 // Finanzmodell aus projekt-status.md: 7% Brutto-Rendite, 1% jährliche
 // Ausschüttung, 6% Netto-Wachstumsrate.
 export const NET_GROWTH_RATE = 0.06;
-const ANNUAL_PAYOUT_RATE = 0.01;
+export const ANNUAL_PAYOUT_RATE = 0.01;
 
 export function capitalForAnnualPayout(annualPayout: number): number {
   return annualPayout / ANNUAL_PAYOUT_RATE;

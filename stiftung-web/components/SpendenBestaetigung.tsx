@@ -29,16 +29,6 @@ export function SpendenBestaetigung({
 }) {
   const [quittungOffen, setQuittungOffen] = useState(false);
   const angezeigtesKapital = useCountUp(neuesKapital);
-  const shareText = `Ich habe gerade ${formatEuro(betrag)} an ${einrichtungName} gespendet — mach mit!`;
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-
-  async function handleShare() {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      await navigator.share({ title: 'Meine Spende', text: shareText, url: shareUrl });
-    } else if (typeof window !== 'undefined') {
-      window.alert('Teilen wird von diesem Browser nicht unterstützt — nutze den WhatsApp-Link.');
-    }
-  }
 
   const altPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (altesKapital / zielKapital) * 100))) : 0;
   const neuPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (neuesKapital / zielKapital) * 100))) : 0;
@@ -48,6 +38,21 @@ export function SpendenBestaetigung({
   // Einrichtungen "+0,0 %" und widerspricht damit dem sichtbar wachsenden
   // Balken darunter. altPct/neuPct sind bereits für den Balken berechnet.
   const zielFortschrittText = `Von ${formatProzent(altPct)} % auf ${formatProzent(neuPct)} % des Ziels`;
+
+  // Share-Text erzählt Wirkung statt reiner Transaktion: statt nur den
+  // gespendeten Betrag zu nennen, nutzt er das bereits vorhandene
+  // Ziel-Fortschritt-Delta (altPct → neuPct) aus derselben Rechner-Mathematik,
+  // die auch der Balken oben anzeigt.
+  const shareText = `Ich habe gerade ${formatEuro(betrag)} an ${einrichtungName} gespendet — der Finanztopf ist jetzt bei ${formatProzent(neuPct)} % des Ziels (vorher ${formatProzent(altPct)} %). Mach mit!`;
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  async function handleShare() {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      await navigator.share({ title: 'Meine Spende', text: shareText, url: shareUrl });
+    } else if (typeof window !== 'undefined') {
+      window.alert('Teilen wird von diesem Browser nicht unterstützt — nutze den WhatsApp-Link.');
+    }
+  }
 
   return (
     <Card>

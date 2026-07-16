@@ -31,7 +31,7 @@ const einrichtung = {
   id: '1',
   slug: 'tagesmutter-wirbelwind-muenchen',
   name: 'Tagespflege Wirbelwind',
-  typ: 'tagespflege',
+  typ: 'tagespflege' as const,
   ort: 'München',
   kinderAnzahl: 5,
   aktuellesKapital: 3000,
@@ -146,6 +146,62 @@ describe('SpendenRechner', () => {
     // Vorher-Wert der zweiten Spende muss der Nachher-Wert der ersten sein
     // (3.050,00 €), nicht der Seitenlade-Stand (3.000,00 €).
     expect(screen.getByText(/3\.050,00 € → 3\.150,00 €/)).toBeInTheDocument();
+  });
+
+  // Intl.NumberFormat setzt zwischen Betrag und "€" ein geschütztes Leerzeichen
+  // (U+00A0), keinen normalen Space — textContent gibt das roh weiter. \s in
+  // JS-Regexes matcht beides, deshalb hier normalisieren statt literalem " ".
+  function normalisiert(text: string | null): string {
+    return (text ?? '').replace(/\s+/g, ' ');
+  }
+
+  it('zeigt unter dem Ergebnis eine Wirkungs-Zeile mit Jahresertrag und Impact-Beispiel passend zum Einrichtungstyp', () => {
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    const impactText = normalisiert(screen.getByTestId('impact-beispiel').textContent);
+    // Default: Betrag 50 €, einmalig → 50 × 1 % ANNUAL_PAYOUT_RATE = 0,50 €/Jahr.
+    // tagespflege liegt bei 0,50 €/Jahr auf der niedrigsten Stufe: "Spielzeug".
+    expect(impactText).toMatch(/erwirtschaftet dauerhaft/i);
+    expect(impactText).toMatch(/0,50 €\/Jahr/);
+    expect(impactText).toMatch(/Spielzeug/i);
+    expect(impactText).toMatch(/jedes Jahr aufs Neue/i);
+    // Ehrliche Formel-Fußnote muss den Rechenweg offenlegen.
+    expect(impactText).toMatch(/1 % jährliche Ausschüttungsquote/i);
+  });
+
+  it('passt die Wirkungs-Zeile beim Wechsel auf jährlich an (Formel je gespendetem Betrag)', async () => {
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: 'Jährlich' }));
+
+    const impactText = normalisiert(screen.getByTestId('impact-beispiel').textContent);
+    expect(impactText).toMatch(/je gespendetem Betrag/i);
+    expect(impactText).toMatch(/0,50 €\/Jahr/);
+  });
+
+  it('bleibt bei 250 € (2,50 €/Jahr) noch auf der niedrigsten Stufe (Schwellenwert-Regressionsschutz)', async () => {
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: '250 €' }));
+
+    // 250 × 1 % = 2,50 €/Jahr → tagespflege-Stufe "Bastelmaterial" (ab 5 €/Jahr
+    // greift erst bei 500 €, hier reicht 250 € noch nicht — Regressionsschutz
+    // für die Stufen-Schwelle).
+    const impactText = normalisiert(screen.getByTestId('impact-beispiel').textContent);
+    expect(impactText).toMatch(/2,50 €\/Jahr/);
+    expect(impactText).toMatch(/Spielzeug/i);
+  });
+
+  it('zeigt Bastelmaterial statt Spielzeug, sobald der Jahresertrag die zweite Stufe erreicht', async () => {
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    const input = screen.getByLabelText('Spendenbetrag');
+    await user.clear(input);
+    await user.type(input, '500');
+
+    // 500 × 1 % = 5,00 €/Jahr → tagespflege-Stufe "Bastelmaterial" (ab 5 €/Jahr).
+    const impactText = normalisiert(screen.getByTestId('impact-beispiel').textContent);
+    expect(impactText).toMatch(/5,00 €\/Jahr/);
+    expect(impactText).toMatch(/Bastelmaterial/i);
   });
 
   it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {
