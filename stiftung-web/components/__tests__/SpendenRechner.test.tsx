@@ -4,6 +4,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SpendenRechner } from '../SpendenRechner';
 import { computeYearsToGoal, futureValueWithAnnualDonation, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
+// SpendenRechner ruft nach erfolgreicher Buchung router.refresh() (F3), damit
+// server-gerenderte Sektionen (Finanztopf-Karte, Transparenz-Historie) auf
+// derselben Seite aktuell bleiben. Ohne Mock wirft next/navigations
+// useRouter() außerhalb eines echten App-Router-Baums ("invariant expected
+// app router to be mounted").
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 // SpendenBestaetigung nutzt useCountUp für den Kapitalstand — ohne
 // reduced-motion liefe die Zahl über requestAnimationFrame hoch und die
 // synchronen/`findByText`-Assertions unten wären flaky (siehe
@@ -183,6 +192,33 @@ describe('SpendenRechner', () => {
     // Vorher-Wert der zweiten Spende muss der Nachher-Wert der ersten sein
     // (3.050,00 €), nicht der Seitenlade-Stand (3.000,00 €).
     expect(screen.getByText(/3\.050,00 € → 3\.150,00 €/)).toBeInTheDocument();
+  });
+
+  it('friert die Bestätigung auf den GEBUCHTEN Betrag ein — ein späteres Verschieben des Reglers ändert Quittung/Share nicht (F1-Regressionsschutz)', async () => {
+    // Vorher-Bug: SpendenBestaetigung bekam die LIVE betrag/frequenz-States.
+    // Nach dem Spenden weiterbewegen des Reglers rechnete Bestätigung/
+    // Quittung/Share-Text die Live-Werte um — eine fake Quittung.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+        spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+    expect(await screen.findByTestId('konfetti-danke')).toHaveTextContent('50,00 €');
+
+    const input = screen.getByLabelText('Spendenbetrag');
+    await user.clear(input);
+    await user.type(input, '250');
+
+    // Bestätigungsblock zeigt weiterhin die gebuchten 50 €, nicht die Live-250 €.
+    expect(screen.getByTestId('konfetti-danke')).toHaveTextContent('50,00 €');
+    expect(screen.getByTestId('konfetti-danke')).not.toHaveTextContent('250,00 €');
   });
 
   // Intl.NumberFormat setzt zwischen Betrag und "€" ein geschütztes Leerzeichen
@@ -407,6 +443,33 @@ describe('SpendenRechner', () => {
         maximumFractionDigits: 2,
       });
       expect(heroText).toMatch(new RegExp(expectedNumberPart.replace(/\./g, '\\.')));
+    });
+  });
+
+  describe('Betrag < 5 € zeigt neutralen Hinweis statt absurder 0-€-Story (F5)', () => {
+    it('zeigt bei geleertem Betragsfeld einen Hinweis statt Zukunftswert-Hero und Wirkungs-Zeile', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const input = screen.getByLabelText('Spendenbetrag');
+      await user.clear(input);
+
+      expect(screen.getByTestId('betrag-hinweis')).toHaveTextContent('Wähle einen Betrag ab 5 €.');
+      expect(screen.queryByText(/angewachsen/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId('zukunftswert-hero')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('dauerfoerderung-perspektive')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('impact-beispiel')).not.toBeInTheDocument();
+    });
+
+    it('zeigt Hero und Wirkungs-Zeile wieder, sobald der Betrag auf mindestens 5 € gesetzt wird', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const input = screen.getByLabelText('Spendenbetrag');
+      await user.clear(input);
+      await user.type(input, '5');
+
+      expect(screen.queryByTestId('betrag-hinweis')).not.toBeInTheDocument();
+      expect(screen.getByTestId('zukunftswert-hero')).toBeInTheDocument();
+      expect(screen.getByTestId('impact-beispiel')).toBeInTheDocument();
     });
   });
 });

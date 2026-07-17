@@ -70,7 +70,7 @@ export default async function Page() {
       </section>
 
       <Card>
-        <p className="eyebrow">So wirkt Ihre Spende</p>
+        <p className="eyebrow">So wirkt deine Spende</p>
         <p style={{ maxWidth: '60ch' }}>
           Schon 5 € wachsen für immer weiter: Bei einer Netto-Wachstumsrate
           von {Math.round(NET_GROWTH_RATE * 100)} % pro Jahr verdoppelt sich

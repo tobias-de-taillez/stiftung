@@ -74,10 +74,12 @@ export function SpendenBestaetigung({
         </div>
       )}
 
-      {/* (1) Konfetti-Burst + Danke — prominent, als Erstes zu sehen */}
+      {/* (1) Konfetti-Burst + Danke — prominent, als Erstes zu sehen. Konfetti
+          nur ohne Meilenstein-Banner (das bringt oben bereits sein eigenes
+          mit) — sonst platzt doppelt Konfetti gleichzeitig. */}
       <div data-testid="konfetti-danke">
-        <Konfetti />
-        <h2>Danke für Ihre Spende!</h2>
+        {meilensteine.length === 0 && <Konfetti />}
+        <h2>Danke für deine Spende!</h2>
         <p>{formatEuro(betrag)} {frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'} für {einrichtungName}.</p>
       </div>
 

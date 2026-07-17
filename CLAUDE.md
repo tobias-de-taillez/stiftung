@@ -24,6 +24,7 @@ npm run test     # Vitest (einmalig)
 - Charts immer mit beschrifteten Achsen.
 - Jede Daten-Ansicht: Loading/Empty/Populated/Error; DB-Seiten mit `loading.tsx` + `error.tsx`.
 - Backend-Tests gegen echte SQLite-Datei (`prisma/test.db`), kein DB-Mocking.
+- Anrede in User-Copy: Du-Form (nicht Sie) — konsistent über alle Seiten.
 
 ## Hinweise
 

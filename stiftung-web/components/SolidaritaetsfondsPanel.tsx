@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from './Card';
 import { StatusChip } from './StatusChip';
 import { formatEuro } from '@/lib/calc/format';
 import { ZeitrafferErgebnis, type ZeitrafferErgebnisProps } from './ZeitrafferErgebnis';
 
 export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: number }) {
+  const router = useRouter();
   const [bestand, setBestand] = useState(initialBestand);
   const [betrag, setBetrag] = useState(50);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -44,6 +46,11 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
       setVerteilung(json.verteilung);
       setBestand((b) => Math.round((b - json.verteiltGesamt) * 100) / 100);
       setStatus('idle');
+      // Die Verteilung ändert das Kapital betroffener Einrichtungen in der DB
+      // (z. B. deren Finanztopf-Karte auf der Detailseite) — router.refresh()
+      // holt server-gerenderte Sektionen dieser Route neu, ohne den lokalen
+      // Panel-State (bestand/verteilung) zu verlieren.
+      router.refresh();
     } catch {
       setStatus('error');
     }
@@ -66,6 +73,10 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
       });
       setBestand(json.neuerFondsBestand);
       setStatus('idle');
+      // Die Jahres-Simulation verändert Kapitalstände und ggf. Meilensteine
+      // von Einrichtungen in der DB — router.refresh() aus demselben Grund
+      // wie in handleVerteilen oben.
+      router.refresh();
     } catch {
       setStatus('error');
     }

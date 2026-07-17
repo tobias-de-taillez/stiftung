@@ -1,7 +1,18 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
 import EinrichtungDetailPage from '../page';
+
+// Diese Seite rendert SpendenRechner, das seit F3 useRouter() aus
+// next/navigation aufruft (router.refresh() nach erfolgreicher Buchung) —
+// ohne Mock würde bereits das reine Rendern hier fehlschlagen ("invariant
+// expected app router to be mounted"). importActual erhält notFound()
+// (von der Seite selbst genutzt) unverändert, statt es versehentlich zu
+// undefined zu machen.
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/navigation')>()),
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 beforeEach(async () => {
   await prisma.fondsSpende.deleteMany();

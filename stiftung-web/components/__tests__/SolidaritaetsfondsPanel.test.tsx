@@ -4,6 +4,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
 import { staggerInterval, PHASE1_MS, ABSCHLUSS_MS, VERTEILUNG_BUDGET_MS } from '../ZeitrafferErgebnis';
 
+// Verteilen/Simulieren rufen nach Erfolg router.refresh() (F3), damit
+// server-gerenderte Sektionen aktuell bleiben. Ohne Mock wirft next/
+// navigations useRouter() außerhalb eines echten App-Router-Baums.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 // Die Zeitraffer-Sequenz (Task 32) staggert per Timer über mehrere Sekunden —
 // ohne reduced-motion-Stub wären die Assertions unten flaky/langsam
 // (Wall-Clock-Timer statt fake timers). reduced-motion erzwingt den
