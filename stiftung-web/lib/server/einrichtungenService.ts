@@ -63,6 +63,16 @@ export async function statistik() {
   ]);
   const zuflussLetztesJahr = (direktSumme._sum.betrag ?? 0) + (fondsSumme._sum.betrag ?? 0);
 
+  // Spenderzähler (Task 33): "echte Spender-Akte" — direkte Spenden
+  // (quelle != 'solidaritaet') plus Fonds-Einzahlungen (FondsSpende).
+  // Solidaritätsfonds-Verteilungen sind interne Umbuchungen, keine neue
+  // Spende, und zählen daher nicht mit.
+  const [anzahlDirekteSpenden, anzahlFondsSpenden] = await Promise.all([
+    prisma.spende.count({ where: { quelle: { not: 'solidaritaet' } } }),
+    prisma.fondsSpende.count(),
+  ]);
+  const anzahlSpenden = anzahlDirekteSpenden + anzahlFondsSpenden;
+
   return {
     anzahlEinrichtungen,
     gesamtKapital,
@@ -70,7 +80,29 @@ export async function statistik() {
     durchschnittlichesVolumen: anzahlEinrichtungen > 0 ? gesamtKapital / anzahlEinrichtungen : 0,
     zuflussLetztesJahr,
     simulierterJahresertrag: gesamtKapital * NET_GROWTH_RATE,
+    anzahlSpenden,
     top5: ranked.slice(0, 5),
     bottom5: ranked.slice(-5).reverse(),
   };
+}
+
+/**
+ * Letzte Spenden für den Live-Ticker (Task 33): anonymisiert (keine
+ * personenbezogenen Daten — existieren im Modell ohnehin nicht), `quelle`
+ * wird unverändert durchgereicht (Labeling von 'solidaritaet' als
+ * "Solidaritätsfonds-Verteilung" ist Sache der UI-Komponente).
+ */
+export async function letzteSpenden(limit = 10) {
+  const spenden = await prisma.spende.findMany({
+    take: limit,
+    orderBy: { createdAt: 'desc' },
+    include: { einrichtung: true },
+  });
+  const jetzt = Date.now();
+  return spenden.map((s) => ({
+    betrag: s.betrag,
+    einrichtungName: s.einrichtung.name,
+    quelle: s.quelle,
+    vorMinuten: Math.floor((jetzt - s.createdAt.getTime()) / 60000),
+  }));
 }

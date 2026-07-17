@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Card } from '@/components/Card';
+import { SpendenTicker } from '@/components/SpendenTicker';
 import { capitalForAnnualPayout, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 import { formatEuro } from '@/lib/calc/format';
 import { statistik } from '@/lib/server/einrichtungenService';
@@ -30,7 +31,7 @@ export default async function Page() {
         </p>
         <p className="muted">
           {stats.anzahlEinrichtungen} Einrichtungen · {stats.gesamtKinder} Kinder ·{' '}
-          {formatEuro(stats.gesamtKapital)} Bildungskapital
+          {formatEuro(stats.gesamtKapital)} Bildungskapital · {stats.anzahlSpenden} Spenden bisher
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
           <Link href={zielHref} className="pill pill-primary">Jetzt spenden</Link>
@@ -60,6 +61,8 @@ export default async function Page() {
           weiter, ohne dass das Kapital verbraucht wird.
         </p>
       </Card>
+
+      <SpendenTicker />
     </div>
   );
 }

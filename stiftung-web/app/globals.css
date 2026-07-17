@@ -282,6 +282,28 @@ a:hover .card {
   color: var(--sun);
 }
 
+/*
+ * Live-Ticker (Task 33): Einträge gleiten seitlich ein. Wie bei
+ * .zeitraffer-eintrag ist das reine Kosmetik — die Sichtbarkeit/Reihenfolge
+ * kommt aus dem Polling-State der Komponente, nicht aus dieser Animation.
+ * Erbt denselben globalen prefers-reduced-motion-Override oben (Endzustand
+ * bleibt sichtbar, nur die Animationsdauer wird gekappt).
+ */
+.spenden-ticker-eintrag {
+  animation: spenden-ticker-eintrag-in 400ms ease-out both;
+}
+
+@keyframes spenden-ticker-eintrag-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

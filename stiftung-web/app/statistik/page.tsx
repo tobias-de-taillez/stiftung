@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card } from '@/components/Card';
 import { BarChart } from '@/components/BarChart';
+import { SpendenTicker } from '@/components/SpendenTicker';
 import { formatEuro } from '@/lib/calc/format';
 import { statistik } from '@/lib/server/einrichtungenService';
 
@@ -87,6 +88,8 @@ export default async function StatistikPage() {
         <p>Nicht direkt zugeordnete Spenden werden nach Bedarf verteilt — wer pro Kind am wenigsten hat, bekommt am meisten.</p>
         <a href="/solidaritaetsfonds" className="pill pill-secondary">Zum Solidaritätsfonds</a>
       </Card>
+
+      <SpendenTicker />
     </div>
   );
 }

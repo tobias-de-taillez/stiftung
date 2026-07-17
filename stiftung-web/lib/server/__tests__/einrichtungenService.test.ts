@@ -5,15 +5,19 @@ import {
   getEinrichtungBySlug,
   spenden,
   statistik,
+  letzteSpenden,
   EinrichtungNotFoundError,
   UngueltigerBetragError,
 } from '../einrichtungenService';
 
 beforeEach(async () => {
+  // 5-Tabellen-Reset-Regel (FK-sichere Reihenfolge):
+  // FondsSpende → Spende → Einrichtung → Solidaritaetsfonds → Jahresabschluss.
   await prisma.fondsSpende.deleteMany();
   await prisma.spende.deleteMany();
   await prisma.einrichtung.deleteMany();
   await prisma.solidaritaetsfonds.deleteMany();
+  await prisma.jahresabschluss.deleteMany();
   await prisma.einrichtung.create({
     data: { slug: 'test-kita-a', name: 'Test-Kita A', typ: 'kita', ort: 'Teststadt', kinderAnzahl: 10, aktuellesKapital: 1000, zielKapital: 50000 },
   });
@@ -94,5 +98,87 @@ describe('statistik', () => {
     await spenden('test-kita-a', 100, 'einmalig');
     const stats = await statistik();
     expect(stats.zuflussLetztesJahr).toBe(100);
+  });
+
+  // Spenderzähler (Task 33): "echte Spender-Akte" sind direkte Spenden
+  // (quelle 'direkt') und Fonds-Einzahlungen (FondsSpende) — beides sind
+  // tatsächliche Handlungen von Spendenden. Solidaritätsfonds-Verteilungen
+  // (quelle 'solidaritaet') sind interne Umbuchungen, keine neue Spende, und
+  // zählen daher nicht mit.
+  describe('anzahlSpenden (Spenderzähler)', () => {
+    it('meldet 0 ohne jegliche Spenden', async () => {
+      const stats = await statistik();
+      expect(stats.anzahlSpenden).toBe(0);
+    });
+
+    it('zählt direkte Spenden mit', async () => {
+      await spenden('test-kita-a', 50, 'einmalig');
+      await spenden('test-kita-b', 20, 'einmalig');
+      const stats = await statistik();
+      expect(stats.anzahlSpenden).toBe(2);
+    });
+
+    it('zählt Fonds-Einzahlungen (FondsSpende) mit', async () => {
+      await prisma.fondsSpende.create({ data: { betrag: 30 } });
+      const stats = await statistik();
+      expect(stats.anzahlSpenden).toBe(1);
+    });
+
+    it('zählt Solidaritätsfonds-Verteilungen (quelle solidaritaet) NICHT mit', async () => {
+      await spenden('test-kita-a', 50, 'einmalig');
+      await prisma.spende.create({
+        data: { einrichtungId: (await getEinrichtungBySlug('test-kita-b'))!.id, betrag: 40, frequenz: 'einmalig', quelle: 'solidaritaet' },
+      });
+      const stats = await statistik();
+      expect(stats.anzahlSpenden).toBe(1);
+    });
+  });
+});
+
+describe('letzteSpenden', () => {
+  it('liefert ein leeres Array ohne Spenden', async () => {
+    expect(await letzteSpenden()).toEqual([]);
+  });
+
+  it('liefert anonymisierte Spenden-Einträge (betrag, einrichtungName, quelle, vorMinuten)', async () => {
+    await spenden('test-kita-a', 50, 'einmalig');
+    const eintraege = await letzteSpenden();
+    expect(eintraege).toHaveLength(1);
+    expect(eintraege[0].betrag).toBe(50);
+    expect(eintraege[0].einrichtungName).toBe('Test-Kita A');
+    expect(eintraege[0].quelle).toBe('direkt');
+    expect(typeof eintraege[0].vorMinuten).toBe('number');
+    expect(eintraege[0].vorMinuten).toBeGreaterThanOrEqual(0);
+    // Keine personenbezogenen Daten in der Antwort.
+    expect(eintraege[0]).not.toHaveProperty('id');
+    expect(eintraege[0]).not.toHaveProperty('einrichtungId');
+  });
+
+  it('gibt quelle solidaritaet unverändert durch (Labeling ist Sache der UI)', async () => {
+    const kitaB = await getEinrichtungBySlug('test-kita-b');
+    await prisma.spende.create({
+      data: { einrichtungId: kitaB!.id, betrag: 40, frequenz: 'einmalig', quelle: 'solidaritaet' },
+    });
+    const eintraege = await letzteSpenden();
+    expect(eintraege[0].quelle).toBe('solidaritaet');
+    expect(eintraege[0].einrichtungName).toBe('Test-Kita B');
+  });
+
+  it('sortiert neueste zuerst und begrenzt auf das limit', async () => {
+    await spenden('test-kita-a', 10, 'einmalig');
+    await spenden('test-kita-a', 20, 'einmalig');
+    await spenden('test-kita-a', 30, 'einmalig');
+    const eintraege = await letzteSpenden(2);
+    expect(eintraege).toHaveLength(2);
+    expect(eintraege[0].betrag).toBe(30);
+    expect(eintraege[1].betrag).toBe(20);
+  });
+
+  it('begrenzt standardmäßig auf die letzten 10 Spenden', async () => {
+    for (let i = 0; i < 12; i++) {
+      await spenden('test-kita-a', 1, 'einmalig');
+    }
+    const eintraege = await letzteSpenden();
+    expect(eintraege).toHaveLength(10);
   });
 });

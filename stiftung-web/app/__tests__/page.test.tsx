@@ -1,9 +1,15 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
 import Page from '../page';
 
+// Die Landing-Page rendert seit Task 33 den client-seitigen SpendenTicker,
+// der beim Mounten `/api/spenden/letzte` fetcht. Ohne Stub würde jsdom einen
+// echten (fehlschlagenden) Request gegen eine relative URL versuchen — der
+// Ticker selbst fängt das ab (Empty-State bleibt), aber der Stub hält den
+// Test hermetisch und leise.
 beforeEach(async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
   await prisma.fondsSpende.deleteMany();
   await prisma.spende.deleteMany();
   await prisma.einrichtung.deleteMany();
@@ -19,6 +25,10 @@ beforeEach(async () => {
   });
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('Landing Page', () => {
   it('zeigt die Mission, Live-Zahlen und einen primären "Jetzt spenden"-CTA zur Einrichtung mit dem größten Förderbedarf', async () => {
     render(await Page());
@@ -28,6 +38,8 @@ describe('Landing Page', () => {
     expect(liveZahlen).toHaveTextContent('2 Einrichtungen');
     expect(liveZahlen).toHaveTextContent('20 Kinder');
     expect(liveZahlen).toHaveTextContent('10.100,00 €');
+    // Spenderzähler (Task 33): keine Spende in diesem Seed erzeugt → 0.
+    expect(liveZahlen).toHaveTextContent('0 Spenden bisher');
 
     const cta = screen.getByRole('link', { name: /Jetzt spenden/i });
     expect(cta).toHaveAttribute('href', '/einrichtungen/landing-test-bedarf');
