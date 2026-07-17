@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SpendenRechner } from '../SpendenRechner';
+import { computeYearsToGoal, futureValueWithAnnualDonation, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
 // SpendenBestaetigung nutzt useCountUp für den Kapitalstand — ohne
 // reduced-motion liefe die Zahl über requestAnimationFrame hoch und die
@@ -274,6 +275,41 @@ describe('SpendenRechner', () => {
       expect(normalisiert(fallback.textContent)).not.toMatch(/nicht erreichbar/i);
       // Die Jahre-Zahl darf als tertiäre Info weiterhin "nicht erreichbar" zeigen.
       expect(normalisiert(screen.getByTestId('years-result').textContent)).toMatch(/nicht erreichbar/i);
+    });
+
+    it('zeigt den Jährlich-Hero-Pfad mit erreichbarem Ziel: Rentenbarwert-Verdrahtung mit jährlicher Wording', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      // Fixture: 3000/25000, Default 50 € einmalig
+      // Klicke auf "Jährlich", um den Renten-Zukunftswert zu triggern.
+      await user.click(screen.getByRole('button', { name: 'Jährlich' }));
+
+      // Berechne erwartete Werte mit denselben Funktionen wie die Komponente.
+      const jahre = computeYearsToGoal({
+        startCapital: einrichtung.aktuellesKapital,
+        targetCapital: einrichtung.zielKapital,
+        donation: 50, // Default-Betrag
+        frequency: 'jaehrlich',
+      });
+      expect(isFinite(jahre)).toBe(true); // Ziel ist erreichbar.
+
+      const expectedZukunftswert = futureValueWithAnnualDonation(0, 50, NET_GROWTH_RATE, jahre);
+
+      // Hero-Div muss sichtbar sein und die jährlich-Wording enthalten.
+      const hero = screen.getByTestId('zukunftswert-hero');
+      expect(hero).toBeInTheDocument();
+
+      const heroText = normalisiert(hero.textContent);
+      // Prüfe die jährlich-spezifische Wording.
+      expect(heroText).toMatch(/Deine jährlichen/i);
+      expect(heroText).toMatch(/wachsen bis zur Zielerreichung/i);
+      // Prüfe, dass der berechnete Zukunftswert (mit Dezimalzahlen-Muster)
+      // angezeigt wird — robust gegenüber Intl.NumberFormat-Formatierung.
+      const expectedNumberPart = expectedZukunftswert.toLocaleString('de-DE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      expect(heroText).toMatch(new RegExp(expectedNumberPart.replace(/\./g, '\\.')));
     });
   });
 });
