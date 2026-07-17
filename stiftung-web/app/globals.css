@@ -254,6 +254,34 @@ a:hover .card {
   }
 }
 
+/*
+ * Zeitraffer-Ergebnis (Task 32): Verteilungs-Einträge blenden beim Erscheinen
+ * sanft ein (Sichtbarkeit selbst steuert die Komponente per JS-Timer, nicht
+ * diese Animation — sie ist rein kosmetisch). animation-fill-mode: both hält
+ * den "from"-Zustand vor Start und den "to"-Zustand nach Ende, degradiert
+ * unter prefers-reduced-motion automatisch über den globalen Override oben
+ * (animation-duration → 0.001ms, Endzustand bleibt sichtbar).
+ */
+.zeitraffer-eintrag {
+  animation: zeitraffer-eintrag-in 350ms ease-out both;
+}
+
+@keyframes zeitraffer-eintrag-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zeitraffer-eintrag--top {
+  font-weight: 700;
+  color: var(--sun);
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

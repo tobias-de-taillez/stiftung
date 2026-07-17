@@ -6,7 +6,9 @@ function easeOutQuad(progress: number): number {
   return 1 - (1 - progress) * (1 - progress);
 }
 
-function prefersReducedMotion(): boolean {
+// Exportiert, damit andere gestaffelte Sequenzen (z. B. ZeitrafferErgebnis,
+// Task 32) denselben reduced-motion-Check nutzen statt ihn zu duplizieren.
+export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
   }

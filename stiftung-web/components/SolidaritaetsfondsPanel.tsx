@@ -4,13 +4,19 @@ import { useState } from 'react';
 import { Card } from './Card';
 import { StatusChip } from './StatusChip';
 import { formatEuro } from '@/lib/calc/format';
+import { ZeitrafferErgebnis, type ZeitrafferErgebnisProps } from './ZeitrafferErgebnis';
 
 export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: number }) {
   const [bestand, setBestand] = useState(initialBestand);
   const [betrag, setBetrag] = useState(50);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [verteilung, setVerteilung] = useState<{ slug: string; name: string; anteil: number }[] | null>(null);
-  const [jahresErgebnis, setJahresErgebnis] = useState<{ fondsErtrag: number; kapitalErtrag: number; verteiltGesamt: number } | null>(null);
+  // Ergebnis der Jahres-Simulation (Task 32): trägt den kompletten
+  // /api/simulation/jahr-Response an ZeitrafferErgebnis weiter, das daraus die
+  // inszenierte Sequenz baut. `nummer` dient dort als React-`key`, damit ein
+  // erneutes Simulieren eine frische Instanz (und damit eine frische Sequenz)
+  // statt eines Timer-Neuaufsatzes bekommt.
+  const [zeitraffer, setZeitraffer] = useState<(ZeitrafferErgebnisProps & { nummer: number }) | null>(null);
 
   async function handleSpenden() {
     setStatus('loading');
@@ -49,12 +55,15 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
       const res = await fetch('/api/simulation/jahr', { method: 'POST' });
       if (!res.ok) throw new Error('failed');
       const json = await res.json();
-      setJahresErgebnis({
+      setZeitraffer({
+        nummer: json.nummer,
         fondsErtrag: json.fondsErtrag,
         kapitalErtrag: json.kapitalErtrag,
         verteiltGesamt: json.verteiltGesamt,
+        verteilung: json.verteilung,
+        neuerFondsBestand: json.neuerFondsBestand,
+        meilensteine: json.meilensteine,
       });
-      setVerteilung(json.verteilung);
       setBestand(json.neuerFondsBestand);
       setStatus('idle');
     } catch {
@@ -107,14 +116,7 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
 
       {status === 'error' && <p className="negative">Aktion fehlgeschlagen. Bitte erneut versuchen.</p>}
 
-      {jahresErgebnis && (
-        <div style={{ marginTop: '1rem' }}>
-          <p className="eyebrow">Jahresabschluss</p>
-          <p>Fonds-Ertrag: {formatEuro(jahresErgebnis.fondsErtrag)}</p>
-          <p>Kapital-Ertrag (alle Einrichtungen): {formatEuro(jahresErgebnis.kapitalErtrag)}</p>
-          <p>Verteilt: {formatEuro(jahresErgebnis.verteiltGesamt)}</p>
-        </div>
-      )}
+      {zeitraffer && <ZeitrafferErgebnis key={zeitraffer.nummer} {...zeitraffer} />}
 
       {verteilung && (
         <div style={{ marginTop: '1rem' }}>
