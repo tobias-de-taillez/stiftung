@@ -1,0 +1,542 @@
+# Review package: ae7d623..8433d5f
+
+## Commits
+8433d5f feat(rechner): Zukunftswert-Story statt Wartezeit im Spendenrechner
+
+## Files changed
+ stiftung-web/components/SpendenRechner.tsx         | 88 +++++++++++++++++++-
+ .../components/__tests__/SpendenRechner.test.tsx   | 65 +++++++++++++++
+ stiftung-web/lib/calc/__tests__/format.test.ts     | 18 +++-
+ .../lib/calc/__tests__/spendenrechner.test.ts      | 97 +++++++++++++++++++++-
+ stiftung-web/lib/calc/format.ts                    |  5 ++
+ stiftung-web/lib/calc/spendenrechner.ts            | 53 +++++++++++-
+ 6 files changed, 319 insertions(+), 7 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/components/SpendenRechner.tsx b/stiftung-web/components/SpendenRechner.tsx
+index 780e55d..a6d5b20 100644
+--- a/stiftung-web/components/SpendenRechner.tsx
++++ b/stiftung-web/components/SpendenRechner.tsx
+@@ -1,18 +1,27 @@
+ 'use client';
+ 
+ import { useState } from 'react';
+-import { ANNUAL_PAYOUT_RATE, computeYearsToGoal } from '@/lib/calc/spendenrechner';
+-import { formatDuration, formatEuro } from '@/lib/calc/format';
++import {
++  ANNUAL_PAYOUT_RATE,
++  NET_GROWTH_RATE,
++  computeYearsToGoal,
++  zukunftswert,
++  futureValueWithAnnualDonation,
++  dauerhafteJahresfoerderung,
++  verkuerzungMonate,
++} from '@/lib/calc/spendenrechner';
++import { formatDuration, formatEuro, formatMonate } from '@/lib/calc/format';
+ import { currentLevel } from '@/lib/data/levels';
+ import { impactBeispiel } from '@/lib/data/impactBeispiele';
+ import { StatusChip } from './StatusChip';
++import { ProgressBar } from './ProgressBar';
+ import { SpendenBestaetigung } from './SpendenBestaetigung';
+ 
+ interface EinrichtungFuerRechner {
+   slug: string;
+   name: string;
+   typ: string;
+   kinderAnzahl: number;
+   aktuellesKapital: number;
+   zielKapital: number;
+ }
+@@ -47,26 +56,59 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+       setAltesKapital(kapitalStand);
+       setNeuesKapital(updated.aktuellesKapital);
+       setKapitalStand(updated.aktuellesKapital);
+       setSpendeId(spende.id);
+       setStatus('done');
+     } catch {
+       setStatus('error');
+     }
+   }
+ 
++  // "Bei Zielerreichung" — Jahre bis zum Ziel MIT der Spende (nicht ohne),
++  // wie im Task-29-Brief gefordert.
+   const jahre = computeYearsToGoal({
+     startCapital: kapitalStand,
+     targetCapital: einrichtung.zielKapital,
+     donation: betrag,
+     frequency: frequenz,
+   });
++  const zielErreichbar = isFinite(jahre);
++
++  // Zukunftswert MEINES Beitrags zum Zielzeitpunkt — bewusst unabhängig vom
++  // Startkapital der Einrichtung (siehe zukunftswert()-Kommentar): Bei
++  // "einmalig" wächst der einmalige Betrag über die Jahre; bei "jährlich"
++  // ist es der Renten-Zukunftswert der wiederkehrenden Spenden (dieselbe
++  // Formel wie computeYearsToGoal intern nutzt, mit Startkapital 0 aufgerufen
++  // — keine Formel-Duplikation). Nur sinnvoll, wenn das Ziel erreichbar ist
++  // (endliche jahre); bei Infinity würde die Formel selbst Infinity liefern.
++  const zukunftswertMeinerSpende = zielErreichbar
++    ? frequenz === 'jaehrlich'
++      ? futureValueWithAnnualDonation(0, betrag, NET_GROWTH_RATE, jahre)
++      : zukunftswert(betrag, jahre)
++    : 0;
++
++  // Verkürzung des Wegs zum Ziel durch die Spende, in Monaten (sekundäre
++  // Botschaft). Bei unerreichbarem Ziel liefert die Funktion 0 (keine
++  // ausweisbare Verkürzung) — wird dann ohnehin nicht angezeigt.
++  const verkuerzung = verkuerzungMonate(
++    { startCapital: kapitalStand, targetCapital: einrichtung.zielKapital },
++    betrag,
++    frequenz
++  );
++
++  // Dauerförderungs-Perspektive für den Fall, dass das Ziel unerreichbar ist
++  // (Infinity darf laut Akzeptanzkriterium nie die Hauptbotschaft sein).
++  // KORREKTUR aus dem Brief: Ohne definierten Zielzeitpunkt kann nur die "ab
++  // sofort"-Untergrenze (jahre=0-Default) ausgewiesen werden, nicht die
++  // gewachsene Ausschüttung — das wird im Text ehrlich als Untergrenze
++  // benannt, die mit dem Kapital weiterwächst.
++  const dauerhaftAbSofort = dauerhafteJahresfoerderung(betrag);
+ 
+   const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
+   const level = currentLevel(annualDonationPerChild);
+ 
+   // Wirkungs-Zeile: X = Spendenbetrag × ANNUAL_PAYOUT_RATE (1%) — dieselbe
+   // Ausschüttungsquote, mit der auch capitalForAnnualPayout rechnet. Bei
+   // "jährlich" gilt dieselbe Formel je gespendetem Betrag (nicht kumuliert
+   // über die Jahre) — siehe Fußnote, die das ehrlich einordnet.
+   const jahresertrag = betrag * ANNUAL_PAYOUT_RATE;
+   const wirkungsBeispiel = impactBeispiel(einrichtung.typ, jahresertrag);
+@@ -113,23 +155,61 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+ 
+       <div role="group" aria-label="Spendenfrequenz" style={{ display: 'flex', gap: '0.5rem' }}>
+         <button type="button" className={`pill ${frequenz === 'einmalig' ? 'pill-primary' : 'pill-secondary'}`} aria-pressed={frequenz === 'einmalig'} onClick={() => setFrequenz('einmalig')}>
+           Einmalig
+         </button>
+         <button type="button" className={`pill ${frequenz === 'jaehrlich' ? 'pill-primary' : 'pill-secondary'}`} aria-pressed={frequenz === 'jaehrlich'} onClick={() => setFrequenz('jaehrlich')}>
+           Jährlich
+         </button>
+       </div>
+ 
++      {zielErreichbar ? (
++        <div data-testid="zukunftswert-hero">
++          <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>
++            {frequenz === 'jaehrlich'
++              ? `Deine jährlichen ${formatEuro(betrag)} wachsen bis zur Zielerreichung zusammen auf ~${formatEuro(zukunftswertMeinerSpende)} an.`
++              : `Deine ${formatEuro(betrag)} sind bei Zielerreichung auf ~${formatEuro(zukunftswertMeinerSpende)} angewachsen.`}
++          </p>
++          <ProgressBar
++            value={zukunftswertMeinerSpende}
++            max={einrichtung.zielKapital}
++            label={`${formatEuro(zukunftswertMeinerSpende)} von ${formatEuro(einrichtung.zielKapital)} — dein Anteil am Ziel`}
++          />
++          <p className="muted" style={{ fontSize: '0.8rem' }}>
++            Angenommene Netto-Wachstumsrate: {NET_GROWTH_RATE * 100} % pro Jahr, konstant bis zur
++            Zielerreichung — eine Modellrechnung auf Basis des heutigen Finanzmodells, keine garantierte Prognose.
++          </p>
++        </div>
++      ) : (
++        // Fallback laut Akzeptanzkriterium: "nicht erreichbar" (Infinity)
++        // erscheint nie als Hauptbotschaft — stattdessen die
++        // Dauerförderungs-Perspektive (KORREKTUR: "ab sofort"-Untergrenze,
++        // die mit dem Kapital weiterwächst, siehe dauerhafteJahresfoerderung()).
++        <div data-testid="dauerfoerderung-perspektive">
++          <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>
++            Dein Beitrag trägt schon ab sofort dauerhaft mit ~{formatEuro(dauerhaftAbSofort)}/Jahr bei.
++          </p>
++          <p className="muted">
++            Diese Zahl ist eine ehrliche Untergrenze: Sie wächst mit, sobald der Finanztopf wächst — für
++            dieses Ziel lässt sich der Zeitpunkt der vollen Kapitalreife derzeit nicht seriös vorhersagen.
++          </p>
++        </div>
++      )}
++
++      {zielErreichbar && verkuerzung > 0 && (
++        <p data-testid="verkuerzung" className="muted">
++          Und verkürzen den Weg zum Ziel um {formatMonate(verkuerzung)}.
++        </p>
++      )}
++
+       <div data-testid="years-result">
+-        <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>{formatDuration(jahre)}</p>
+-        <p className="muted">bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
++        <p className="muted" style={{ fontSize: '0.9rem' }}>{formatDuration(jahre)} bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
+       </div>
+ 
+       <div data-testid="impact-beispiel">
+         <p>
+           {frequenz === 'jaehrlich'
+             ? `Jede deiner jährlichen Spenden erwirtschaftet je gespendetem Betrag dauerhaft ~${formatEuro(jahresertrag)}/Jahr — das ist z. B. ${wirkungsBeispiel}, jedes Jahr aufs Neue.`
+             : `Deine Spende erwirtschaftet dauerhaft ~${formatEuro(jahresertrag)}/Jahr — das ist z. B. ${wirkungsBeispiel}, jedes Jahr aufs Neue.`}
+         </p>
+         <p className="muted" style={{ fontSize: '0.8rem' }}>
+           Formel: {formatEuro(betrag)} × 1 % jährliche Ausschüttungsquote = {formatEuro(jahresertrag)}/Jahr. Dein
+diff --git a/stiftung-web/components/__tests__/SpendenRechner.test.tsx b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+index 914e195..5698272 100644
+--- a/stiftung-web/components/__tests__/SpendenRechner.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+@@ -204,11 +204,76 @@ describe('SpendenRechner', () => {
+     expect(impactText).toMatch(/Bastelmaterial/i);
+   });
+ 
+   it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {
+     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+     const user = userEvent.setup();
+     render(<SpendenRechner einrichtung={einrichtung} />);
+     await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+     expect(await screen.findByText(/Spende konnte nicht gebucht werden/i)).toBeInTheDocument();
+   });
++
++  describe('Rechner-Reframing (Zukunftswert-Story statt Wartezeit)', () => {
++    // Fixture: aktuellesKapital 3000, zielKapital 25000, Default-Betrag 50 €,
++    // einmalig. Handgerechnet (siehe spendenrechner.test.ts-Fixtures für die
++    // gleiche Formel): jahre ≈ 36,10 → Zukunftswert(50, 36,10) ≈ 409,84 € und
++    // verkuerzungMonate(…, 50, 'einmalig') = 3.
++
++    it('führt mit dem Zukunftswert der Spende (WIRKUNG), nicht mit der Wartezeit', () => {
++      render(<SpendenRechner einrichtung={einrichtung} />);
++      const hero = screen.getByTestId('zukunftswert-hero');
++      expect(normalisiert(hero.textContent)).toMatch(/50,00 €.*angewachsen/i);
++      expect(normalisiert(hero.textContent)).toMatch(/409,8[0-9] €/);
++    });
++
++    it('legt die Wachstumsannahme der Hero-Zahl offen (ehrliche Fußnote, keine unbelegte Zukunftsprognose)', () => {
++      render(<SpendenRechner einrichtung={einrichtung} />);
++      const hero = screen.getByTestId('zukunftswert-hero');
++      expect(normalisiert(hero.textContent)).toMatch(/Netto-Wachstumsrate.*6 ?%/i);
++    });
++
++    it('visualisiert den Anteil der Spende am Ziel als beschrifteten Mini-Balken (kein Color-only)', () => {
++      render(<SpendenRechner einrichtung={einrichtung} />);
++      const bar = screen.getByRole('progressbar');
++      expect(bar).toHaveAttribute('aria-valuemax', '25000');
++      const hero = screen.getByTestId('zukunftswert-hero');
++      // Pflicht-Label-Text (nicht nur Farbe): Betrag vs. Ziel als Text.
++      expect(normalisiert(hero.textContent)).toMatch(/409,8[0-9] €.*25\.000,00 €/);
++    });
++
++    it('zeigt sekundär, um wie viele Monate die Spende den Weg zum Ziel verkürzt', () => {
++      render(<SpendenRechner einrichtung={einrichtung} />);
++      expect(normalisiert(screen.getByTestId('verkuerzung').textContent)).toMatch(/verkürz\w+ den Weg.*3 Monate/i);
++    });
++
++    it('zeigt die Jahre-bis-Ziel-Zahl nur noch als tertiäre Info (nicht mehr die Hero-Aussage)', () => {
++      render(<SpendenRechner einrichtung={einrichtung} />);
++      const jahreText = normalisiert(screen.getByTestId('years-result').textContent);
++      expect(jahreText).toMatch(/bis zum Ziel/i);
++      // Die Hero-Zeile selbst darf NICHT mehr die Wartezeit-Formulierung
++      // ("X Jahre und Y Monate") führen — die Wachstumsraten-Fußnote ("6 %
++      // pro Jahr") ist davon ausdrücklich ausgenommen, das ist keine
++      // Wartezeit-Angabe, sondern eine Annahmen-Offenlegung.
++      const heroText = normalisiert(screen.getByTestId('zukunftswert-hero').textContent);
++      // Die charakteristische Wartezeit-Formulierung ("X Jahre und Y Monate
++      // bis zum Ziel") darf in der Hero-Zeile nicht auftauchen.
++      expect(heroText).not.toMatch(/Jahre? und \d+ Monate?/i);
++      expect(heroText).not.toMatch(/bis zum Ziel/i);
++    });
++
++    it('zeigt bei unerreichbarem Ziel (Infinity) NIE die Wartezeit als Hauptbotschaft, sondern die Dauerförderungs-Perspektive', async () => {
++      const astronomisch = { ...einrichtung, aktuellesKapital: 0, zielKapital: 1e30 };
++      const user = userEvent.setup();
++      render(<SpendenRechner einrichtung={astronomisch} />);
++      // Nur bei "jährlich" kann computeYearsToGoal (MAX_YEARS-Deckel) für ein
++      // derart astronomisches Ziel tatsächlich Infinity liefern.
++      await user.click(screen.getByRole('button', { name: 'Jährlich' }));
++
++      expect(screen.queryByTestId('zukunftswert-hero')).not.toBeInTheDocument();
++      const fallback = screen.getByTestId('dauerfoerderung-perspektive');
++      expect(normalisiert(fallback.textContent)).toMatch(/dauerhaft/i);
++      expect(normalisiert(fallback.textContent)).not.toMatch(/nicht erreichbar/i);
++      // Die Jahre-Zahl darf als tertiäre Info weiterhin "nicht erreichbar" zeigen.
++      expect(normalisiert(screen.getByTestId('years-result').textContent)).toMatch(/nicht erreichbar/i);
++    });
++  });
+ });
+diff --git a/stiftung-web/lib/calc/__tests__/format.test.ts b/stiftung-web/lib/calc/__tests__/format.test.ts
+index 3200fa0..01985db 100644
+--- a/stiftung-web/lib/calc/__tests__/format.test.ts
++++ b/stiftung-web/lib/calc/__tests__/format.test.ts
+@@ -1,12 +1,12 @@
+ import { describe, it, expect } from 'vitest';
+-import { formatEuro, formatDuration } from '../format';
++import { formatEuro, formatDuration, formatMonate } from '../format';
+ 
+ describe('formatEuro', () => {
+   it('formatiert mit deutschem Format und Euro-Zeichen', () => {
+     expect(formatEuro(1234.5)).toBe('1.234,50 €');
+   });
+   it('rundet auf zwei Nachkommastellen', () => {
+     expect(formatEuro(40000)).toBe('40.000,00 €');
+   });
+ });
+ 
+@@ -21,10 +21,26 @@ describe('formatDuration', () => {
+     expect(formatDuration(5)).toBe('5 Jahre');
+   });
+   it('nutzt Singular bei genau einem Jahr bzw. Monat', () => {
+     expect(formatDuration(1)).toBe('1 Jahr');
+     expect(formatDuration(13 / 12)).toBe('1 Jahr und 1 Monat');
+   });
+   it('meldet Infinity als nicht erreichbar', () => {
+     expect(formatDuration(Infinity)).toBe('nicht erreichbar');
+   });
+ });
++
++describe('formatMonate', () => {
++  it('nutzt Singular bei genau einem Monat', () => {
++    expect(formatMonate(1)).toBe('1 Monat');
++  });
++
++  it('nutzt Plural bei 0 oder mehreren Monaten', () => {
++    expect(formatMonate(0)).toBe('0 Monate');
++    expect(formatMonate(3)).toBe('3 Monate');
++    expect(formatMonate(16)).toBe('16 Monate');
++  });
++
++  it('rundet auf ganze Monate', () => {
++    expect(formatMonate(16.4)).toBe('16 Monate');
++  });
++});
+diff --git a/stiftung-web/lib/calc/__tests__/spendenrechner.test.ts b/stiftung-web/lib/calc/__tests__/spendenrechner.test.ts
+index 11296cf..5186f27 100644
+--- a/stiftung-web/lib/calc/__tests__/spendenrechner.test.ts
++++ b/stiftung-web/lib/calc/__tests__/spendenrechner.test.ts
+@@ -1,12 +1,21 @@
+ import { describe, it, expect } from 'vitest';
+-import { ANNUAL_PAYOUT_RATE, NET_GROWTH_RATE, capitalForAnnualPayout, computeYearsToGoal } from '../spendenrechner';
++import {
++  ANNUAL_PAYOUT_RATE,
++  NET_GROWTH_RATE,
++  capitalForAnnualPayout,
++  computeYearsToGoal,
++  zukunftswert,
++  futureValueWithAnnualDonation,
++  dauerhafteJahresfoerderung,
++  verkuerzungMonate,
++} from '../spendenrechner';
+ 
+ describe('capitalForAnnualPayout', () => {
+   it('berechnet benötigtes Kapital für gewünschte Jahresausschüttung (1%)', () => {
+     expect(capitalForAnnualPayout(20000)).toBe(2000000);
+   });
+ 
+   it('exportiert die jährliche Ausschüttungsquote von 1%, konsistent mit capitalForAnnualPayout', () => {
+     expect(ANNUAL_PAYOUT_RATE).toBe(0.01);
+   });
+ });
+@@ -35,10 +44,96 @@ describe('computeYearsToGoal', () => {
+ 
+   it('verwendet die Netto-Wachstumsrate von 6% als Default', () => {
+     expect(NET_GROWTH_RATE).toBe(0.06);
+   });
+ 
+   it('gibt Infinity zurück, wenn das Ziel im Simulationszeitraum nicht erreichbar ist', () => {
+     const years = computeYearsToGoal({ startCapital: 0, targetCapital: 1_000_000_000_000, donation: 0, frequency: 'jaehrlich' });
+     expect(years).toBe(Infinity);
+   });
+ });
++
++describe('zukunftswert', () => {
++  it('liefert den Betrag unverändert bei 0 Jahren (keine Verzinsung)', () => {
++    expect(zukunftswert(50, 0)).toBe(50);
++  });
++
++  it('verzinst den Betrag mit der Netto-Wachstumsrate über die Jahre (Zinseszins)', () => {
++    // 1000 € über 10 Jahre bei 6 % Netto-Wachstum.
++    expect(zukunftswert(1000, 10)).toBeCloseTo(1790.85, 2);
++  });
++
++  it('akzeptiert eine abweichende Rate, Default ist NET_GROWTH_RATE', () => {
++    expect(zukunftswert(1000, 10, 0.1)).toBeCloseTo(1000 * Math.pow(1.1, 10), 6);
++    expect(zukunftswert(1000, 10)).toBeCloseTo(zukunftswert(1000, 10, NET_GROWTH_RATE), 6);
++  });
++});
++
++describe('futureValueWithAnnualDonation (exportiert für die Renten-FV wiederkehrender Spenden)', () => {
++  it('berechnet die Renten-Zukunftswert-Formel für eine reine Spendenreihe ohne Startkapital', () => {
++    // 100 €/Jahr, 5 Jahre, 6 % — FV = PMT * ((1+i)^n - 1) / i
++    expect(futureValueWithAnnualDonation(0, 100, 0.06, 5)).toBeCloseTo(563.71, 2);
++  });
++
++  it('addiert das verzinste Startkapital zur Renten-Komponente', () => {
++    expect(futureValueWithAnnualDonation(1000, 0, 0.06, 5)).toBeCloseTo(1000 * Math.pow(1.06, 5), 6);
++  });
++});
++
++describe('dauerhafteJahresfoerderung', () => {
++  it('liefert ohne Jahresangabe (Default 0) die "ab sofort"-Untergrenze betrag × ANNUAL_PAYOUT_RATE', () => {
++    expect(dauerhafteJahresfoerderung(50)).toBeCloseTo(50 * ANNUAL_PAYOUT_RATE, 6);
++    expect(dauerhafteJahresfoerderung(50, 0)).toBeCloseTo(50 * ANNUAL_PAYOUT_RATE, 6);
++  });
++
++  it('KORREKTUR: mit Jahresangabe entsteht die Ausschüttung aus dem angewachsenen Kapital (FV(betrag) × ANNUAL_PAYOUT_RATE)', () => {
++    expect(dauerhafteJahresfoerderung(1000, 10)).toBeCloseTo(zukunftswert(1000, 10) * ANNUAL_PAYOUT_RATE, 6);
++    // Die gewachsene Ausschüttung liegt über der naiven "ab sofort"-Untergrenze.
++    expect(dauerhafteJahresfoerderung(1000, 10)).toBeGreaterThan(dauerhafteJahresfoerderung(1000, 0));
++  });
++});
++
++describe('verkuerzungMonate', () => {
++  const einrichtung = { startCapital: 3000, targetCapital: 25000 };
++
++  it('berechnet die Verkürzung in Monaten als Delta zwischen Jahre-bis-Ziel ohne/mit Spende', () => {
++    // Handgerechnet: ohne ≈ 36,3876 Jahre, mit (Startkapital+250) ≈ 35,0139 Jahre
++    // → Delta ≈ 16,48 Monate, gerundet 16.
++    expect(verkuerzungMonate(einrichtung, 250, 'einmalig')).toBe(16);
++  });
++
++  it('liefert 0, wenn keine Spende erfolgt (kein Unterschied ohne/mit)', () => {
++    expect(verkuerzungMonate(einrichtung, 0, 'einmalig')).toBe(0);
++  });
++
++  it('liefert nie einen negativen Wert (Spende kann den Weg nie verlängern)', () => {
++    expect(verkuerzungMonate(einrichtung, 10, 'einmalig')).toBeGreaterThanOrEqual(0);
++  });
++
++  it('jährliche Spende verkürzt den Weg stärker als eine einmalige Spende gleicher Höhe', () => {
++    const einmalig = verkuerzungMonate(einrichtung, 250, 'einmalig');
++    const jaehrlich = verkuerzungMonate(einrichtung, 250, 'jaehrlich');
++    expect(jaehrlich).toBeGreaterThan(einmalig);
++  });
++
++  it('liefert 0, wenn das Ziel auch mit Spende im Simulationszeitraum unerreichbar bleibt (kein NaN)', () => {
++    // Bei "einmalig" macht schon eine kleine Spende (>0) das Ziel formal
++    // "erreichbar" (die geschlossene Log-Formel kennt kein Zeit-Limit) — nur
++    // bei "jaehrlich" (mit MAX_YEARS=500-Deckel in computeYearsToGoal) bleibt
++    // ein astronomisch großes Ziel auch mit Spende Infinity. Das ist der
++    // Fall, den dieser Test prüft (siehe computeYearsToGoal-Test oben für den
++    // reinen Infinity-Fall ohne Spende).
++    const astronomisch = { startCapital: 0, targetCapital: 1e30 };
++    expect(verkuerzungMonate(astronomisch, 50, 'jaehrlich')).toBe(0);
++  });
++
++  it('Property-Test: verkuerzungMonate ist ≥ 0 und monoton (nicht fallend) in betrag', () => {
++    const betraege = [10, 50, 100, 250, 500, 1000, 2000];
++    let vorheriger = -1;
++    for (const betrag of betraege) {
++      const monate = verkuerzungMonate(einrichtung, betrag, 'einmalig');
++      expect(monate).toBeGreaterThanOrEqual(0);
++      expect(monate).toBeGreaterThanOrEqual(vorheriger);
++      vorheriger = monate;
++    }
++  });
++});
+diff --git a/stiftung-web/lib/calc/format.ts b/stiftung-web/lib/calc/format.ts
+index 7d93438..3212115 100644
+--- a/stiftung-web/lib/calc/format.ts
++++ b/stiftung-web/lib/calc/format.ts
+@@ -1,14 +1,19 @@
+ export function formatEuro(value: number): string {
+   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+ }
+ 
++export function formatMonate(monate: number): string {
++  const n = Math.round(monate);
++  return `${n} ${n === 1 ? 'Monat' : 'Monate'}`;
++}
++
+ export function formatDuration(years: number): string {
+   if (!isFinite(years)) return 'nicht erreichbar';
+   const totalMonths = Math.round(years * 12);
+   const y = Math.floor(totalMonths / 12);
+   const m = totalMonths % 12;
+   const jahre = y === 1 ? 'Jahr' : 'Jahre';
+   const monate = m === 1 ? 'Monat' : 'Monate';
+   if (y === 0) return `${m} ${monate}`;
+   if (m === 0) return `${y} ${jahre}`;
+   return `${y} ${jahre} und ${m} ${monate}`;
+diff --git a/stiftung-web/lib/calc/spendenrechner.ts b/stiftung-web/lib/calc/spendenrechner.ts
+index 04ddc52..77a52df 100644
+--- a/stiftung-web/lib/calc/spendenrechner.ts
++++ b/stiftung-web/lib/calc/spendenrechner.ts
+@@ -7,27 +7,54 @@ export function capitalForAnnualPayout(annualPayout: number): number {
+   return annualPayout / ANNUAL_PAYOUT_RATE;
+ }
+ 
+ function yearsToTargetWithoutRecurringDonation(startCapital: number, targetCapital: number, rate: number): number {
+   if (startCapital >= targetCapital) return 0;
+   if (startCapital <= 0) return Infinity;
+   return Math.log(targetCapital / startCapital) / Math.log(1 + rate);
+ }
+ 
+ // Future Value einer gewöhnlichen Rente: FV = PV*(1+i)^n + PMT*((1+i)^n - 1)/i
+-function futureValueWithAnnualDonation(startCapital: number, donation: number, rate: number, years: number): number {
++// Exportiert (statt eine zweite Renten-FV-Formel für den Zukunftswert
++// wiederkehrender Spenden zu duplizieren) — Aufruf mit startCapital=0 liefert
++// die reine Renten-Komponente einer Spendenreihe.
++export function futureValueWithAnnualDonation(startCapital: number, donation: number, rate: number, years: number): number {
+   const growthFactor = Math.pow(1 + rate, years);
+   const capitalPart = startCapital * growthFactor;
+   const donationPart = donation > 0 ? donation * ((growthFactor - 1) / rate) : 0;
+   return capitalPart + donationPart;
+ }
+ 
++// Zukunftswert einer einmaligen Spende, verzinst mit der Netto-Wachstumsrate
++// über `jahre` Jahre (Zinseszins). Die Brainstorming-Kernvisualisierung
++// "50 € wachsen zu 40.000 €" — bewusst unabhängig vom Startkapital der
++// Einrichtung: es geht um das Wachstum des eigenen Beitrags, nicht um den
++// Finanztopf insgesamt.
++export function zukunftswert(betrag: number, jahre: number, rate: number = NET_GROWTH_RATE): number {
++  return betrag * Math.pow(1 + rate, jahre);
++}
++
++// Dauerhafte jährliche Förderung, die aus der Spende entsteht.
++//
++// KORREKTUR (siehe Task-Brief): Die Ausschüttung entsteht aus dem
++// ANGEWACHSENEN Kapital, nicht aus dem Spendenbetrag selbst — die korrekte
++// Formel ist FV(betrag) × ANNUAL_PAYOUT_RATE zum Zielzeitpunkt. Die naive
++// Variante `betrag × ANNUAL_PAYOUT_RATE` ist nur der "ab sofort"-Untergrenzfall
++// (jahre=0 → zukunftswert(betrag,0) === betrag), nicht die ganze Wahrheit.
++// Default jahre=0 hält die im Brief benannte Ein-Parameter-Signatur
++// `dauerhafteJahresfoerderung(betrag)` für den Untergrenz-Fall abwärtskompatibel
++// nutzbar; mit expliziter Jahresangabe liefert dieselbe Funktion die
++// ehrliche, gewachsene Ausschüttung zum Zielzeitpunkt.
++export function dauerhafteJahresfoerderung(betrag: number, jahre: number = 0, rate: number = NET_GROWTH_RATE): number {
++  return zukunftswert(betrag, jahre, rate) * ANNUAL_PAYOUT_RATE;
++}
++
+ export function computeYearsToGoal(input: {
+   startCapital: number;
+   targetCapital: number;
+   donation: number;
+   frequency: 'einmalig' | 'jaehrlich';
+   netRate?: number;
+ }): number {
+   const { startCapital, targetCapital, donation, frequency, netRate = NET_GROWTH_RATE } = input;
+ 
+   if (startCapital >= targetCapital) return 0;
+@@ -47,10 +74,34 @@ export function computeYearsToGoal(input: {
+     const mid = (lo + hi) / 2;
+     const fv = futureValueWithAnnualDonation(startCapital, donation, netRate, mid);
+     if (fv < targetCapital) {
+       lo = mid;
+     } else {
+       hi = mid;
+     }
+   }
+   return hi;
+ }
++
++// Verkürzung des Wegs zum Ziel durch die Spende, in Monaten — Delta zwischen
++// Jahre-bis-Ziel ohne und mit Spende. Nimmt bewusst {startCapital,
++// targetCapital} statt des Prisma-geformten Einrichtungs-Objekts
++// ({aktuellesKapital, zielKapital}), konsistent mit computeYearsToGoal, damit
++// dieses Modul von den Server-Feldnamen entkoppelt bleibt (Caller mappen).
++export function verkuerzungMonate(
++  einrichtung: { startCapital: number; targetCapital: number },
++  betrag: number,
++  frequenz: 'einmalig' | 'jaehrlich',
++  netRate: number = NET_GROWTH_RATE
++): number {
++  const basis = { startCapital: einrichtung.startCapital, targetCapital: einrichtung.targetCapital, frequency: frequenz, netRate };
++  const ohneJahre = computeYearsToGoal({ ...basis, donation: 0 });
++  const mitJahre = computeYearsToGoal({ ...basis, donation: betrag });
++
++  // Bleibt das Ziel auch mit Spende im Simulationszeitraum unerreichbar
++  // (beide Infinity), ist "Verkürzung" nicht sinnvoll definiert (Infinity -
++  // Infinity = NaN) — 0 ist hier die ehrliche Antwort: keine ausweisbare
++  // Verkürzung.
++  if (!isFinite(ohneJahre) && !isFinite(mitJahre)) return 0;
++
++  return Math.max(0, Math.round((ohneJahre - mitJahre) * 12));
++}
