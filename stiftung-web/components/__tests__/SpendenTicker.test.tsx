@@ -19,7 +19,7 @@ describe('SpendenTicker', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ betrag: 50, einrichtungName: 'Kita Regenbogen', quelle: 'direkt', vorMinuten: 2 }],
+        json: async () => [{ betrag: 50, einrichtungName: 'Kita Regenbogen', quelle: 'direkt', vorMinuten: 2, zeitpunkt: 1720000000000 }],
       })
     );
     render(<SpendenTicker />);
@@ -31,7 +31,7 @@ describe('SpendenTicker', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ betrag: 5, einrichtungName: 'Kita X', quelle: 'direkt', vorMinuten: 0 }],
+        json: async () => [{ betrag: 5, einrichtungName: 'Kita X', quelle: 'direkt', vorMinuten: 0, zeitpunkt: 1720000001000 }],
       })
     );
     render(<SpendenTicker />);
@@ -43,7 +43,7 @@ describe('SpendenTicker', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ betrag: 30, einrichtungName: 'Kita Y', quelle: 'solidaritaet', vorMinuten: 1 }],
+        json: async () => [{ betrag: 30, einrichtungName: 'Kita Y', quelle: 'solidaritaet', vorMinuten: 1, zeitpunkt: 1720000002000 }],
       })
     );
     render(<SpendenTicker />);
@@ -62,7 +62,7 @@ describe('SpendenTicker', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => [{ betrag: 10, einrichtungName: 'Kita Z', quelle: 'direkt', vorMinuten: 0 }],
+        json: async () => [{ betrag: 10, einrichtungName: 'Kita Z', quelle: 'direkt', vorMinuten: 0, zeitpunkt: 1720000003000 }],
       });
     vi.stubGlobal('fetch', fetchMock);
     vi.useFakeTimers();

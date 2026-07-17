@@ -9,6 +9,7 @@ export type SpendenTickerEintrag = {
   einrichtungName: string;
   quelle: string;
   vorMinuten: number;
+  zeitpunkt: number;
 };
 
 // Polling-Intervall für den Live-Ticker (Task 33) — exportiert, damit der
@@ -64,7 +65,7 @@ export function SpendenTicker() {
       ) : (
         <ul style={{ display: 'grid', gap: '0.5rem', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
           {eintraege.map((e, i) => (
-            <li key={i} className="spenden-ticker-eintrag">
+            <li key={`${e.zeitpunkt}-${i}`} className="spenden-ticker-eintrag">
               {zeitLabel(e.vorMinuten)}: {formatEuro(e.betrag)} für {e.einrichtungName}
               {e.quelle === 'solidaritaet' && (
                 <span className="muted"> · Solidaritätsfonds-Verteilung</span>

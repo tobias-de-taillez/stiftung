@@ -91,6 +91,7 @@ export async function statistik() {
  * personenbezogenen Daten — existieren im Modell ohnehin nicht), `quelle`
  * wird unverändert durchgereicht (Labeling von 'solidaritaet' als
  * "Solidaritätsfonds-Verteilung" ist Sache der UI-Komponente).
+ * `zeitpunkt` ist der Epoch-Millisekunden-Wert für stabile Keys in React.
  */
 export async function letzteSpenden(limit = 10) {
   const spenden = await prisma.spende.findMany({
@@ -104,5 +105,6 @@ export async function letzteSpenden(limit = 10) {
     einrichtungName: s.einrichtung.name,
     quelle: s.quelle,
     vorMinuten: Math.floor((jetzt - s.createdAt.getTime()) / 60000),
+    zeitpunkt: s.createdAt.getTime(),
   }));
 }

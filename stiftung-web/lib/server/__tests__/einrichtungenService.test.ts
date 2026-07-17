@@ -140,8 +140,10 @@ describe('letzteSpenden', () => {
     expect(await letzteSpenden()).toEqual([]);
   });
 
-  it('liefert anonymisierte Spenden-Einträge (betrag, einrichtungName, quelle, vorMinuten)', async () => {
+  it('liefert anonymisierte Spenden-Einträge (betrag, einrichtungName, quelle, vorMinuten, zeitpunkt)', async () => {
+    const beforeTime = Date.now();
     await spenden('test-kita-a', 50, 'einmalig');
+    const afterTime = Date.now();
     const eintraege = await letzteSpenden();
     expect(eintraege).toHaveLength(1);
     expect(eintraege[0].betrag).toBe(50);
@@ -149,6 +151,10 @@ describe('letzteSpenden', () => {
     expect(eintraege[0].quelle).toBe('direkt');
     expect(typeof eintraege[0].vorMinuten).toBe('number');
     expect(eintraege[0].vorMinuten).toBeGreaterThanOrEqual(0);
+    // zeitpunkt ist die Epoch-Millisekunde des createdAt-Zeitstempels.
+    expect(typeof eintraege[0].zeitpunkt).toBe('number');
+    expect(eintraege[0].zeitpunkt).toBeGreaterThanOrEqual(beforeTime);
+    expect(eintraege[0].zeitpunkt).toBeLessThanOrEqual(afterTime);
     // Keine personenbezogenen Daten in der Antwort.
     expect(eintraege[0]).not.toHaveProperty('id');
     expect(eintraege[0]).not.toHaveProperty('einrichtungId');
