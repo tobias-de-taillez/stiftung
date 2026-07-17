@@ -1,0 +1,682 @@
+# Review package: 558b3f7..01b9836
+
+## Commits
+01b9836 feat(einrichtungen): Meilenstein-Erkennung + Feier bei Spenden und Simulation
+
+## Files changed
+ .../[slug]/spenden/__tests__/route.test.ts         | 22 +++++++
+ stiftung-web/components/SpendenBestaetigung.tsx    | 18 ++++++
+ stiftung-web/components/SpendenRechner.tsx         |  8 ++-
+ .../__tests__/SpendenBestaetigung.test.tsx         | 36 +++++++++++
+ .../components/__tests__/SpendenRechner.test.tsx   | 36 +++++++++++
+ stiftung-web/lib/data/__tests__/levels.test.ts     | 75 +++++++++++++++++++++-
+ stiftung-web/lib/data/levels.ts                    | 47 ++++++++++++++
+ .../server/__tests__/einrichtungenService.test.ts  | 14 ++++
+ .../lib/server/__tests__/simulationService.test.ts | 17 +++++
+ stiftung-web/lib/server/einrichtungenService.ts    | 11 +++-
+ stiftung-web/lib/server/simulationService.ts       | 18 ++++++
+ 11 files changed, 299 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/app/api/einrichtungen/[slug]/spenden/__tests__/route.test.ts b/stiftung-web/app/api/einrichtungen/[slug]/spenden/__tests__/route.test.ts
+index df5c49c..5083f74 100644
+--- a/stiftung-web/app/api/einrichtungen/[slug]/spenden/__tests__/route.test.ts
++++ b/stiftung-web/app/api/einrichtungen/[slug]/spenden/__tests__/route.test.ts
+@@ -21,20 +21,42 @@ describe('POST /api/einrichtungen/[slug]/spenden', () => {
+     const response = await POST(request, { params: { slug: 'api-test-kita' } });
+     expect(response.status).toBe(201);
+     const json = await response.json();
+     expect(json.einrichtung.aktuellesKapital).toBe(1100);
+     expect(json.spende.betrag).toBe(100);
+ 
+     const inDb = await prisma.einrichtung.findUnique({ where: { slug: 'api-test-kita' } });
+     expect(inDb?.aktuellesKapital).toBe(1100);
+   });
+ 
++  it('gibt erreichteMeilensteine im Response mit, wenn die Spende eine Schwelle überschreitet (Task 31)', async () => {
++    // 1.000 € → 5.000 € von 50.000 € Ziel = genau 10 % → Bronze.
++    const request = new Request('http://localhost/api/einrichtungen/api-test-kita/spenden', {
++      method: 'POST',
++      body: JSON.stringify({ betrag: 4000, frequenz: 'einmalig' }),
++    });
++    const response = await POST(request, { params: { slug: 'api-test-kita' } });
++    expect(response.status).toBe(201);
++    const json = await response.json();
++    expect(json.erreichteMeilensteine).toEqual(['Bronze erreicht']);
++  });
++
++  it('gibt ein leeres erreichteMeilensteine-Array mit, wenn keine Schwelle überschritten wird', async () => {
++    const request = new Request('http://localhost/api/einrichtungen/api-test-kita/spenden', {
++      method: 'POST',
++      body: JSON.stringify({ betrag: 100, frequenz: 'einmalig' }),
++    });
++    const response = await POST(request, { params: { slug: 'api-test-kita' } });
++    const json = await response.json();
++    expect(json.erreichteMeilensteine).toEqual([]);
++  });
++
+   it('gibt 404 bei unbekanntem slug', async () => {
+     const request = new Request('http://localhost/api/einrichtungen/unbekannt/spenden', {
+       method: 'POST',
+       body: JSON.stringify({ betrag: 100, frequenz: 'einmalig' }),
+     });
+     const response = await POST(request, { params: { slug: 'unbekannt' } });
+     expect(response.status).toBe(404);
+   });
+ 
+   it('gibt 400 bei ungültigem Betrag', async () => {
+diff --git a/stiftung-web/components/SpendenBestaetigung.tsx b/stiftung-web/components/SpendenBestaetigung.tsx
+index 0fdfda6..6223b27 100644
+--- a/stiftung-web/components/SpendenBestaetigung.tsx
++++ b/stiftung-web/components/SpendenBestaetigung.tsx
+@@ -11,28 +11,32 @@ function rundeAufZweiNachkommastellen(wert: number): number {
+ }
+ 
+ export function SpendenBestaetigung({
+   betrag,
+   frequenz,
+   einrichtungName,
+   altesKapital,
+   neuesKapital,
+   zielKapital,
+   spendeId,
++  meilensteine = [],
+ }: {
+   betrag: number;
+   frequenz: 'einmalig' | 'jaehrlich';
+   einrichtungName: string;
+   altesKapital: number;
+   neuesKapital: number;
+   zielKapital: number;
+   spendeId: string;
++  // Meilenstein-Feier (Task 31): optional/default [], damit bestehende Aufrufer
++  // (POST-Response-Mocks ohne dieses Feld) unverändert weiterlaufen.
++  meilensteine?: string[];
+ }) {
+   const [quittungOffen, setQuittungOffen] = useState(false);
+   const angezeigtesKapital = useCountUp(neuesKapital);
+ 
+   const altPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (altesKapital / zielKapital) * 100))) : 0;
+   const neuPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (neuesKapital / zielKapital) * 100))) : 0;
+   const istZielErreicht = neuPct >= 100;
+   const formatProzent = (wert: number) => wert.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+   // Ziel-anchored statt relatives Wachstum: (neu-alt)/alt zeigt bei großen
+   // Einrichtungen "+0,0 %" und widerspricht damit dem sichtbar wachsenden
+@@ -49,20 +53,34 @@ export function SpendenBestaetigung({
+   async function handleShare() {
+     if (typeof navigator !== 'undefined' && navigator.share) {
+       await navigator.share({ title: 'Meine Spende', text: shareText, url: shareUrl });
+     } else if (typeof window !== 'undefined') {
+       window.alert('Teilen wird von diesem Browser nicht unterstützt — nutze den WhatsApp-Link.');
+     }
+   }
+ 
+   return (
+     <Card>
++      {/* (0) Meilenstein-Banner — ÜBER dem Danke, feiert überschrittene
++          Einrichtungs-Level/Prozent-Marken (Task 31). Reine Anzeige: Erkennung
++          passiert serverseitig in spenden()/simuliereJahr() via erreichteMeilensteine(). */}
++      {meilensteine.length > 0 && (
++        <div data-testid="meilenstein-banner" style={{ marginBottom: '1.25rem' }}>
++          <Konfetti />
++          {meilensteine.map((label) => (
++            <p key={label} className="hero-number" style={{ fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', margin: 0 }}>
++              🎉 {label}
++            </p>
++          ))}
++        </div>
++      )}
++
+       {/* (1) Konfetti-Burst + Danke — prominent, als Erstes zu sehen */}
+       <div data-testid="konfetti-danke">
+         <Konfetti />
+         <h2>Danke für Ihre Spende!</h2>
+         <p>{formatEuro(betrag)} {frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'} für {einrichtungName}.</p>
+       </div>
+ 
+       {/* (2) Vorher→Nachher-Balken (Geisterbalken = alter Stand) + Ziel-Fortschritt */}
+       <div data-testid="vorher-nachher" style={{ marginTop: '1.25rem' }}>
+         <p className="eyebrow" style={{ marginBottom: '0.4rem' }}>Kapitalstand-Zuwachs</p>
+diff --git a/stiftung-web/components/SpendenRechner.tsx b/stiftung-web/components/SpendenRechner.tsx
+index c2b86c7..abf5d3f 100644
+--- a/stiftung-web/components/SpendenRechner.tsx
++++ b/stiftung-web/components/SpendenRechner.tsx
+@@ -35,35 +35,40 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+   // kapitalStand ist der jeweils aktuelle Live-Stand (startet beim Seitenlade-
+   // Snapshot, wandert nach jeder erfolgreichen Spende weiter). altesKapital
+   // hält den Vorher-Stand der zuletzt gebuchten Spende separat fest, damit er
+   // nicht durch das Update von kapitalStand überschrieben wird, bevor die
+   // Bestätigung ihn anzeigt — sonst zeigt eine zweite Spende wieder den
+   // Seitenlade-Stand statt des tatsächlichen Vorher-Werts.
+   const [kapitalStand, setKapitalStand] = useState(einrichtung.aktuellesKapital);
+   const [altesKapital, setAltesKapital] = useState(einrichtung.aktuellesKapital);
+   const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
+   const [spendeId, setSpendeId] = useState<string | null>(null);
++  // Meilenstein-Erkennung (Task 31): kommt direkt aus der POST-Response
++  // (erreichteMeilensteine, serverseitig via lib/data/levels.ts berechnet).
++  // Default [] deckt Mocks ab, die dieses Feld (noch) nicht liefern.
++  const [meilensteine, setMeilensteine] = useState<string[]>([]);
+ 
+   async function handleSpenden() {
+     setStatus('loading');
+     try {
+       const res = await fetch(`/api/einrichtungen/${einrichtung.slug}/spenden`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ betrag, frequenz }),
+       });
+       if (!res.ok) throw new Error('request_failed');
+-      const { einrichtung: updated, spende } = await res.json();
++      const { einrichtung: updated, spende, erreichteMeilensteine } = await res.json();
+       setAltesKapital(kapitalStand);
+       setNeuesKapital(updated.aktuellesKapital);
+       setKapitalStand(updated.aktuellesKapital);
+       setSpendeId(spende.id);
++      setMeilensteine(erreichteMeilensteine ?? []);
+       setStatus('done');
+     } catch {
+       setStatus('error');
+     }
+   }
+ 
+   // "Bei Zielerreichung" — Jahre bis zum Ziel MIT der Spende (nicht ohne),
+   // wie im Task-29-Brief gefordert.
+   const jahre = computeYearsToGoal({
+     startCapital: kapitalStand,
+@@ -247,15 +252,16 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+ 
+       {status === 'done' && neuesKapital !== null && spendeId && (
+         <SpendenBestaetigung
+           betrag={betrag}
+           frequenz={frequenz}
+           einrichtungName={einrichtung.name}
+           altesKapital={altesKapital}
+           neuesKapital={neuesKapital}
+           zielKapital={einrichtung.zielKapital}
+           spendeId={spendeId}
++          meilensteine={meilensteine}
+         />
+       )}
+     </div>
+   );
+ }
+diff --git a/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx b/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
+index 1249bec..6ccb086 100644
+--- a/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
+@@ -102,20 +102,56 @@ describe('SpendenBestaetigung', () => {
+ 
+   it('zeigt bei großen Einrichtungen den echten Ziel-Fortschritt statt einer irreführenden Relativ-Prozentzahl (Regressionsschutz)', () => {
+     // Vorher-Bug: (neu-alt)/alt*100 rundet bei großen Kapitalständen auf
+     // "+0,0 %" und widerspricht damit dem sichtbar wachsenden Balken. Der
+     // Ziel-Fortschritt bleibt dagegen immer konsistent mit dem Balken.
+     render(<SpendenBestaetigung {...props} altesKapital={800} neuesKapital={850} zielKapital={20000} />);
+     expect(screen.getByText('Von 4,0 % auf 4,3 % des Ziels')).toBeInTheDocument();
+     expect(screen.queryByText(/^\+0,0 %$/)).not.toBeInTheDocument();
+   });
+ 
++  // Meilenstein-Feier (Task 31): Banner ÜBER dem Danke, mit Konfetti-Wiederverwendung.
++  describe('Meilenstein-Banner', () => {
++    it('rendert einen Meilenstein-Banner mit Konfetti, wenn meilensteine übergeben werden', () => {
++      const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
++      const banner = screen.getByTestId('meilenstein-banner');
++      expect(banner).toHaveTextContent('Silber erreicht');
++      expect(banner).toHaveTextContent('🎉');
++      // Konfetti wird für die Feier wiederverwendet (Task 27), nicht neu gebaut.
++      expect(container.querySelectorAll('.konfetti-burst').length).toBeGreaterThanOrEqual(1);
++    });
++
++    it('zeigt alle übergebenen Meilenstein-Labels', () => {
++      render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht', 'Halbzeit: 50 % des Ziels']} />);
++      const banner = screen.getByTestId('meilenstein-banner');
++      expect(banner).toHaveTextContent('Silber erreicht');
++      expect(banner).toHaveTextContent('Halbzeit: 50 % des Ziels');
++    });
++
++    it('rendert den Banner ÜBER dem Danke-Block', () => {
++      const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
++      const sections = Array.from(container.querySelectorAll('[data-testid]'));
++      const bannerIndex = sections.findIndex((el) => el.getAttribute('data-testid') === 'meilenstein-banner');
++      const dankeIndex = sections.findIndex((el) => el.getAttribute('data-testid') === 'konfetti-danke');
++      expect(bannerIndex).toBeGreaterThanOrEqual(0);
++      expect(bannerIndex).toBeLessThan(dankeIndex);
++    });
++
++    it('zeigt keinen Banner, wenn meilensteine leer oder nicht übergeben ist', () => {
++      const { rerender } = render(<SpendenBestaetigung {...props} />);
++      expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
++
++      rerender(<SpendenBestaetigung {...props} meilensteine={[]} />);
++      expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
++    });
++  });
++
+   it('zeigt den Spielgeld-Hinweis als letztes Element, als dezenten Text statt als Chip', () => {
+     const { container } = render(<SpendenBestaetigung {...props} />);
+     const sections = container.querySelectorAll('[data-testid]');
+     const letztesElement = sections[sections.length - 1];
+ 
+     expect(letztesElement).toHaveAttribute('data-testid', 'spielgeld-hinweis');
+     expect(letztesElement.textContent).toMatch(/Spielgeld/i);
+     expect(letztesElement.textContent).toMatch(/kein echtes Geld/i);
+     expect(letztesElement.className).toContain('muted');
+     // Kein StatusChip mehr (der rendert eine .status-Span)
+diff --git a/stiftung-web/components/__tests__/SpendenRechner.test.tsx b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+index 1e7f67b..849c7b0 100644
+--- a/stiftung-web/components/__tests__/SpendenRechner.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+@@ -105,20 +105,56 @@ describe('SpendenRechner', () => {
+       `/api/einrichtungen/${einrichtung.slug}/spenden`,
+       expect.objectContaining({ method: 'POST' })
+     );
+     expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
+     // Anchored: "3.050,00 €" taucht sowohl im Vorher→Nachher-Text als auch im
+     // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
+     // das <strong> (siehe SpendenBestaetigung.test.tsx für die Begründung).
+     expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
+   });
+ 
++  it('reicht erreichteMeilensteine aus der POST-Response an die Bestätigung weiter (Task 31)', async () => {
++    const fetchMock = vi.fn().mockResolvedValue({
++      ok: true,
++      json: async () => ({
++        einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
++        spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
++        erreichteMeilensteine: ['Silber erreicht'],
++      }),
++    });
++    vi.stubGlobal('fetch', fetchMock);
++
++    const user = userEvent.setup();
++    render(<SpendenRechner einrichtung={einrichtung} />);
++    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
++
++    expect(await screen.findByTestId('meilenstein-banner')).toHaveTextContent('Silber erreicht');
++  });
++
++  it('zeigt keinen Meilenstein-Banner, wenn die POST-Response das Feld nicht liefert (Mock-Kompatibilität)', async () => {
++    const fetchMock = vi.fn().mockResolvedValue({
++      ok: true,
++      json: async () => ({
++        einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
++        spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
++      }),
++    });
++    vi.stubGlobal('fetch', fetchMock);
++
++    const user = userEvent.setup();
++    render(<SpendenRechner einrichtung={einrichtung} />);
++    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
++
++    expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
++    expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
++  });
++
+   it('verwendet bei einer zweiten Spende den tatsächlichen Kapitalstand als Vorher-Wert statt des Seitenlade-Snapshots (Regressionsschutz)', async () => {
+     // Vorher-Bug: altesKapital wurde immer aus einrichtung.aktuellesKapital
+     // (Seitenlade-Snapshot) gelesen, sodass eine zweite Spende wieder den
+     // ursprünglichen Stand als "Vorher" zeigte statt des Stands nach der
+     // ersten Spende.
+     const fetchMock = vi
+       .fn()
+       .mockResolvedValueOnce({
+         ok: true,
+         json: async () => ({
+diff --git a/stiftung-web/lib/data/__tests__/levels.test.ts b/stiftung-web/lib/data/__tests__/levels.test.ts
+index 0fd630e..8ee3ff3 100644
+--- a/stiftung-web/lib/data/__tests__/levels.test.ts
++++ b/stiftung-web/lib/data/__tests__/levels.test.ts
+@@ -1,12 +1,19 @@
+ import { describe, it, expect } from 'vitest';
+-import { LEVELS, currentLevel, nextLevel, einrichtungsLevel, EINRICHTUNGS_LEVELS } from '../levels';
++import {
++  LEVELS,
++  currentLevel,
++  nextLevel,
++  einrichtungsLevel,
++  EINRICHTUNGS_LEVELS,
++  erreichteMeilensteine,
++} from '../levels';
+ 
+ // Spender-Badge: absolute, von der Kinderzahl unabhängige Schwellen (Task 30).
+ // Vorher war LEVELS an annualDonationPerChild geknüpft — das brach bei
+ // größeren Einrichtungen (Bronze bei 60-Kinder-Kita = 3.000 €/Jahr) und war
+ // für Einmalspenden komplett tot (annualDonationPerChild war dort immer 0).
+ describe('LEVELS', () => {
+   it('enthält absolute, erreichbare Spendenschwellen (25/100/250/1.000/2.500 €)', () => {
+     expect(LEVELS.map((l) => l.schwelleEuro)).toEqual([25, 100, 250, 1000, 2500]);
+   });
+ 
+@@ -89,10 +96,76 @@ describe('einrichtungsLevel', () => {
+     expect(result.fehlenderBetrag).toBe(0);
+   });
+ 
+   it('behandelt ein Zielkapital von 0 defensiv (kein Level, kein Fehlbetrag)', () => {
+     const result = einrichtungsLevel(0, 0);
+     expect(result.current).toBeNull();
+     expect(result.next).toBeNull();
+     expect(result.fehlenderBetrag).toBe(0);
+   });
+ });
++
++// Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level (Task 30) und
++// welche Prozent-Marken (25/50/75/100 %) wurden zwischen altKapital und
++// neuKapital überschritten? Ein Spende-Betrag kann mehrere Schwellen auf
++// einmal überspringen (z. B. bei der ersten großen Spende).
++describe('erreichteMeilensteine', () => {
++  it('liefert ein leeres Array, wenn keine Schwelle überschritten wird', () => {
++    // 1.000 € → 1.050 € von 50.000 € Ziel: 2 % → 2,1 %, bleibt weit unter Bronze (10 %).
++    expect(erreichteMeilensteine(1000, 1050, 50000)).toEqual([]);
++  });
++
++  it('liefert ein leeres Array, wenn sich das Kapital nicht erhöht', () => {
++    expect(erreichteMeilensteine(5000, 5000, 50000)).toEqual([]);
++    expect(erreichteMeilensteine(5000, 4000, 50000)).toEqual([]);
++  });
++
++  it('behandelt ein Zielkapital von 0 defensiv (kein Meilenstein)', () => {
++    expect(erreichteMeilensteine(0, 100, 0)).toEqual([]);
++  });
++
++  it('erkennt Bronze (10 %) ohne Prozent-Marke, wenn keine 25 %-Schwelle mit überschritten wird', () => {
++    // 1.000 € → 5.000 € von 50.000 € Ziel: 2 % → 10 % — nur Bronze, keine Prozent-Marke.
++    expect(erreichteMeilensteine(1000, 5000, 50000)).toEqual(['Bronze erreicht']);
++  });
++
++  it('erkennt Silber UND die 25 %-Marke gemeinsam, wenn beide auf denselben Anteil fallen', () => {
++    // 20.000 € → 30.000 € von 100.000 € Ziel: 20 % → 30 % — überschreitet Silber (25 %) und die 25-%-Marke zugleich.
++    expect(erreichteMeilensteine(20000, 30000, 100000)).toEqual([
++      'Silber erreicht',
++      'Viertel geschafft: 25 % des Ziels',
++    ]);
++  });
++
++  it('erkennt Gold UND „Halbzeit" (50 %) gemeinsam', () => {
++    expect(erreichteMeilensteine(40000, 60000, 100000)).toEqual([
++      'Gold erreicht',
++      'Halbzeit: 50 % des Ziels',
++    ]);
++  });
++
++  it('erkennt Platin UND die 75 %-Marke gemeinsam', () => {
++    expect(erreichteMeilensteine(70000, 80000, 100000)).toEqual([
++      'Platin erreicht',
++      'Dreiviertel geschafft: 75 % des Ziels',
++    ]);
++  });
++
++  it('dedupliziert Diamant + 100 % zu einem einzigen „Ziel erreicht!"-Label', () => {
++    // 90.000 € → 100.000 € von 100.000 € Ziel: 90 % → 100 % — Platin liegt schon dahinter,
++    // Diamant und die 100-%-Marke fallen zusammen und dürfen nur EIN Label ergeben.
++    expect(erreichteMeilensteine(90000, 100000, 100000)).toEqual(['Ziel erreicht!']);
++  });
++
++  it('liefert bei einer Spende von 0 % auf 100 % alle Zwischenschritte in aufsteigender Reihenfolge, ohne doppeltes Ziel-Label', () => {
++    expect(erreichteMeilensteine(0, 100000, 100000)).toEqual([
++      'Bronze erreicht',
++      'Silber erreicht',
++      'Viertel geschafft: 25 % des Ziels',
++      'Gold erreicht',
++      'Halbzeit: 50 % des Ziels',
++      'Platin erreicht',
++      'Dreiviertel geschafft: 75 % des Ziels',
++      'Ziel erreicht!',
++    ]);
++  });
++});
+diff --git a/stiftung-web/lib/data/levels.ts b/stiftung-web/lib/data/levels.ts
+index a88334b..cddfbe8 100644
+--- a/stiftung-web/lib/data/levels.ts
++++ b/stiftung-web/lib/data/levels.ts
+@@ -74,10 +74,57 @@ export function einrichtungsLevel(aktuell: number, ziel: number): EinrichtungsLe
+   for (const stufe of EINRICHTUNGS_LEVELS) {
+     if (anteil >= stufe.anteil) {
+       current = stufe;
+     } else if (next === null) {
+       next = stufe;
+     }
+   }
+   const fehlenderBetrag = next ? Math.max(0, next.anteil * ziel - aktuell) : 0;
+   return { current, next, fehlenderBetrag };
+ }
++
++// Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level (s. o.) UND
++// welche Prozent-Marken (25/50/75/100 %) wurden zwischen altKapital und
++// neuKapital überschritten? Beide Skalen sind unabhängig gedacht — ein
++// Level-Name ("Silber erreicht") und eine Prozent-Marke ("Halbzeit: 50 %
++// des Ziels") dürfen nebeneinander stehen, auch wenn sie zufällig auf
++// denselben Anteil fallen (Silber/Gold/Platin liegen exakt bei 25/50/75 %).
++// Einzige Ausnahme: 100 % und Diamant fallen IMMER zusammen (Diamant ist per
++// Definition die 100-%-Stufe) — dafür gibt es genau ein „Ziel erreicht!"-
++// Label statt zweier redundanter Meldungen. Deshalb wird Diamant aus der
++// Level-Schleife ausgenommen und stattdessen einmalig separat behandelt.
++//
++// Wiederverwendet von spenden() (einrichtungenService.ts, pro Spende) und
++// simuliereJahr() (simulationService.ts, pro Einrichtung über Wachstum +
++// Solidaritäts-Verteilung hinweg) — eine einzige Erkennungs-Funktion, kein
++// Duplikat der Schwellenlogik.
++const PROZENT_LABELS: Record<number, string> = {
++  25: 'Viertel geschafft: 25 % des Ziels',
++  50: 'Halbzeit: 50 % des Ziels',
++  75: 'Dreiviertel geschafft: 75 % des Ziels',
++};
++
++export function erreichteMeilensteine(altKapital: number, neuKapital: number, zielKapital: number): string[] {
++  if (!(zielKapital > 0) || neuKapital <= altKapital) {
++    return [];
++  }
++  const altAnteil = altKapital / zielKapital;
++  const neuAnteil = neuKapital / zielKapital;
++
++  const checkpoints: { schwelle: number; label: string }[] = [
++    ...EINRICHTUNGS_LEVELS.filter((stufe) => stufe.anteil < 1).map((stufe) => ({
++      schwelle: stufe.anteil,
++      label: `${stufe.name} erreicht`,
++    })),
++    ...Object.entries(PROZENT_LABELS).map(([marke, label]) => ({ schwelle: Number(marke) / 100, label })),
++  ].sort((a, b) => a.schwelle - b.schwelle);
++
++  const labels = checkpoints
++    .filter((cp) => altAnteil < cp.schwelle && neuAnteil >= cp.schwelle)
++    .map((cp) => cp.label);
++
++  if (altAnteil < 1 && neuAnteil >= 1) {
++    labels.push('Ziel erreicht!');
++  }
++
++  return labels;
++}
+diff --git a/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts b/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts
+index a98326a..fb784f3 100644
+--- a/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts
++++ b/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts
+@@ -45,20 +45,34 @@ describe('spenden', () => {
+   });
+ 
+   it('wirft EinrichtungNotFoundError bei unbekanntem slug', async () => {
+     await expect(spenden('gibt-es-nicht', 10, 'einmalig')).rejects.toThrow(EinrichtungNotFoundError);
+   });
+ 
+   it('wirft UngueltigerBetragError bei Betrag <= 0', async () => {
+     await expect(spenden('test-kita-a', 0, 'einmalig')).rejects.toThrow(UngueltigerBetragError);
+     await expect(spenden('test-kita-a', -5, 'einmalig')).rejects.toThrow(UngueltigerBetragError);
+   });
++
++  // Meilenstein-Erkennung (Task 31): test-kita-a hat aktuellesKapital 1000 bei
++  // zielKapital 50000 (2 %). Bronze (Einrichtungs-Level) liegt bei 10 % = 5000 €.
++  describe('Meilenstein-Erkennung', () => {
++    it('liefert erreichteMeilensteine, wenn die Spende eine Schwelle überschreitet', async () => {
++      const result = await spenden('test-kita-a', 4000, 'einmalig'); // 1000 → 5000 = genau 10 %
++      expect(result.erreichteMeilensteine).toEqual(['Bronze erreicht']);
++    });
++
++    it('liefert ein leeres Array, wenn die Spende keine Schwelle überschreitet', async () => {
++      const result = await spenden('test-kita-a', 50, 'einmalig'); // 1000 → 1050, bleibt unter 10 %
++      expect(result.erreichteMeilensteine).toEqual([]);
++    });
++  });
+ });
+ 
+ describe('statistik', () => {
+   it('berechnet Gesamtwerte und Ranking aus echten DB-Zeilen', async () => {
+     const stats = await statistik();
+     expect(stats.anzahlEinrichtungen).toBe(2);
+     expect(stats.gesamtKapital).toBe(6000);
+     expect(stats.gesamtKinder).toBe(15);
+     expect(stats.top5[0].slug).toBe('test-kita-b');
+     expect(stats.top5[0].foerderungProKind).toBe(1000);
+diff --git a/stiftung-web/lib/server/__tests__/simulationService.test.ts b/stiftung-web/lib/server/__tests__/simulationService.test.ts
+index 37bdae0..450b7aa 100644
+--- a/stiftung-web/lib/server/__tests__/simulationService.test.ts
++++ b/stiftung-web/lib/server/__tests__/simulationService.test.ts
+@@ -71,16 +71,33 @@ describe('simuliereJahr', () => {
+   });
+ 
+   it('liefert im leeren Zustand alle Erträge als 0 und zählt nummer hoch', async () => {
+     await prisma.einrichtung.deleteMany();
+ 
+     const erster = await simuliereJahr();
+     expect(erster.fondsErtrag).toBe(0);
+     expect(erster.kapitalErtrag).toBe(0);
+     expect(erster.verteiltGesamt).toBe(0);
+     expect(erster.verteilung).toEqual([]);
++    expect(erster.meilensteine).toEqual([]);
+     expect(erster.nummer).toBe(1);
+ 
+     const zweiter = await simuliereJahr();
+     expect(zweiter.nummer).toBe(2);
+   });
++
++  // Meilenstein-Erkennung (Task 31): derselbe Helper wie in einrichtungenService.spenden(),
++  // aber angewendet über die GESAMTE Jahresspanne (Kapital-Ertrag + Solidaritäts-Verteilung).
++  // "arm" startet bei 0 € von 10.000 € Ziel (0 %); Wachstum bringt nichts (0 € Kapital), die
++  // Verteilung hebt sie auf 1.216,06 € (12,16 %) — überschreitet Bronze (10 %).
++  // "reich" startet bei 90 % und landet bei 95,96 % — keine Schwelle überschritten.
++  it('erkennt Meilensteine pro Einrichtung über Wachstum + Verteilung hinweg (gleicher Helper wie bei Spenden)', async () => {
++    await spendeZwoelfMalHundertAnFonds();
++    const ergebnis = await simuliereJahr();
++
++    const arm = ergebnis.meilensteine.find((m) => m.slug === 'arm');
++    const reich = ergebnis.meilensteine.find((m) => m.slug === 'reich');
++
++    expect(arm).toEqual({ slug: 'arm', name: 'Arme Kita', labels: ['Bronze erreicht'] });
++    expect(reich).toBeUndefined();
++  });
+ });
+diff --git a/stiftung-web/lib/server/einrichtungenService.ts b/stiftung-web/lib/server/einrichtungenService.ts
+index 039184e..d5a137c 100644
+--- a/stiftung-web/lib/server/einrichtungenService.ts
++++ b/stiftung-web/lib/server/einrichtungenService.ts
+@@ -1,12 +1,13 @@
+ import { prisma } from './prismaClient';
+ import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
++import { erreichteMeilensteine } from '@/lib/data/levels';
+ 
+ export type Frequenz = 'einmalig' | 'jaehrlich';
+ 
+ export class EinrichtungNotFoundError extends Error {}
+ export class UngueltigerBetragError extends Error {}
+ 
+ export async function listEinrichtungen() {
+   return prisma.einrichtung.findMany({ orderBy: { name: 'asc' } });
+ }
+ 
+@@ -24,21 +25,29 @@ export async function spenden(slug: string, betrag: number, frequenz: Frequenz)
+   }
+   const [aktualisiert, spende] = await prisma.$transaction([
+     prisma.einrichtung.update({
+       where: { slug },
+       data: { aktuellesKapital: einrichtung.aktuellesKapital + betrag },
+     }),
+     prisma.spende.create({
+       data: { einrichtungId: einrichtung.id, betrag, frequenz, quelle: 'direkt' },
+     }),
+   ]);
+-  return { einrichtung: aktualisiert, spende };
++  // Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level/Prozent-Marken
++  // hat diese eine Spende übersprungen? Derselbe Helper wie in
++  // simulationService.ts (kein Duplikat der Schwellenlogik).
++  const erreichteMeilensteineFuerSpende = erreichteMeilensteine(
++    einrichtung.aktuellesKapital,
++    aktualisiert.aktuellesKapital,
++    einrichtung.zielKapital
++  );
++  return { einrichtung: aktualisiert, spende, erreichteMeilensteine: erreichteMeilensteineFuerSpende };
+ }
+ 
+ export function foerderungProKind(e: { aktuellesKapital: number; kinderAnzahl: number }): number {
+   if (e.kinderAnzahl <= 0) return 0;
+   return e.aktuellesKapital / e.kinderAnzahl;
+ }
+ 
+ export async function statistik() {
+   const alle = await listEinrichtungen();
+   const mitFoerderung = alle.map((e) => ({ ...e, foerderungProKind: foerderungProKind(e) }));
+diff --git a/stiftung-web/lib/server/simulationService.ts b/stiftung-web/lib/server/simulationService.ts
+index 2cdac64..bd2e3c3 100644
+--- a/stiftung-web/lib/server/simulationService.ts
++++ b/stiftung-web/lib/server/simulationService.ts
+@@ -1,24 +1,26 @@
+ import { prisma } from './prismaClient';
+ import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+ import { verteileMitClient } from './solidaritaetsfondsService';
++import { erreichteMeilensteine } from '@/lib/data/levels';
+ 
+ function round2(x: number): number {
+   return Math.round(x * 100) / 100;
+ }
+ 
+ export async function simuliereJahr(): Promise<{
+   nummer: number;
+   fondsErtrag: number;
+   kapitalErtrag: number;
+   verteiltGesamt: number;
+   verteilung: { slug: string; name: string; anteil: number }[];
++  meilensteine: { slug: string; name: string; labels: string[] }[];
+   neuerFondsBestand: number;
+ }> {
+   return prisma.$transaction(async (tx) => {
+     // (1) Fonds-Ertrag buchen
+     const fonds = await tx.solidaritaetsfonds.upsert({
+       where: { id: 'main' },
+       update: {},
+       create: { id: 'main', bestand: 0 },
+     });
+     const fondsErtrag = round2(fonds.bestand * NET_GROWTH_RATE);
+@@ -45,20 +47,36 @@ export async function simuliereJahr(): Promise<{
+ 
+     const fondsNachher = await tx.solidaritaetsfonds.findUniqueOrThrow({ where: { id: 'main' } });
+ 
+     // (4) Jahresabschluss-Zeile schreiben
+     const anzahl = await tx.jahresabschluss.count();
+     const nummer = anzahl + 1;
+     await tx.jahresabschluss.create({
+       data: { nummer, fondsErtrag, kapitalErtrag, verteiltGesamt },
+     });
+ 
++    // (5) Meilenstein-Erkennung pro Einrichtung — über die GESAMTE Jahresspanne
++    // (Kapital-Ertrag aus (2) + Solidaritäts-Verteilung aus (3) zusammen, nicht
++    // getrennt), mit demselben Helper wie einrichtungenService.spenden()
++    // (kein Duplikat der Schwellenlogik). `alle` ist der Vorher-Stand vor
++    // Schritt (2); für den Nachher-Stand wird frisch aus der tx gelesen.
++    const nachAlle = await tx.einrichtung.findMany();
++    const vorherNachSlug = new Map(alle.map((e) => [e.slug, e.aktuellesKapital]));
++    const meilensteine = nachAlle
++      .map((e) => ({
++        slug: e.slug,
++        name: e.name,
++        labels: erreichteMeilensteine(vorherNachSlug.get(e.slug) ?? e.aktuellesKapital, e.aktuellesKapital, e.zielKapital),
++      }))
++      .filter((m) => m.labels.length > 0);
++
+     return {
+       nummer,
+       fondsErtrag,
+       kapitalErtrag,
+       verteiltGesamt,
+       verteilung,
++      meilensteine,
+       neuerFondsBestand: fondsNachher.bestand,
+     };
+   });
+ }
