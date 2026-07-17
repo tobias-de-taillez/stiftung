@@ -9,7 +9,7 @@
 
 ## Next
 
-Pass 10: Task 34 (Transparenz Detailseite + Jahresabschluss-Historie).
+Pass 11: Task 35 (Landing-Belebung) — LETZTER offener Plan-Task (36 = User-Gate).
 
 ## Ledger (append-only, eine Zeile pro Pass)
 
@@ -24,3 +24,4 @@ Pass 10: Task 34 (Transparenz Detailseite + Jahresabschluss-Historie).
 | 7 | 2026-07-17 | Task 31 Meilensteine (01b9836) | verify Exit 0, 199/199 (+20); Verifier tracete Boundary-Crossings mit echten Zahlen, kombinierte Wachstum+Verteilungs-Delta bestätigt; Approved direkt 0C/0I. PAKET STORY (29-31) KOMPLETT. Minors: Dedupe-Asymmetrie Level vs. %-Labels (Produktentscheidung offen); Simulations-DB-Test ohne Near-Threshold-Fall; doppelte Konfetti-Nodes möglich | ✅ approved |
 | 8 | 2026-07-17 | Task 32 Zeitraffer (25910ec + Fix 72fa38b) | verify Exit 0, 207/207; Erstreview 1 Important (Stagger unbegrenzt, >4s ab 13 Einrichtungen) → staggerInterval-Budget-Fix, Re-Review Approved 0C/0I mit strukturellem Beweis (≤3700ms für alle N). Minors: tautologischer Formel-Test; Konstanten-Alias; Tie-Break Highlight; Non-Reduced-Motion-Pfad ungetestet | ✅ approved (nach 1 Fix-Zyklus) |
 | 9 | 2026-07-17 | Task 33 Ticker+Zähler (71d2843 + Fix 474e8f5) | verify Exit 0, 225/225; Verifier-Session brach 1× an API-Fehler ab, per Resume fortgesetzt; Erstreview 1 Important (Index-Keys unterdrücken Live-Slide-in) → zeitpunkt-Epoch-Key-Fix, Re-Review Approved 0C/0I. Minors: Voll-Listen-Re-Animation bei Ankunft; ms-Timing exponiert (harmlos); Route-Test ohne zeitpunkt-Assertion | ✅ approved (nach 1 Fix-Zyklus) |
+| 10 | 2026-07-17 | Task 34 Transparenz (b28ae15) | verify Exit 0, 238/238 (+13); Verifier prüfte same-ms-Ordering empirisch (8 Läufe stabil), Empty-State per Direkt-Render; Approved direkt 0C/0I. Minors: kein orderBy-Tiebreaker (nur bei Concurrent-Writes relevant); Detail-Page-Test 4-Tabellen-beforeEach (pre-existing); Report-Wording | ✅ approved |
