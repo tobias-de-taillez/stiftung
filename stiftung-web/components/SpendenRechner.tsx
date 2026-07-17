@@ -42,6 +42,10 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
   const [altesKapital, setAltesKapital] = useState(einrichtung.aktuellesKapital);
   const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
   const [spendeId, setSpendeId] = useState<string | null>(null);
+  // Meilenstein-Erkennung (Task 31): kommt direkt aus der POST-Response
+  // (erreichteMeilensteine, serverseitig via lib/data/levels.ts berechnet).
+  // Default [] deckt Mocks ab, die dieses Feld (noch) nicht liefern.
+  const [meilensteine, setMeilensteine] = useState<string[]>([]);
 
   async function handleSpenden() {
     setStatus('loading');
@@ -52,11 +56,12 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
         body: JSON.stringify({ betrag, frequenz }),
       });
       if (!res.ok) throw new Error('request_failed');
-      const { einrichtung: updated, spende } = await res.json();
+      const { einrichtung: updated, spende, erreichteMeilensteine } = await res.json();
       setAltesKapital(kapitalStand);
       setNeuesKapital(updated.aktuellesKapital);
       setKapitalStand(updated.aktuellesKapital);
       setSpendeId(spende.id);
+      setMeilensteine(erreichteMeilensteine ?? []);
       setStatus('done');
     } catch {
       setStatus('error');
@@ -254,6 +259,7 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
           neuesKapital={neuesKapital}
           zielKapital={einrichtung.zielKapital}
           spendeId={spendeId}
+          meilensteine={meilensteine}
         />
       )}
     </div>

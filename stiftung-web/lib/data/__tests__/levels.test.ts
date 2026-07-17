@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { LEVELS, currentLevel, nextLevel, einrichtungsLevel, EINRICHTUNGS_LEVELS } from '../levels';
+import {
+  LEVELS,
+  currentLevel,
+  nextLevel,
+  einrichtungsLevel,
+  EINRICHTUNGS_LEVELS,
+  erreichteMeilensteine,
+} from '../levels';
 
 // Spender-Badge: absolute, von der Kinderzahl unabhängige Schwellen (Task 30).
 // Vorher war LEVELS an annualDonationPerChild geknüpft — das brach bei
@@ -94,5 +101,71 @@ describe('einrichtungsLevel', () => {
     expect(result.current).toBeNull();
     expect(result.next).toBeNull();
     expect(result.fehlenderBetrag).toBe(0);
+  });
+});
+
+// Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level (Task 30) und
+// welche Prozent-Marken (25/50/75/100 %) wurden zwischen altKapital und
+// neuKapital überschritten? Ein Spende-Betrag kann mehrere Schwellen auf
+// einmal überspringen (z. B. bei der ersten großen Spende).
+describe('erreichteMeilensteine', () => {
+  it('liefert ein leeres Array, wenn keine Schwelle überschritten wird', () => {
+    // 1.000 € → 1.050 € von 50.000 € Ziel: 2 % → 2,1 %, bleibt weit unter Bronze (10 %).
+    expect(erreichteMeilensteine(1000, 1050, 50000)).toEqual([]);
+  });
+
+  it('liefert ein leeres Array, wenn sich das Kapital nicht erhöht', () => {
+    expect(erreichteMeilensteine(5000, 5000, 50000)).toEqual([]);
+    expect(erreichteMeilensteine(5000, 4000, 50000)).toEqual([]);
+  });
+
+  it('behandelt ein Zielkapital von 0 defensiv (kein Meilenstein)', () => {
+    expect(erreichteMeilensteine(0, 100, 0)).toEqual([]);
+  });
+
+  it('erkennt Bronze (10 %) ohne Prozent-Marke, wenn keine 25 %-Schwelle mit überschritten wird', () => {
+    // 1.000 € → 5.000 € von 50.000 € Ziel: 2 % → 10 % — nur Bronze, keine Prozent-Marke.
+    expect(erreichteMeilensteine(1000, 5000, 50000)).toEqual(['Bronze erreicht']);
+  });
+
+  it('erkennt Silber UND die 25 %-Marke gemeinsam, wenn beide auf denselben Anteil fallen', () => {
+    // 20.000 € → 30.000 € von 100.000 € Ziel: 20 % → 30 % — überschreitet Silber (25 %) und die 25-%-Marke zugleich.
+    expect(erreichteMeilensteine(20000, 30000, 100000)).toEqual([
+      'Silber erreicht',
+      'Viertel geschafft: 25 % des Ziels',
+    ]);
+  });
+
+  it('erkennt Gold UND „Halbzeit" (50 %) gemeinsam', () => {
+    expect(erreichteMeilensteine(40000, 60000, 100000)).toEqual([
+      'Gold erreicht',
+      'Halbzeit: 50 % des Ziels',
+    ]);
+  });
+
+  it('erkennt Platin UND die 75 %-Marke gemeinsam', () => {
+    expect(erreichteMeilensteine(70000, 80000, 100000)).toEqual([
+      'Platin erreicht',
+      'Dreiviertel geschafft: 75 % des Ziels',
+    ]);
+  });
+
+  it('dedupliziert Diamant + 100 % zu einem einzigen „Ziel erreicht!"-Label', () => {
+    // 90.000 € → 100.000 € von 100.000 € Ziel: 90 % → 100 % — Platin liegt schon dahinter,
+    // Diamant und die 100-%-Marke fallen zusammen und dürfen nur EIN Label ergeben.
+    expect(erreichteMeilensteine(90000, 100000, 100000)).toEqual(['Ziel erreicht!']);
+  });
+
+  it('liefert bei einer Spende von 0 % auf 100 % alle Zwischenschritte in aufsteigender Reihenfolge, ohne doppeltes Ziel-Label', () => {
+    expect(erreichteMeilensteine(0, 100000, 100000)).toEqual([
+      'Bronze erreicht',
+      'Silber erreicht',
+      'Viertel geschafft: 25 % des Ziels',
+      'Gold erreicht',
+      'Halbzeit: 50 % des Ziels',
+      'Platin erreicht',
+      'Dreiviertel geschafft: 75 % des Ziels',
+      'Ziel erreicht!',
+    ]);
   });
 });

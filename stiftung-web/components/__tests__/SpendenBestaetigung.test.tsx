@@ -109,6 +109,42 @@ describe('SpendenBestaetigung', () => {
     expect(screen.queryByText(/^\+0,0 %$/)).not.toBeInTheDocument();
   });
 
+  // Meilenstein-Feier (Task 31): Banner ÜBER dem Danke, mit Konfetti-Wiederverwendung.
+  describe('Meilenstein-Banner', () => {
+    it('rendert einen Meilenstein-Banner mit Konfetti, wenn meilensteine übergeben werden', () => {
+      const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
+      const banner = screen.getByTestId('meilenstein-banner');
+      expect(banner).toHaveTextContent('Silber erreicht');
+      expect(banner).toHaveTextContent('🎉');
+      // Konfetti wird für die Feier wiederverwendet (Task 27), nicht neu gebaut.
+      expect(container.querySelectorAll('.konfetti-burst').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('zeigt alle übergebenen Meilenstein-Labels', () => {
+      render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht', 'Halbzeit: 50 % des Ziels']} />);
+      const banner = screen.getByTestId('meilenstein-banner');
+      expect(banner).toHaveTextContent('Silber erreicht');
+      expect(banner).toHaveTextContent('Halbzeit: 50 % des Ziels');
+    });
+
+    it('rendert den Banner ÜBER dem Danke-Block', () => {
+      const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
+      const sections = Array.from(container.querySelectorAll('[data-testid]'));
+      const bannerIndex = sections.findIndex((el) => el.getAttribute('data-testid') === 'meilenstein-banner');
+      const dankeIndex = sections.findIndex((el) => el.getAttribute('data-testid') === 'konfetti-danke');
+      expect(bannerIndex).toBeGreaterThanOrEqual(0);
+      expect(bannerIndex).toBeLessThan(dankeIndex);
+    });
+
+    it('zeigt keinen Banner, wenn meilensteine leer oder nicht übergeben ist', () => {
+      const { rerender } = render(<SpendenBestaetigung {...props} />);
+      expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
+
+      rerender(<SpendenBestaetigung {...props} meilensteine={[]} />);
+      expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
+    });
+  });
+
   it('zeigt den Spielgeld-Hinweis als letztes Element, als dezenten Text statt als Chip', () => {
     const { container } = render(<SpendenBestaetigung {...props} />);
     const sections = container.querySelectorAll('[data-testid]');

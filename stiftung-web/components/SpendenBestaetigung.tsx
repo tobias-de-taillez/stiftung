@@ -18,6 +18,7 @@ export function SpendenBestaetigung({
   neuesKapital,
   zielKapital,
   spendeId,
+  meilensteine = [],
 }: {
   betrag: number;
   frequenz: 'einmalig' | 'jaehrlich';
@@ -26,6 +27,9 @@ export function SpendenBestaetigung({
   neuesKapital: number;
   zielKapital: number;
   spendeId: string;
+  // Meilenstein-Feier (Task 31): optional/default [], damit bestehende Aufrufer
+  // (POST-Response-Mocks ohne dieses Feld) unverändert weiterlaufen.
+  meilensteine?: string[];
 }) {
   const [quittungOffen, setQuittungOffen] = useState(false);
   const angezeigtesKapital = useCountUp(neuesKapital);
@@ -56,6 +60,20 @@ export function SpendenBestaetigung({
 
   return (
     <Card>
+      {/* (0) Meilenstein-Banner — ÜBER dem Danke, feiert überschrittene
+          Einrichtungs-Level/Prozent-Marken (Task 31). Reine Anzeige: Erkennung
+          passiert serverseitig in spenden()/simuliereJahr() via erreichteMeilensteine(). */}
+      {meilensteine.length > 0 && (
+        <div data-testid="meilenstein-banner" style={{ marginBottom: '1.25rem' }}>
+          <Konfetti />
+          {meilensteine.map((label) => (
+            <p key={label} className="hero-number" style={{ fontSize: 'clamp(1.2rem, 3vw, 1.8rem)', margin: 0 }}>
+              🎉 {label}
+            </p>
+          ))}
+        </div>
+      )}
+
       {/* (1) Konfetti-Burst + Danke — prominent, als Erstes zu sehen */}
       <div data-testid="konfetti-danke">
         <Konfetti />

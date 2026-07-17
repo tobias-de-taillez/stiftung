@@ -81,3 +81,50 @@ export function einrichtungsLevel(aktuell: number, ziel: number): EinrichtungsLe
   const fehlenderBetrag = next ? Math.max(0, next.anteil * ziel - aktuell) : 0;
   return { current, next, fehlenderBetrag };
 }
+
+// Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level (s. o.) UND
+// welche Prozent-Marken (25/50/75/100 %) wurden zwischen altKapital und
+// neuKapital überschritten? Beide Skalen sind unabhängig gedacht — ein
+// Level-Name ("Silber erreicht") und eine Prozent-Marke ("Halbzeit: 50 %
+// des Ziels") dürfen nebeneinander stehen, auch wenn sie zufällig auf
+// denselben Anteil fallen (Silber/Gold/Platin liegen exakt bei 25/50/75 %).
+// Einzige Ausnahme: 100 % und Diamant fallen IMMER zusammen (Diamant ist per
+// Definition die 100-%-Stufe) — dafür gibt es genau ein „Ziel erreicht!"-
+// Label statt zweier redundanter Meldungen. Deshalb wird Diamant aus der
+// Level-Schleife ausgenommen und stattdessen einmalig separat behandelt.
+//
+// Wiederverwendet von spenden() (einrichtungenService.ts, pro Spende) und
+// simuliereJahr() (simulationService.ts, pro Einrichtung über Wachstum +
+// Solidaritäts-Verteilung hinweg) — eine einzige Erkennungs-Funktion, kein
+// Duplikat der Schwellenlogik.
+const PROZENT_LABELS: Record<number, string> = {
+  25: 'Viertel geschafft: 25 % des Ziels',
+  50: 'Halbzeit: 50 % des Ziels',
+  75: 'Dreiviertel geschafft: 75 % des Ziels',
+};
+
+export function erreichteMeilensteine(altKapital: number, neuKapital: number, zielKapital: number): string[] {
+  if (!(zielKapital > 0) || neuKapital <= altKapital) {
+    return [];
+  }
+  const altAnteil = altKapital / zielKapital;
+  const neuAnteil = neuKapital / zielKapital;
+
+  const checkpoints: { schwelle: number; label: string }[] = [
+    ...EINRICHTUNGS_LEVELS.filter((stufe) => stufe.anteil < 1).map((stufe) => ({
+      schwelle: stufe.anteil,
+      label: `${stufe.name} erreicht`,
+    })),
+    ...Object.entries(PROZENT_LABELS).map(([marke, label]) => ({ schwelle: Number(marke) / 100, label })),
+  ].sort((a, b) => a.schwelle - b.schwelle);
+
+  const labels = checkpoints
+    .filter((cp) => altAnteil < cp.schwelle && neuAnteil >= cp.schwelle)
+    .map((cp) => cp.label);
+
+  if (altAnteil < 1 && neuAnteil >= 1) {
+    labels.push('Ziel erreicht!');
+  }
+
+  return labels;
+}

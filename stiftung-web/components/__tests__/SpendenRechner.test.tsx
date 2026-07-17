@@ -112,6 +112,42 @@ describe('SpendenRechner', () => {
     expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
   });
 
+  it('reicht erreichteMeilensteine aus der POST-Response an die Bestätigung weiter (Task 31)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+        spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
+        erreichteMeilensteine: ['Silber erreicht'],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+
+    expect(await screen.findByTestId('meilenstein-banner')).toHaveTextContent('Silber erreicht');
+  });
+
+  it('zeigt keinen Meilenstein-Banner, wenn die POST-Response das Feld nicht liefert (Mock-Kompatibilität)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+        spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const user = userEvent.setup();
+    render(<SpendenRechner einrichtung={einrichtung} />);
+    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+
+    expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
+  });
+
   it('verwendet bei einer zweiten Spende den tatsächlichen Kapitalstand als Vorher-Wert statt des Seitenlade-Snapshots (Regressionsschutz)', async () => {
     // Vorher-Bug: altesKapital wurde immer aus einrichtung.aktuellesKapital
     // (Seitenlade-Snapshot) gelesen, sodass eine zweite Spende wieder den

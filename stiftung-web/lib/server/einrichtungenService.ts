@@ -1,5 +1,6 @@
 import { prisma } from './prismaClient';
 import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+import { erreichteMeilensteine } from '@/lib/data/levels';
 
 export type Frequenz = 'einmalig' | 'jaehrlich';
 
@@ -31,7 +32,15 @@ export async function spenden(slug: string, betrag: number, frequenz: Frequenz) 
       data: { einrichtungId: einrichtung.id, betrag, frequenz, quelle: 'direkt' },
     }),
   ]);
-  return { einrichtung: aktualisiert, spende };
+  // Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level/Prozent-Marken
+  // hat diese eine Spende übersprungen? Derselbe Helper wie in
+  // simulationService.ts (kein Duplikat der Schwellenlogik).
+  const erreichteMeilensteineFuerSpende = erreichteMeilensteine(
+    einrichtung.aktuellesKapital,
+    aktualisiert.aktuellesKapital,
+    einrichtung.zielKapital
+  );
+  return { einrichtung: aktualisiert, spende, erreichteMeilensteine: erreichteMeilensteineFuerSpende };
 }
 
 export function foerderungProKind(e: { aktuellesKapital: number; kinderAnzahl: number }): number {

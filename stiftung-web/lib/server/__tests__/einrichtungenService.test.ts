@@ -52,6 +52,20 @@ describe('spenden', () => {
     await expect(spenden('test-kita-a', 0, 'einmalig')).rejects.toThrow(UngueltigerBetragError);
     await expect(spenden('test-kita-a', -5, 'einmalig')).rejects.toThrow(UngueltigerBetragError);
   });
+
+  // Meilenstein-Erkennung (Task 31): test-kita-a hat aktuellesKapital 1000 bei
+  // zielKapital 50000 (2 %). Bronze (Einrichtungs-Level) liegt bei 10 % = 5000 €.
+  describe('Meilenstein-Erkennung', () => {
+    it('liefert erreichteMeilensteine, wenn die Spende eine Schwelle überschreitet', async () => {
+      const result = await spenden('test-kita-a', 4000, 'einmalig'); // 1000 → 5000 = genau 10 %
+      expect(result.erreichteMeilensteine).toEqual(['Bronze erreicht']);
+    });
+
+    it('liefert ein leeres Array, wenn die Spende keine Schwelle überschreitet', async () => {
+      const result = await spenden('test-kita-a', 50, 'einmalig'); // 1000 → 1050, bleibt unter 10 %
+      expect(result.erreichteMeilensteine).toEqual([]);
+    });
+  });
 });
 
 describe('statistik', () => {
