@@ -30,3 +30,5 @@ ALL TASKS DONE
 | 11 | 2026-07-17 | Task 35 Landing-Belebung (b733696) + Flake-Fix (8332597) | verify Exit 0, 249/249; Verifier verifizierte live im Browser (Overflow-Fix, Breakpoints, echte Daten); Approved direkt 0C/0I. Verifier fand pre-existing Ordering-Flake (247-249 je Lauf) → Root-Cause-Fix (explizite Test-Timestamps + id-Tiebreaker), 5×+2× stabil grün | ✅ approved · PAKET LEBEN KOMPLETT |
 
 FINALE WHOLE-BRANCH-REVIEW (2026-07-17): Verdict 'With fixes' → Fix-Welle 4027022 (gebuchte Spende eingefroren statt Live-Regler; Du-Form durchgängig + CLAUDE.md-Konvention; router.refresh nach Buchung/Verteilung/Simulation; Doppel-Konfetti weg; Betrag<5-Hinweis) → Re-Review unabhängig: 252/252 zweimal, tsc clean, READY FOR PR: YES. Verbleibende Minors explizit ACCEPTED-FOR-LOCAL-DEMO triagiert. Zwei offene Produktentscheidungen für später: Meilenstein-Doppel-Labels; Ticker-Voll-Re-Animation.
+
+PASS 12 (2026-07-17): Task 36 User-Gate GEOEFFNET (User: "ja und go"). Bildwelt Wachstum, eigenes Design-Review-Gate vor Merge. PR #2 erstellt (Tasks 25-35).
