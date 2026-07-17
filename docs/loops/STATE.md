@@ -9,7 +9,7 @@
 
 ## Next
 
-Pass 6: Task 30 (Level-System-Reparatur).
+Pass 7: Task 31 (Meilenstein-Erkennung + Feier).
 
 ## Ledger (append-only, eine Zeile pro Pass)
 
@@ -20,3 +20,4 @@ Pass 6: Task 30 (Level-System-Reparatur).
 | 3 | 2026-07-17 | Task 27 Feier-Moment (e22c130 + Fix b0395c5) | verify Exit 0, 112/112; Erstreview 2 Important (Relativ-% irreführend; altesKapital stale bei Zweitspende) → Fix + Re-Review Approved 0C/0I; Verifier reproduzierte verify unabhängig | ✅ approved (nach 1 Fix-Zyklus) |
 | 4 | 2026-07-17 | Task 28 Impact-Beispiele+Share (866ed5b + Fix 4f475c2) | verify Exit 0, 129/129; Erstreview 1 Important (unguarded typ-Lookup, Crash-Pfad bei unbekanntem Einrichtungstyp) → Fallback-Fix + Re-Review Approved 0C/0I. Scope-Bleed: Fixer committete untracked launch.json + Loop-Artefakte mit (Inhalt geprüft, keine Secrets, akzeptiert). Minors: pointless shallow copy; Kommentar-Grammatik; typ:string statt Union | ✅ approved (nach 1 Fix-Zyklus) |
 | 5 | 2026-07-17 | Task 29 Zukunftswert-Story (8433d5f + Test-Fix f440c6c) | verify Exit 0, 152/152; Verifier re-derivierte FV-Mathe mit echten Zahlen (409,84 €-Fixture, 4.782,61 € jährlich); Erstreview 1 Important (Jährlich-Hero ohne Komponententest) → Test-only-Fix, Re-Review Approved 0C/0I. Minor: 'Rentenbarwert' im Testtitel müsste Zukunftswert heißen | ✅ approved (nach 1 Fix-Zyklus) |
+| 6 | 2026-07-17 | Task 30 Level-Reparatur (e48861a) | verify Exit 0, 179/179 (+27); Verifier re-lief tsc/test/build unabhängig, Boundary-Mathe handgeprüft; Approved direkt 0C/0I. Minors: 24,99-Boundary nicht wörtlich getestet; marker-key=label kollisionsanfällig bei Duplikaten | ✅ approved |
