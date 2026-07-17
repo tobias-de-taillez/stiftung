@@ -9,7 +9,7 @@
 
 ## Next
 
-Pass 8: Task 32 (Simulations-Zeitraffer, Paket „Leben").
+Pass 9 (nächster Loop-Lauf): Task 33 (Live-Ticker + Spenderzähler). Session-Budget Runde 2 (4 Task-Pässe, Pässe 5-8) ausgeschöpft. Offen: Tasks 33-35 + Task 36 (User-Gate).
 
 ## Ledger (append-only, eine Zeile pro Pass)
 
@@ -22,3 +22,4 @@ Pass 8: Task 32 (Simulations-Zeitraffer, Paket „Leben").
 | 5 | 2026-07-17 | Task 29 Zukunftswert-Story (8433d5f + Test-Fix f440c6c) | verify Exit 0, 152/152; Verifier re-derivierte FV-Mathe mit echten Zahlen (409,84 €-Fixture, 4.782,61 € jährlich); Erstreview 1 Important (Jährlich-Hero ohne Komponententest) → Test-only-Fix, Re-Review Approved 0C/0I. Minor: 'Rentenbarwert' im Testtitel müsste Zukunftswert heißen | ✅ approved (nach 1 Fix-Zyklus) |
 | 6 | 2026-07-17 | Task 30 Level-Reparatur (e48861a) | verify Exit 0, 179/179 (+27); Verifier re-lief tsc/test/build unabhängig, Boundary-Mathe handgeprüft; Approved direkt 0C/0I. Minors: 24,99-Boundary nicht wörtlich getestet; marker-key=label kollisionsanfällig bei Duplikaten | ✅ approved |
 | 7 | 2026-07-17 | Task 31 Meilensteine (01b9836) | verify Exit 0, 199/199 (+20); Verifier tracete Boundary-Crossings mit echten Zahlen, kombinierte Wachstum+Verteilungs-Delta bestätigt; Approved direkt 0C/0I. PAKET STORY (29-31) KOMPLETT. Minors: Dedupe-Asymmetrie Level vs. %-Labels (Produktentscheidung offen); Simulations-DB-Test ohne Near-Threshold-Fall; doppelte Konfetti-Nodes möglich | ✅ approved |
+| 8 | 2026-07-17 | Task 32 Zeitraffer (25910ec + Fix 72fa38b) | verify Exit 0, 207/207; Erstreview 1 Important (Stagger unbegrenzt, >4s ab 13 Einrichtungen) → staggerInterval-Budget-Fix, Re-Review Approved 0C/0I mit strukturellem Beweis (≤3700ms für alle N). Minors: tautologischer Formel-Test; Konstanten-Alias; Tie-Break Highlight; Non-Reduced-Motion-Pfad ungetestet | ✅ approved (nach 1 Fix-Zyklus) |
