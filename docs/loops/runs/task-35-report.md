@@ -49,3 +49,49 @@ Nach der ersten Implementierung zeigte der Dev-Server (Playwright-Screenshot bei
 ## Concerns (nicht blockierend)
 - `SpendenTicker`s Fetch-Effekt löst gelegentlich einen React-„not wrapped in act"-Warnhinweis in `app/__tests__/page.test.tsx` aus (Console-Warning, keine Test-Fehlschläge). Ursache ist vorbestehend (Task 33, unabhängig von dieser Änderung) — die zusätzliche Testanzahl in dieser Datei macht die Race sichtbarer als vorher. Nicht behoben, da außerhalb des Task-35-Scopes (würde Änderungen an `SpendenTicker`s Test-Setup oder Component selbst erfordern).
 - Mini-Balkenwald-Labels sind bei 8 Einrichtungen auf ca. 55px Breite gestaucht und nutzen `text-overflow: ellipsis` — bei sehr langen Institutionsnamen bleibt nur der Anfang lesbar; volle Namen + Betrag stehen im `title`-Tooltip und `aria-label`. Akzeptabel für ein Interims-Visual, könnte Task 36 (Illustration) ohnehin ersetzen.
+
+## Flake-Fix (Loop-Check-Zuverlässigkeit)
+
+**Befund:** `lib/server/__tests__/einrichtungenService.test.ts` (Ordering-Tests für
+`letzteSpenden` und `einrichtungsTransparenz`) flakte über mehrere `npm run
+test`-Läufe hinweg (beobachtet: 249/249, 248/249, 247/249). Ursache:
+`Spende.createdAt` hat via `@default(now())` nur Millisekunden-Auflösung;
+sequenzielle Test-Inserts (mehrere `spenden()`-Aufrufe/`prisma.spende.create()`
+kurz hintereinander) können auf demselben Millisekunden-Tick landen.
+`orderBy: { createdAt: 'desc' }` ohne Tiebreaker liefert dann eine von SQLite
+nichtdeterministisch entschiedene Reihenfolge für Zeilen mit identischem
+`createdAt` — die betroffenen Tests prüfen aber eine feste Reihenfolge
+(`eintraege[0].betrag`/`spendenHistorie[0].quelle` etc.).
+
+**Fix (zwei Ebenen, kein `sleep()`/Retry):**
+1. **Deterministische Tests (Hard Fix):** In den beiden betroffenen Tests
+   (`letzteSpenden` → „sortiert neueste zuerst und begrenzt auf das limit";
+   `einrichtungsTransparenz` → „liefert die Historie neueste zuerst, inkl.
+   Quelle") werden die Spende-Zeilen jetzt direkt per `prisma.spende.create()`
+   mit expliziten, garantiert unterschiedlichen `createdAt`-Werten
+   (`Date.now() - 60_000` / `- 30_000` / `- 5_000`) angelegt statt sich auf die
+   Insert-Reihenfolge zu verlassen. Alle übrigen Tests der Datei, die dieselben
+   Keywords treffen (`letzteSpenden`, `einrichtungsTransparenz`, „begrenzt …
+   Spenden"), prüfen nur Länge/Anzahl, nicht Reihenfolge — dort ist keine
+   Änderung nötig, da Gleichstand bei `createdAt` das Ergebnis nicht verändert.
+2. **Prod-Tiebreaker (Best Effort):** `lib/server/einrichtungenService.ts`,
+   beide Vorkommen von `orderBy: { createdAt: 'desc' }` (in `letzteSpenden` und
+   `einrichtungsTransparenz`) → `orderBy: [{ createdAt: 'desc' }, { id: 'desc'
+   }]`. Macht die Sortierung bei Gleichstand deterministisch (auch außerhalb
+   der Tests, z. B. für den Live-Ticker in der UI), auch wenn `cuid()`-IDs
+   nicht streng monoton sind.
+
+**Verifikation:**
+- 5× `npx vitest run lib/server/__tests__/einrichtungenService.test.ts`
+  hintereinander: alle 5 Läufe grün, 27/27 Tests, keine Flakes.
+- `npm run verify` (tsc --noEmit && vitest run && next build): exit 0,
+  249/249 Tests, Build erfolgreich.
+- 2× zusätzlich `npx vitest run` (volle Suite): beide Läufe 249/249,
+  30/30 Testdateien.
+
+## Kommentiert Task 35 Abschluss
+Der Flake-Fix ist funktional unabhängig von Task 35 (Landing-Belebung), wird
+aber hier dokumentiert, da er auf demselben Report-Pfad (`task-35-report.md`)
+angehängt wurde (Vorgabe des Fix-Auftrags) — betroffen ist ausschließlich
+`einrichtungenService.ts`/`einrichtungenService.test.ts` aus Task 9/33/34,
+nicht die Landing-Page-Änderungen dieses Tasks.

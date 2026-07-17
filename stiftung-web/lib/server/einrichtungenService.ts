@@ -96,7 +96,10 @@ export async function statistik() {
 export async function letzteSpenden(limit = 10) {
   const spenden = await prisma.spende.findMany({
     take: limit,
-    orderBy: { createdAt: 'desc' },
+    // Sekundärer Sortierschlüssel `id`: createdAt hat nur Millisekunden-
+    // Auflösung, gleichzeitige Inserts können denselben Wert haben. Ohne
+    // Tiebreaker liefert die DB dann eine nichtdeterministische Reihenfolge.
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     include: { einrichtung: true },
   });
   const jetzt = Date.now();
@@ -135,7 +138,8 @@ export async function einrichtungsTransparenz(slug: string) {
   const [historie, anzahlUnterstuetzungen] = await Promise.all([
     prisma.spende.findMany({
       where: { einrichtungId: einrichtung.id },
-      orderBy: { createdAt: 'desc' },
+      // Sekundärer Sortierschlüssel `id` s. letzteSpenden() oben.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 10,
     }),
     prisma.spende.count({ where: { einrichtungId: einrichtung.id } }),

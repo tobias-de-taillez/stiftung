@@ -172,9 +172,20 @@ describe('letzteSpenden', () => {
   });
 
   it('sortiert neueste zuerst und begrenzt auf das limit', async () => {
-    await spenden('test-kita-a', 10, 'einmalig');
-    await spenden('test-kita-a', 20, 'einmalig');
-    await spenden('test-kita-a', 30, 'einmalig');
+    // Explizite, garantiert unterschiedliche Zeitstempel statt Insert-Reihenfolge:
+    // createdAt hat nur Millisekunden-Auflösung, sequenzielle Inserts in
+    // schnellen Testläufen können denselben Wert bekommen und die Sortierung
+    // (ohne diese festen Zeitstempel) nichtdeterministisch machen.
+    const kitaA = await getEinrichtungBySlug('test-kita-a');
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 10, frequenz: 'einmalig', quelle: 'direkt', createdAt: new Date(Date.now() - 60_000) },
+    });
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 20, frequenz: 'einmalig', quelle: 'direkt', createdAt: new Date(Date.now() - 30_000) },
+    });
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 30, frequenz: 'einmalig', quelle: 'direkt', createdAt: new Date(Date.now() - 5_000) },
+    });
     const eintraege = await letzteSpenden(2);
     expect(eintraege).toHaveLength(2);
     expect(eintraege[0].betrag).toBe(30);
@@ -206,10 +217,14 @@ describe('einrichtungsTransparenz', () => {
   });
 
   it('liefert die Historie neueste zuerst, inkl. Quelle', async () => {
-    await spenden('test-kita-a', 50, 'einmalig');
+    // Explizite, garantiert unterschiedliche Zeitstempel statt Insert-Reihenfolge
+    // (s. Kommentar bei 'sortiert neueste zuerst und begrenzt auf das limit' oben).
     const kitaA = await getEinrichtungBySlug('test-kita-a');
     await prisma.spende.create({
-      data: { einrichtungId: kitaA!.id, betrag: 30, frequenz: 'einmalig', quelle: 'solidaritaet' },
+      data: { einrichtungId: kitaA!.id, betrag: 50, frequenz: 'einmalig', quelle: 'direkt', createdAt: new Date(Date.now() - 60_000) },
+    });
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 30, frequenz: 'einmalig', quelle: 'solidaritaet', createdAt: new Date(Date.now() - 5_000) },
     });
 
     const t = await einrichtungsTransparenz('test-kita-a');
