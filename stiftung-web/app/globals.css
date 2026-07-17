@@ -132,6 +132,39 @@ a:hover .card {
 }
 
 /*
+ * Hero-Grid (Task 35): zweispaltig ab 800px — links Text/CTAs, rechts der
+ * Visual-Slot (KennzahlHero + MiniBalkenwald + Live-Ticker), damit bei der
+ * 1080px-Container-Breite keine leere dunkle Fläche rechts mehr entsteht.
+ * Unter 800px fällt die Regel unten auf einspaltig zurück — derselbe
+ * Breakpoint wie die bestehende .container-Padding-Regel.
+ */
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+/*
+ * grid-template-columns: minmax(0, 1fr) statt implizitem Auto-Track — sonst
+ * sizt sich die einzelne Spalte an ihrem Inhalt (Mini-Balkenwald mit
+ * nowrap-Labels) auf und sprengt die von .hero-grid zugewiesene Breite
+ * (derselbe Grund, warum .hero-grid selbst minmax(0, …) statt reinem fr
+ * nutzt).
+ */
+.hero-visual {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
  * ProgressBar-Füllung: animiert beim ersten Rendern von 0 auf die Zielbreite.
  * Nur das "from" wird definiert — das implizite "to"-Keyframe übernimmt den
  * per Inline-Style gesetzten width-Wert (Standardverhalten der CSS Animations
@@ -301,6 +334,23 @@ a:hover .card {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/*
+ * Mini-Balkenwald (Task 35): Balken wachsen beim Mounten von 0 auf ihre
+ * per Inline-Style gesetzte Höhe hoch — gleiches "nur from-Keyframe"-Muster
+ * wie .progress-bar-fill-in oben (das implizite "to" übernimmt den
+ * Inline-Style-Wert). Degradiert unter prefers-reduced-motion automatisch
+ * über den globalen Override unten.
+ */
+.mini-balkenwald-bar {
+  animation: mini-balkenwald-grow 700ms ease-out;
+}
+
+@keyframes mini-balkenwald-grow {
+  from {
+    height: 0;
   }
 }
 

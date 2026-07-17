@@ -3,12 +3,34 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
 import Page from '../page';
 
+// Die Landing-Page rendert seit Task 35 KennzahlHero (useCountUp), das beim
+// Mounten `prefers-reduced-motion` liest. Ohne Stub würde der Zähler bei 0
+// starten und asynchron über requestAnimationFrame hochzählen (jsdom hat
+// keinen rAF-Polyfill) — reduced-motion erzwingt den deterministischen
+// Sofort-Sprung auf den Zielwert (siehe components/__tests__/KennzahlHero.test.tsx).
+function stubReducedMotion() {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+  );
+}
+
 // Die Landing-Page rendert seit Task 33 den client-seitigen SpendenTicker,
 // der beim Mounten `/api/spenden/letzte` fetcht. Ohne Stub würde jsdom einen
 // echten (fehlschlagenden) Request gegen eine relative URL versuchen — der
 // Ticker selbst fängt das ab (Empty-State bleibt), aber der Stub hält den
 // Test hermetisch und leise.
 beforeEach(async () => {
+  stubReducedMotion();
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
   await prisma.fondsSpende.deleteMany();
   await prisma.spende.deleteMany();
@@ -59,5 +81,38 @@ describe('Landing Page', () => {
     render(await Page());
     expect(screen.getByText(/Wie das Modell funktioniert/i)).toBeInTheDocument();
     expect(screen.getByText(/2\.000\.000,00\s*€/)).toBeInTheDocument();
+  });
+
+  // Task 35: zweispaltiges Hero-Layout — rechter Visual-Slot füllt die zuvor
+  // leere Fläche mit einer animierten Kennzahl-Komposition aus echten Daten.
+  describe('Hero-Visual-Slot (Task 35)', () => {
+    it('rendert die Hero-Sektion als zweispaltiges Grid (.hero-grid)', async () => {
+      const { container } = render(await Page());
+      expect(container.querySelector('section.hero-grid')).toBeInTheDocument();
+    });
+
+    it('zeigt das Gesamtkapital als große Kennzahl im Visual-Slot', async () => {
+      render(await Page());
+      const kennzahl = screen.getByTestId('kennzahl-hero');
+      // toMatch statt toHaveTextContent: formatEuro nutzt ein schmales
+      // geschütztes Leerzeichen (NBSP) vor "€", das RTL/jest-dom nur
+      // einseitig normalisieren (DOM-Seite ja, Vergleichsstring nein) —
+      // \s* im Regex überbrückt das unabhängig von der genauen Leerzeichenart.
+      expect(kennzahl.textContent).toMatch(/10\.100,00\s*€/);
+    });
+
+    it('zeigt einen Mini-Balkenwald mit einem beschrifteten Balken pro echter Einrichtung', async () => {
+      const { container } = render(await Page());
+      const balken = container.querySelectorAll('[data-testid="mini-balkenwald"] [role="img"]');
+      expect(balken.length).toBe(2);
+      const labels = Array.from(balken).map((b) => b.getAttribute('aria-label') ?? '');
+      expect(labels.some((l) => l.includes('Gut geförderte Kita') && /10\.000,00\s*€/.test(l))).toBe(true);
+      expect(labels.some((l) => l.includes('Tagespflege mit Bedarf') && /100,00\s*€/.test(l))).toBe(true);
+    });
+
+    it('behält den Live-Ticker im Visual-Slot (harmonisch neben Kennzahl und Balkenwald)', async () => {
+      render(await Page());
+      expect(screen.getByText(/Live-Ticker/i)).toBeInTheDocument();
+    });
   });
 });
