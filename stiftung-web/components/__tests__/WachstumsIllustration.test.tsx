@@ -49,8 +49,40 @@ describe('WachstumsIllustration', () => {
     expect(gross.querySelector('svg')).toHaveAttribute('width', '180');
   });
 
-  it('zeigt den Zustandstext auch in der kleinen Variante sichtbar (nie nur visuell, unabhängig von der Größe)', () => {
-    render(<WachstumsIllustration aktuellesKapital={15000} zielKapital={100000} groesse="klein" />);
+  it('zeigt in der großen Variante den vollen Zustandssatz sichtbar (nie nur visuell)', () => {
+    render(<WachstumsIllustration aktuellesKapital={15000} zielKapital={100000} groesse="gross" />);
     expect(screen.getByText('Wachstumsstufe: Keimling — Bronze erreicht')).toBeVisible();
+  });
+
+  // Design-Review-Fix (Finding 1): der volle Zustandssatz sprengte in vier
+  // Zeilen die 64-px-Karten-Spalte und kollidierte mit dem Karten-<h2>. Die
+  // kleine Variante zeigt daher nur noch den kurzen Stufennamen — einzeilig,
+  // aber weiterhin sichtbarer Text (nicht sr-only), also weiterhin "Status
+  // nie nur visuell" erfüllt. Die Beträge/Prozente liefert dort ohnehin der
+  // ProgressBar-Label direkt unter der Karte.
+  it('zeigt bei groesse="klein" nur das kurze Stufen-Label statt des vollen Satzes (sichtbar, nicht sr-only)', () => {
+    render(<WachstumsIllustration aktuellesKapital={15000} zielKapital={100000} groesse="klein" />);
+    expect(screen.getByText('Keimling')).toBeVisible();
+    expect(screen.queryByText('Wachstumsstufe: Keimling — Bronze erreicht')).not.toBeInTheDocument();
+  });
+
+  // Regressionsschutz: längere Stufennamen ("Junges Bäumchen", "Baum voller
+  // Früchte") sind bei 0.7rem breiter als die 64-px-Spalte. In einer echten
+  // Karte (gemessen via Browser-Pane auf /einrichtungen, Card mit zweizeiligem
+  // <h2>) überlappte "Junges Bäumchen" ohne diese Begrenzung um ~7,5px in den
+  // Namen der Einrichtung hinein — dieselbe Kollisionsart wie Finding 1, nur
+  // kleiner. Ellipsis+overflow:hidden statt Umbruch verhindert das für JEDEN
+  // Stufennamen, unabhängig von der Kartenbreite/dem Nachbarnamen.
+  it('begrenzt das Kurzlabel bei groesse="klein" per Ellipsis auf die Spaltenbreite (kein Überlauf in den Karten-Namen)', () => {
+    const { container } = render(
+      <WachstumsIllustration aktuellesKapital={30000} zielKapital={100000} groesse="klein" />
+    );
+    const label = container.querySelector('[data-testid="wachstums-illustration"] p');
+    expect(label).toHaveStyle({
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      maxWidth: '100%',
+    });
   });
 });

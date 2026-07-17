@@ -45,13 +45,14 @@ describe('EinrichtungenFilter', () => {
       expect(container.querySelectorAll('[data-testid="wachstums-illustration"]')).toHaveLength(EINRICHTUNGEN.length);
     });
 
-    it('zeigt den sichtbaren Zustandstext je Karte (beide Fixtures liegen bei Bronze: 12 %/20 %)', () => {
+    it('zeigt das sichtbare Kurzlabel je Karte (beide Fixtures liegen bei Bronze: 12 %/20 %)', () => {
       render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
       // Beide Fixture-Einrichtungen liegen zwischen 10 % und 25 % ihres
       // Zielkapitals (3.000/25.000 = 12 %, 50.000/250.000 = 20 %) — beide
-      // zeigen daher denselben Bronze-Zustandstext, deshalb getAllByText
-      // statt getByText.
-      expect(screen.getAllByText('Wachstumsstufe: Keimling — Bronze erreicht')).toHaveLength(EINRICHTUNGEN.length);
+      // zeigen daher dasselbe Kurzlabel "Keimling" (Design-Review Finding 1:
+      // die kleine Kartenvariante zeigt nur noch den Stufennamen, nicht mehr
+      // den vollen Zustandssatz), deshalb getAllByText statt getByText.
+      expect(screen.getAllByText('Keimling')).toHaveLength(EINRICHTUNGEN.length);
     });
   });
 });
