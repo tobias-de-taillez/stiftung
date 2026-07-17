@@ -4,6 +4,7 @@ import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
 import { SpendenRechner } from '@/components/SpendenRechner';
 import { formatEuro } from '@/lib/calc/format';
+import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
 import { getEinrichtungBySlug } from '@/lib/server/einrichtungenService';
 
 export default async function EinrichtungDetailPage({ params }: { params: { slug: string } }) {
@@ -20,6 +21,16 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
   // jede Zeichenkette und fallback auf tagespflege bei unbekannten Typen.
   const rechnerEinrichtung = { ...einrichtung! };
 
+  // Einrichtungs-Level (Task 30, Brainstorming Abs. 4): Bronze→Diamant als
+  // Zwischenziele des Finanztopfs selbst, definiert als Anteil des
+  // Zielkapitals — nicht zu verwechseln mit dem Spender-Badge im
+  // Spendenrechner (absoluter Spendenbetrag, siehe lib/data/levels.ts).
+  const level = einrichtungsLevel(einrichtung!.aktuellesKapital, einrichtung!.zielKapital);
+  const levelMarker = EINRICHTUNGS_LEVELS.map((stufe) => ({
+    position: stufe.anteil * 100,
+    label: stufe.name,
+  }));
+
   return (
     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
       <div>
@@ -34,7 +45,14 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
           value={einrichtung!.aktuellesKapital}
           max={einrichtung!.zielKapital}
           label={`${formatEuro(einrichtung!.aktuellesKapital)} von ${formatEuro(einrichtung!.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
+          marker={levelMarker}
         />
+        {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
+        {level.next && (
+          <p className="muted">
+            Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
+          </p>
+        )}
       </Card>
 
       <Card>

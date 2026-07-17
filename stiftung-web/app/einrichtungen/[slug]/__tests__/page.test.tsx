@@ -25,4 +25,43 @@ describe('EinrichtungDetailPage', () => {
   it('wirft notFound für unbekannten slug', async () => {
     await expect(EinrichtungDetailPage({ params: { slug: 'gibt-es-nicht' } })).rejects.toThrow();
   });
+
+  describe('Einrichtungs-Level (Task 30: Bronze–Diamant als Finanztopf-Zwischenziele)', () => {
+    it('rendert die fünf Level-Marker auf dem Finanztopf-Balken', async () => {
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      const { container } = render(jsx);
+      expect(container.querySelectorAll('.progress-bar-marker')).toHaveLength(5);
+    });
+
+    it('zeigt "Nächstes Ziel: Bronze — noch 4.000,00 €" unterhalb 10 % (1.000 von 50.000 €), ohne Aktuelles-Level-Zeile', async () => {
+      // aktuellesKapital 1.000 / zielKapital 50.000 = 2 % → unter Bronze (10 %).
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(screen.getByText(/Nächstes Ziel: Bronze — noch 4\.000,00 €/)).toBeInTheDocument();
+      expect(screen.queryByText(/Aktuelles Level/)).not.toBeInTheDocument();
+    });
+
+    it('zeigt das aktuelle Level und das nächste Ziel bei 60 % des Zielkapitals (Gold, nächstes Platin)', async () => {
+      await prisma.einrichtung.update({
+        where: { slug: 'detail-test-kita' },
+        data: { aktuellesKapital: 30000 },
+      });
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(screen.getByText(/Aktuelles Level: Gold/)).toBeInTheDocument();
+      // Platin liegt bei 75 % von 50.000 € = 37.500 €, aktuell 30.000 € → fehlen 7.500 €.
+      expect(screen.getByText(/Nächstes Ziel: Platin — noch 7\.500,00 €/)).toBeInTheDocument();
+    });
+
+    it('zeigt bei Zielerreichung (100 %) das Diamant-Level ohne Nächstes-Ziel-Zeile', async () => {
+      await prisma.einrichtung.update({
+        where: { slug: 'detail-test-kita' },
+        data: { aktuellesKapital: 50000 },
+      });
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(screen.getByText(/Aktuelles Level: Diamant/)).toBeInTheDocument();
+      expect(screen.queryByText(/Nächstes Ziel/)).not.toBeInTheDocument();
+    });
+  });
 });

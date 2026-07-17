@@ -11,7 +11,7 @@ import {
   verkuerzungMonate,
 } from '@/lib/calc/spendenrechner';
 import { formatDuration, formatEuro, formatMonate } from '@/lib/calc/format';
-import { currentLevel } from '@/lib/data/levels';
+import { currentLevel, nextLevel } from '@/lib/data/levels';
 import { impactBeispiel } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
 import { ProgressBar } from './ProgressBar';
@@ -103,8 +103,13 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
   // benannt, die mit dem Kapital weiterwächst.
   const dauerhaftAbSofort = dauerhafteJahresfoerderung(betrag);
 
-  const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
-  const level = currentLevel(annualDonationPerChild);
+  // Spender-Badge (Task 30): absolute Schwellen auf den Spendenbetrag
+  // selbst — unabhängig von Kinderzahl und Frequenz. Vorher war die
+  // Schwelle als annualDonationPerChild definiert und griff bei
+  // Einmalspenden nie (Zähler war dort immer 0) und lag bei großen
+  // Einrichtungen faktisch unerreichbar hoch.
+  const level = currentLevel(betrag);
+  const naechstesLevel = nextLevel(betrag);
 
   // Wirkungs-Zeile: X = Spendenbetrag × ANNUAL_PAYOUT_RATE (1%) — dieselbe
   // Ausschüttungsquote, mit der auch capitalForAnnualPayout rechnet. Bei
@@ -221,6 +226,11 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
       </div>
 
       {level && <StatusChip tone={level.tone}>{level.name}-Spender:in</StatusChip>}
+      {naechstesLevel && (
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          noch {formatEuro(naechstesLevel.schwelleEuro - betrag)} bis {naechstesLevel.name}
+        </p>
+      )}
 
       <button
         type="button"

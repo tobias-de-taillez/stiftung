@@ -157,6 +157,24 @@ a:hover .card {
 }
 
 /*
+ * Marker für Zwischenziele auf dem Fortschrittsbalken (z. B. die fünf
+ * Einrichtungs-Level Bronze–Diamant, Task 30). Rein dekorativ/informativ
+ * (aria-hidden auf dem Element selbst) — der Tooltip (title) ergänzt die
+ * Bedeutung visuell, das umgebende label-Prop des Balkens trägt sie für
+ * Screenreader.
+ */
+.progress-bar-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--cream);
+  opacity: 0.55;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/*
  * Vorher→Nachher-Balken der Spenden-Bestätigung: Geisterbalken (alter Stand,
  * blass) liegt unter dem animierten Fill (neuer Stand). Der Fill nutzt
  * dieselbe progress-bar-fill-in-Animation wie ProgressBar und erbt damit auch

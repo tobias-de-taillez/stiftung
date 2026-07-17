@@ -213,6 +213,67 @@ describe('SpendenRechner', () => {
     expect(await screen.findByText(/Spende konnte nicht gebucht werden/i)).toBeInTheDocument();
   });
 
+  describe('Spender-Badge (Task 30: absolute Schwellen, unabhängig von Kinderzahl/Frequenz)', () => {
+    // Fixture-Einrichtung hat kinderAnzahl 5 — die alten annualDonationPerChild-
+    // Schwellen hätten bei Einmalspenden nie einen Chip gezeigt (Zähler war
+    // dort immer 0). Jetzt zählt nur der gespendete Betrag, für beide
+    // Frequenzen.
+
+    it('zeigt den Bronze-Chip bereits bei einer Einmalspende von 50 € (vorher: kein Chip möglich)', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      // Default-Betrag ist 50 €, Default-Frequenz "einmalig".
+      expect(screen.getByText('Bronze-Spender:in')).toBeInTheDocument();
+    });
+
+    it('zeigt keinen Chip unterhalb der ersten Schwelle (25 €)', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const input = screen.getByLabelText('Spendenbetrag');
+      await user.clear(input);
+      await user.type(input, '10');
+      expect(screen.queryByText(/-Spender:in/)).not.toBeInTheDocument();
+    });
+
+    it('zeigt denselben Chip für jährliche Spenden wie für einmalige (reine Betragsfunktion)', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: 'Jährlich' }));
+      expect(screen.getByText('Bronze-Spender:in')).toBeInTheDocument();
+    });
+
+    it('wechselt auf den Silber-Chip bei 100 €', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: '100 €' }));
+      expect(screen.getByText('Silber-Spender:in')).toBeInTheDocument();
+    });
+
+    it('zeigt einen Hinweis, wie viel bis zum nächsten Level fehlt', () => {
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      // Default 50 € → Bronze, nächstes Level Silber bei 100 € → fehlen 50 €.
+      expect(screen.getByText(/noch 50,00 € bis Silber/)).toBeInTheDocument();
+    });
+
+    it('zeigt den Nächstes-Level-Hinweis auch, wenn noch kein Level erreicht ist', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const input = screen.getByLabelText('Spendenbetrag');
+      await user.clear(input);
+      await user.type(input, '10');
+      expect(screen.getByText(/noch 15,00 € bis Bronze/)).toBeInTheDocument();
+    });
+
+    it('zeigt keinen Nächstes-Level-Hinweis mehr, sobald Diamant (die höchste Stufe) erreicht ist', async () => {
+      const user = userEvent.setup();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      const input = screen.getByLabelText('Spendenbetrag');
+      await user.clear(input);
+      await user.type(input, '2500');
+      expect(screen.getByText('Diamant-Spender:in')).toBeInTheDocument();
+      expect(screen.queryByText(/noch .* bis/)).not.toBeInTheDocument();
+    });
+  });
+
   describe('Rechner-Reframing (Zukunftswert-Story statt Wartezeit)', () => {
     // Fixture: aktuellesKapital 3000, zielKapital 25000, Default-Betrag 50 €,
     // einmalig. Handgerechnet (siehe spendenrechner.test.ts-Fixtures für die
