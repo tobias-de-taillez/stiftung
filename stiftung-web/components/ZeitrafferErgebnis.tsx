@@ -27,11 +27,26 @@ export interface ZeitrafferErgebnisProps {
   meilensteine?: ZeitrafferMeilenstein[];
 }
 
-const ITEM_STAGGER_MS = 220;
+// Gesamtdauer strukturell ≤ 4 s: Stagger-Intervall schrumpft mit der Anzahl.
+// PHASE1_MS (900) + N × staggerInterval(N) + ABSCHLUSS_MS (400) ≤ 4000 ms
+export const PHASE1_MS = 900;
+export const ABSCHLUSS_MS = 400;
+export const VERTEILUNG_BUDGET_MS = 2400;
+
+/**
+ * Berechnet das Stagger-Intervall zwischen Verteilungs-Einträgen.
+ * Bei kleinen N (≤9) bleibt es bei max. 220ms für angenehmes Tempo.
+ * Bei größeren N schrumpft es proportional, um Gesamtdauer unter 4s zu halten.
+ */
+export function staggerInterval(anzahl: number): number {
+  if (anzahl <= 0) return 0;
+  return Math.min(220, Math.floor(VERTEILUNG_BUDGET_MS / anzahl));
+}
+
 // Übergang zur Verteilungs-Phase — orientiert sich an der Count-up-Dauer des
 // Kapital-Ertrags (useCountUp-Default 800ms) plus kleinem Puffer.
-const PHASE_KAPITAL_MS = 900;
-const PHASE_ABSCHLUSS_PUFFER_MS = 400;
+const PHASE_KAPITAL_MS = PHASE1_MS;
+const PHASE_ABSCHLUSS_PUFFER_MS = ABSCHLUSS_MS;
 
 type Phase = 'kapital' | 'verteilung' | 'abschluss';
 
@@ -62,20 +77,21 @@ export function ZeitrafferErgebnis({
   useEffect(() => {
     if (reduced) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const stagger = staggerInterval(verteilung.length);
     timers.push(setTimeout(() => setPhase('verteilung'), PHASE_KAPITAL_MS));
     for (let i = 0; i < verteilung.length; i++) {
       const naechsterStand = i + 1;
       timers.push(
         setTimeout(
           () => setRevealedCount((c) => Math.max(c, naechsterStand)),
-          PHASE_KAPITAL_MS + naechsterStand * ITEM_STAGGER_MS
+          PHASE_KAPITAL_MS + naechsterStand * stagger
         )
       );
     }
     timers.push(
       setTimeout(
         () => setPhase('abschluss'),
-        PHASE_KAPITAL_MS + verteilung.length * ITEM_STAGGER_MS + PHASE_ABSCHLUSS_PUFFER_MS
+        PHASE_KAPITAL_MS + verteilung.length * stagger + PHASE_ABSCHLUSS_PUFFER_MS
       )
     );
     return () => timers.forEach(clearTimeout);

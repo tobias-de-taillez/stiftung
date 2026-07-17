@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
+import { staggerInterval, PHASE1_MS, ABSCHLUSS_MS, VERTEILUNG_BUDGET_MS } from '../ZeitrafferErgebnis';
 
 // Die Zeitraffer-Sequenz (Task 32) staggert per Timer über mehrere Sekunden —
 // ohne reduced-motion-Stub wären die Assertions unten flaky/langsam
@@ -183,6 +184,41 @@ describe('SolidaritaetsfondsPanel', () => {
       render(<SolidaritaetsfondsPanel initialBestand={0} />);
       await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
       expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
+    });
+  });
+
+  // Zeitraffer-Dauer-Invariante (Task 32): staggerInterval skaliert mit der
+  // Anzahl der Einrichtungen, um Gesamtdauer strukturell ≤ 4 Sekunden zu halten.
+  describe('staggerInterval — Dauer-Struktur', () => {
+    it('hält bei kleinen N (9) die volle 220ms bei, da 2400/9 > 220', () => {
+      expect(staggerInterval(9)).toBe(220);
+    });
+
+    it('schrumpft bei großen N (50) auf ~48ms: 2400/50=48', () => {
+      expect(staggerInterval(50)).toBe(48);
+    });
+
+    it('gibt 0 zurück für N ≤ 0', () => {
+      expect(staggerInterval(0)).toBe(0);
+      expect(staggerInterval(-1)).toBe(0);
+    });
+
+    it('garantiert Gesamtdauer ≤ 4000ms für alle kritischen N', () => {
+      const testCases = [1, 9, 13, 50, 200];
+      for (const n of testCases) {
+        const stagger = staggerInterval(n);
+        const totalMs = PHASE1_MS + n * stagger + ABSCHLUSS_MS;
+        expect(totalMs).toBeLessThanOrEqual(4000);
+      }
+    });
+
+    it('nutzt das volle VERTEILUNG_BUDGET_MS korrekt: stagger ≤ floor(2400/N)', () => {
+      // Invariante: für alle N sollte stagger = min(220, floor(2400/n))
+      const testCases = [1, 2, 9, 13, 50, 100];
+      for (const n of testCases) {
+        const expected = Math.min(220, Math.floor(VERTEILUNG_BUDGET_MS / n));
+        expect(staggerInterval(n)).toBe(expected);
+      }
     });
   });
 });
