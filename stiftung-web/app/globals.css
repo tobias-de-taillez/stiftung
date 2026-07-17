@@ -354,6 +354,43 @@ a:hover .card {
   }
 }
 
+/*
+ * Wachstums-Illustration (Task 36): sanfte Wind-Animation für den
+ * oberirdischen Teil der Pflanze (Stamm + Krone/Blätter + Früchte) — der
+ * Erdhügel/Topf darunter bleibt unbewegt. Rotiert um den Fußpunkt
+ * (60,100 im 0..120-viewBox-Koordinatenraum aller Wuchsstufen).
+ * `transform-box: view-box` verankert transform-origin am viewBox-
+ * Koordinatensystem des SVGs statt an der Bounding-Box der Gruppe selbst
+ * (die je nach Wuchsstufe unterschiedlich groß/versetzt ist) — sonst würde
+ * der Drehpunkt zwischen den Stufen wandern.
+ *
+ * Bewusst 0%/100% als Ruhezustand (nicht `animation: … alternate` wie bei
+ * .zeitraffer-eintrag/.spenden-ticker-eintrag): unter dem globalen
+ * prefers-reduced-motion-Override unten wird animation-iteration-count auf 1
+ * gekappt, dann ist das LETZTE Keyframe (100%) der eingefrorene Endzustand.
+ * Mit alternate + iteration-count:1 bliebe die Pflanze bei einer ungeraden
+ * Iteration schief bei +3° stehen — hier landet sie garantiert aufrecht,
+ * unabhängig von fill-mode/iteration-count.
+ */
+.wachstum-sway {
+  transform-box: view-box;
+  transform-origin: 60px 100px;
+  animation: wachstum-sway 4s ease-in-out infinite;
+}
+
+@keyframes wachstum-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-3deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

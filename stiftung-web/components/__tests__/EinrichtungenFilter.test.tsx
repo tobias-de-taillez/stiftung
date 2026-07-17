@@ -37,4 +37,21 @@ describe('EinrichtungenFilter', () => {
     expect(screen.getByText('Tagespflege Wirbelwind')).toBeInTheDocument();
     expect(screen.queryByText('Grundschule Sonnenhügel')).not.toBeInTheDocument();
   });
+
+  // Task 36: Wachstums-Illustration steht klein neben dem Namen jeder Karte.
+  describe('Wachstums-Illustration (Task 36)', () => {
+    it('rendert genau eine Illustration pro Karte', () => {
+      const { container } = render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
+      expect(container.querySelectorAll('[data-testid="wachstums-illustration"]')).toHaveLength(EINRICHTUNGEN.length);
+    });
+
+    it('zeigt den sichtbaren Zustandstext je Karte (beide Fixtures liegen bei Bronze: 12 %/20 %)', () => {
+      render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
+      // Beide Fixture-Einrichtungen liegen zwischen 10 % und 25 % ihres
+      // Zielkapitals (3.000/25.000 = 12 %, 50.000/250.000 = 20 %) — beide
+      // zeigen daher denselben Bronze-Zustandstext, deshalb getAllByText
+      // statt getByText.
+      expect(screen.getAllByText('Wachstumsstufe: Keimling — Bronze erreicht')).toHaveLength(EINRICHTUNGEN.length);
+    });
+  });
 });

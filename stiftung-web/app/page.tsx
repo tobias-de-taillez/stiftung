@@ -3,6 +3,7 @@ import { Card } from '@/components/Card';
 import { SpendenTicker } from '@/components/SpendenTicker';
 import { KennzahlHero } from '@/components/KennzahlHero';
 import { MiniBalkenwald } from '@/components/MiniBalkenwald';
+import { WachstumsIllustration } from '@/components/WachstumsIllustration';
 import { capitalForAnnualPayout, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 import { formatEuro } from '@/lib/calc/format';
 import { statistik, listEinrichtungen } from '@/lib/server/einrichtungenService';
@@ -18,6 +19,10 @@ export default async function Page() {
   // (keine zweite Marketing-Zahl): t = ln(2) / ln(1 + r).
   const verdopplungsjahre = Math.round(Math.log(2) / Math.log(1 + NET_GROWTH_RATE));
   const balkenwaldDaten = einrichtungen.map((e) => ({ slug: e.slug, name: e.name, kapital: e.aktuellesKapital }));
+  // Wachstums-Illustration (Task 36) im Hero: Aggregat statt einer einzelnen
+  // Einrichtung — Summe aller Zielkapitale, dieselbe Grundgesamtheit wie
+  // stats.gesamtKapital (beide aus derselben listEinrichtungen()-Abfrage).
+  const gesamtZielKapital = einrichtungen.reduce((sum, e) => sum + e.zielKapital, 0);
 
   return (
     <div style={{ padding: '3rem 0', display: 'grid', gap: '2rem' }}>
@@ -53,7 +58,21 @@ export default async function Page() {
 
         <div className="hero-visual">
           <Card>
-            <KennzahlHero gesamtKapital={stats.gesamtKapital} />
+            {/*
+              Wachstums-Illustration (Task 36): löst die Platzhalter-Notiz in
+              KennzahlHero/MiniBalkenwald ein ("interimistische Füllung, bis
+              Task 36 ggf. eine Illustration liefert") — steht bewusst NEBEN
+              der Kennzahl (toppt sie, ersetzt sie nicht), Mini-Balkenwald
+              bleibt unverändert darunter erhalten.
+            */}
+            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <WachstumsIllustration
+                aktuellesKapital={stats.gesamtKapital}
+                zielKapital={gesamtZielKapital}
+                groesse="gross"
+              />
+              <KennzahlHero gesamtKapital={stats.gesamtKapital} />
+            </div>
             {/*
               Bewusst kein <p> (statt eyebrow-typisch): der Live-Zahlen-Absatz
               im linken Grid-Teil ist ebenfalls ein <p> und matcht denselben

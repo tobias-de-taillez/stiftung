@@ -52,16 +52,27 @@ describe('EinrichtungDetailPage', () => {
       expect(screen.queryByText(/Aktuelles Level/)).not.toBeInTheDocument();
     });
 
+    // Task 36: Wachstums-Illustration neben dem Finanztopf-Balken — codiert
+    // dieselbe Kennzahl (aktuellesKapital/zielKapital) wie levelMarker oben.
+    it('zeigt die Wachstums-Illustration mit dem passenden Zustandstext (2 % → Stufe 0, Samen)', async () => {
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      const { container } = render(jsx);
+      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '0');
+      expect(screen.getByText('Wachstumsstufe: Samen — noch kein Level erreicht')).toBeInTheDocument();
+    });
+
     it('zeigt das aktuelle Level und das nächste Ziel bei 60 % des Zielkapitals (Gold, nächstes Platin)', async () => {
       await prisma.einrichtung.update({
         where: { slug: 'detail-test-kita' },
         data: { aktuellesKapital: 30000 },
       });
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
-      render(jsx);
+      const { container } = render(jsx);
       expect(screen.getByText(/Aktuelles Level: Gold/)).toBeInTheDocument();
       // Platin liegt bei 75 % von 50.000 € = 37.500 €, aktuell 30.000 € → fehlen 7.500 €.
       expect(screen.getByText(/Nächstes Ziel: Platin — noch 7\.500,00 €/)).toBeInTheDocument();
+      // Wachstums-Illustration (Task 36) zeigt dasselbe Level als Stufe 3.
+      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '3');
     });
 
     it('zeigt bei Zielerreichung (100 %) das Diamant-Level ohne Nächstes-Ziel-Zeile', async () => {
@@ -70,9 +81,11 @@ describe('EinrichtungDetailPage', () => {
         data: { aktuellesKapital: 50000 },
       });
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
-      render(jsx);
+      const { container } = render(jsx);
       expect(screen.getByText(/Aktuelles Level: Diamant/)).toBeInTheDocument();
       expect(screen.queryByText(/Nächstes Ziel/)).not.toBeInTheDocument();
+      // Wachstums-Illustration (Task 36) zeigt Stufe 5 (Baum voller Früchte).
+      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '5');
     });
   });
 

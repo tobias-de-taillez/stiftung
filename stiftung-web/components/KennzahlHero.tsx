@@ -5,8 +5,8 @@ import { formatEuro } from '@/lib/calc/format';
 
 /**
  * Kennzahl-Hero (Task 35): große, animiert hochzählende Gesamtkapital-Zahl
- * für den rechten Hero-Visual-Slot — interimistische Füllung, bis Task 36
- * ggf. eine Illustration liefert (harter User-Gate, hier nicht vorgegriffen).
+ * für den rechten Hero-Visual-Slot — steht seit Task 36 neben der
+ * Wachstums-Illustration (siehe app/page.tsx), nicht durch sie ersetzt.
  *
  * Eigene Client-Komponente, weil `app/page.tsx` eine async Server Component
  * ist und Hooks (useCountUp) nur in Client-Components laufen dürfen.

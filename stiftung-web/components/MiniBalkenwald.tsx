@@ -8,8 +8,9 @@ export interface BalkenwaldEintrag {
 
 /**
  * Mini-Balkenwald (Task 35): kompakte Balkenübersicht aller Einrichtungen
- * für den rechten Hero-Visual-Slot — interimistische Füllung, bis Task 36
- * ggf. eine Illustration liefert. Nutzt echte Daten (listEinrichtungen()),
+ * für den rechten Hero-Visual-Slot — bleibt bewusst neben der
+ * Wachstums-Illustration (Task 36) bestehen, statt von ihr ersetzt zu
+ * werden (siehe app/page.tsx). Nutzt echte Daten (listEinrichtungen()),
  * keine Fixture — bei 8 Einrichtungen im Seed entsteht so der titelgebende
  * "Wald" aus 8 Balken, generisch für jede Anzahl.
  *

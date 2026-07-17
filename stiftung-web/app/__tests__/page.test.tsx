@@ -114,5 +114,15 @@ describe('Landing Page', () => {
       render(await Page());
       expect(screen.getByText(/Live-Ticker/i)).toBeInTheDocument();
     });
+
+    // Task 36: Wachstums-Illustration steht groß neben der Kennzahl und
+    // codiert das AGGREGAT über beide Einrichtungen (10.100 € von 70.000 €
+    // Gesamtzielkapital = 14,4 % → Bronze/Stufe 1), nicht eine einzelne.
+    it('zeigt die aggregierte Wachstums-Illustration neben der Kennzahl (Gesamtkapital/-ziel über alle Einrichtungen)', async () => {
+      const { container } = render(await Page());
+      const illustration = container.querySelector('[data-testid="wachstums-illustration"]');
+      expect(illustration).toHaveAttribute('data-stage', '1');
+      expect(screen.getByText('Wachstumsstufe: Keimling — Bronze erreicht')).toBeInTheDocument();
+    });
   });
 });

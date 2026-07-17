@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
 import { SpendenRechner } from '@/components/SpendenRechner';
+import { WachstumsIllustration } from '@/components/WachstumsIllustration';
 import { formatEuro } from '@/lib/calc/format';
 import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
 import { einrichtungsTransparenz } from '@/lib/server/einrichtungenService';
@@ -48,18 +49,33 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
 
       <Card>
         <p className="eyebrow">Finanztopf</p>
-        <ProgressBar
-          value={einrichtung.aktuellesKapital}
-          max={einrichtung.zielKapital}
-          label={`${formatEuro(einrichtung.aktuellesKapital)} von ${formatEuro(einrichtung.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
-          marker={levelMarker}
-        />
-        {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
-        {level.next && (
-          <p className="muted">
-            Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
-          </p>
-        )}
+        {/*
+          Wachstums-Illustration (Task 36): dieselbe Kennzahl (aktuellesKapital
+          / zielKapital), die auch levelMarker/ProgressBar unten antreibt —
+          die Pflanze zeigt dasselbe Einrichtungs-Level nur zusätzlich
+          bedeutungstragend statt rein textuell/über den Balken.
+        */}
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <WachstumsIllustration
+            aktuellesKapital={einrichtung.aktuellesKapital}
+            zielKapital={einrichtung.zielKapital}
+            groesse="gross"
+          />
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <ProgressBar
+              value={einrichtung.aktuellesKapital}
+              max={einrichtung.zielKapital}
+              label={`${formatEuro(einrichtung.aktuellesKapital)} von ${formatEuro(einrichtung.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
+              marker={levelMarker}
+            />
+            {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
+            {level.next && (
+              <p className="muted">
+                Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
+              </p>
+            )}
+          </div>
+        </div>
       </Card>
 
       <Card>
