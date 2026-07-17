@@ -4,6 +4,7 @@ import { BarChart } from '@/components/BarChart';
 import { SpendenTicker } from '@/components/SpendenTicker';
 import { formatEuro } from '@/lib/calc/format';
 import { statistik } from '@/lib/server/einrichtungenService';
+import { jahresabschluesse } from '@/lib/server/simulationService';
 
 function fortschrittProzent(aktuellesKapital: number, zielKapital: number): number {
   if (zielKapital <= 0) return 0;
@@ -13,7 +14,10 @@ function fortschrittProzent(aktuellesKapital: number, zielKapital: number): numb
 export const dynamic = 'force-dynamic';
 
 export default async function StatistikPage() {
-  const stats = await statistik();
+  const [stats, abschluesse] = await Promise.all([statistik(), jahresabschluesse()]);
+  // Neuester Abschluss zuerst (jahresabschluesse() sortiert bereits absteigend
+  // nach nummer) — dient als ehrlicher Realitäts-Check neben der Simulation.
+  const letzterAbschluss = abschluesse[0];
 
   return (
     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
@@ -37,9 +41,47 @@ export default async function StatistikPage() {
         <Card>
           <p className="eyebrow">Simulierter Jahresertrag (6%)</p>
           <p className="hero-number" style={{ fontSize: '1.8rem' }}>{formatEuro(stats.simulierterJahresertrag)}</p>
-          <p className="muted" style={{ fontSize: '0.8rem' }}>Simuliert auf Basis des Gesamtkapitals — kein realer Auszahlungs-Flow (folgt mit Payment/KYC).</p>
+          {letzterAbschluss ? (
+            <p className="muted" style={{ fontSize: '0.8rem' }}>
+              {`Letzter echter Abschluss (Nr. ${letzterAbschluss.nummer}): ${formatEuro(letzterAbschluss.fondsErtrag + letzterAbschluss.kapitalErtrag)}`}
+            </p>
+          ) : (
+            <p className="muted" style={{ fontSize: '0.8rem' }}>Simuliert auf Basis des Gesamtkapitals — kein realer Auszahlungs-Flow (folgt mit Payment/KYC).</p>
+          )}
         </Card>
       </div>
+
+      <Card>
+        <p className="eyebrow">Jahresabschluss-Historie</p>
+        {abschluesse.length === 0 ? (
+          <p className="muted">Noch keine Jahresabschlüsse.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '0.4rem' }}>Nr.</th>
+                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Fonds-Ertrag</th>
+                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Kapital-Ertrag</th>
+                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Verteilt</th>
+                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Datum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {abschluesse.map((a) => (
+                  <tr key={a.id}>
+                    <td style={{ padding: '0.4rem' }}>{a.nummer}</td>
+                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuro(a.fondsErtrag)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuro(a.kapitalErtrag)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuro(a.verteiltGesamt)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{a.createdAt.toLocaleDateString('de-DE')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card>
         <p className="eyebrow">Förderung pro Kind — Top 5</p>

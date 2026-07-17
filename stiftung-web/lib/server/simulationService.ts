@@ -80,3 +80,13 @@ export async function simuliereJahr(): Promise<{
     };
   });
 }
+
+/**
+ * Read-Helper auf die bereits von simuliereJahr() persistierte
+ * Jahresabschluss-Tabelle (Task 34) — für die Jahresabschluss-Historie auf der
+ * Statistik-Seite. Neueste zuerst (nummer absteigend), keine Berechnung, kein
+ * Duplikat der Buchungslogik in simuliereJahr().
+ */
+export async function jahresabschluesse() {
+  return prisma.jahresabschluss.findMany({ orderBy: { nummer: 'desc' } });
+}

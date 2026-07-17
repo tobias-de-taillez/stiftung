@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../prismaClient';
 import { spendeAnFonds, getFondsBestand } from '../solidaritaetsfondsService';
 import { statistik } from '../einrichtungenService';
-import { simuliereJahr } from '../simulationService';
+import { simuliereJahr, jahresabschluesse } from '../simulationService';
 
 beforeEach(async () => {
   await prisma.fondsSpende.deleteMany();
@@ -99,5 +99,29 @@ describe('simuliereJahr', () => {
 
     expect(arm).toEqual({ slug: 'arm', name: 'Arme Kita', labels: ['Bronze erreicht'] });
     expect(reich).toBeUndefined();
+  });
+});
+
+// Jahresabschluss-Historie (Task 34): Read-Helper auf die bereits von
+// simuliereJahr() persistierte Jahresabschluss-Tabelle — für die Statistik-Seite.
+describe('jahresabschluesse', () => {
+  it('liefert ein leeres Array ohne Abschlüsse', async () => {
+    expect(await jahresabschluesse()).toEqual([]);
+  });
+
+  it('liefert Abschlüsse neueste zuerst (nummer absteigend) mit allen Kennzahlen', async () => {
+    await spendeZwoelfMalHundertAnFonds();
+    await simuliereJahr();
+    await spendeZwoelfMalHundertAnFonds();
+    await simuliereJahr();
+
+    const liste = await jahresabschluesse();
+    expect(liste).toHaveLength(2);
+    expect(liste[0].nummer).toBe(2);
+    expect(liste[1].nummer).toBe(1);
+    expect(liste[0].fondsErtrag).toBeGreaterThan(0);
+    expect(liste[0].kapitalErtrag).toBeGreaterThan(0);
+    expect(typeof liste[0].verteiltGesamt).toBe('number');
+    expect(liste[0].createdAt).toBeInstanceOf(Date);
   });
 });

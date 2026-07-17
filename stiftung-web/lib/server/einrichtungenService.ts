@@ -108,3 +108,48 @@ export async function letzteSpenden(limit = 10) {
     zeitpunkt: s.createdAt.getTime(),
   }));
 }
+
+/**
+ * Transparenz auf der Einrichtungs-Detailseite (Task 34, Leitbild „Transparenz
+ * vor Vertrauensvorschuss"): Förderung pro Kind, die letzten 10 Spenden dieser
+ * EINEN Einrichtung (mit `quelle` — Labeling von 'solidaritaet' als "aus dem
+ * Solidaritätsfonds" ist Sache der Seite, analog zu letzteSpenden()) und die
+ * Gesamtzahl der Unterstützungen.
+ *
+ * `anzahlUnterstuetzungen` zählt bewusst ALLE Spende-Zeilen dieser Einrichtung
+ * mit — auch quelle 'solidaritaet'. Das unterscheidet sich von
+ * statistik().anzahlSpenden (dem sitesweiten Spenderzähler), der
+ * Solidaritätsfonds-Verteilungen ausschließt, weil sie dort interne
+ * Umbuchungen ohne neue Spende von außen sind. Aus Sicht EINER Einrichtung ist
+ * jede Zubuchung — egal aus welcher Quelle — eine reale Unterstützung.
+ *
+ * Gibt `null` zurück (statt zu werfen) bei unbekanntem slug — die aufrufende
+ * Seite entscheidet selbst über notFound().
+ */
+export async function einrichtungsTransparenz(slug: string) {
+  const einrichtung = await getEinrichtungBySlug(slug);
+  if (!einrichtung) {
+    return null;
+  }
+
+  const [historie, anzahlUnterstuetzungen] = await Promise.all([
+    prisma.spende.findMany({
+      where: { einrichtungId: einrichtung.id },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    }),
+    prisma.spende.count({ where: { einrichtungId: einrichtung.id } }),
+  ]);
+
+  return {
+    einrichtung,
+    foerderungProKind: foerderungProKind(einrichtung),
+    anzahlUnterstuetzungen,
+    spendenHistorie: historie.map((s) => ({
+      id: s.id,
+      betrag: s.betrag,
+      quelle: s.quelle,
+      createdAt: s.createdAt,
+    })),
+  };
+}

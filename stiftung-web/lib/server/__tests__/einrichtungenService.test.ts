@@ -6,6 +6,7 @@ import {
   spenden,
   statistik,
   letzteSpenden,
+  einrichtungsTransparenz,
   EinrichtungNotFoundError,
   UngueltigerBetragError,
 } from '../einrichtungenService';
@@ -186,5 +187,78 @@ describe('letzteSpenden', () => {
     }
     const eintraege = await letzteSpenden();
     expect(eintraege).toHaveLength(10);
+  });
+});
+
+// Transparenz auf der Detailseite (Task 34): Förderung pro Kind, Spendenhistorie
+// (letzte 10) und Anzahl Unterstützungen gesamt — alles für EINE Einrichtung.
+describe('einrichtungsTransparenz', () => {
+  it('liefert null für unbekannten slug (kein Wurf — die Seite entscheidet über notFound())', async () => {
+    expect(await einrichtungsTransparenz('gibt-es-nicht')).toBeNull();
+  });
+
+  it('liefert Einrichtung, Förderung pro Kind und leere Historie ohne Spenden', async () => {
+    const t = await einrichtungsTransparenz('test-kita-a');
+    expect(t?.einrichtung.slug).toBe('test-kita-a');
+    expect(t?.foerderungProKind).toBe(100); // 1000 € / 10 Kinder
+    expect(t?.anzahlUnterstuetzungen).toBe(0);
+    expect(t?.spendenHistorie).toEqual([]);
+  });
+
+  it('liefert die Historie neueste zuerst, inkl. Quelle', async () => {
+    await spenden('test-kita-a', 50, 'einmalig');
+    const kitaA = await getEinrichtungBySlug('test-kita-a');
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 30, frequenz: 'einmalig', quelle: 'solidaritaet' },
+    });
+
+    const t = await einrichtungsTransparenz('test-kita-a');
+    expect(t?.spendenHistorie).toHaveLength(2);
+    expect(t?.spendenHistorie[0].quelle).toBe('solidaritaet');
+    expect(t?.spendenHistorie[0].betrag).toBe(30);
+    expect(t?.spendenHistorie[1].quelle).toBe('direkt');
+    expect(t?.spendenHistorie[1].betrag).toBe(50);
+  });
+
+  it('begrenzt die Historie auf die letzten 10 Spenden', async () => {
+    for (let i = 0; i < 12; i++) {
+      await spenden('test-kita-a', 1, 'einmalig');
+    }
+    const t = await einrichtungsTransparenz('test-kita-a');
+    expect(t?.spendenHistorie).toHaveLength(10);
+  });
+
+  // Bewusst anders als statistik().anzahlSpenden (der sitesweite Spenderzähler):
+  // dort zählen Solidaritätsfonds-Verteilungen NICHT mit, weil sie aus Sicht
+  // der Gesamt-Site interne Umbuchungen sind, keine neue Spende von außen.
+  // Aus Sicht EINER Einrichtung ist jede Zubuchung — egal ob Direktspende oder
+  // Solidaritäts-Verteilung — eine reale Unterstützung, die gezählt wird.
+  it('zählt Solidaritätsfonds-Verteilungen bei der Einrichtung mit (anders als der sitesweite Spenderzähler)', async () => {
+    const kitaA = await getEinrichtungBySlug('test-kita-a');
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 40, frequenz: 'einmalig', quelle: 'solidaritaet' },
+    });
+    const t = await einrichtungsTransparenz('test-kita-a');
+    expect(t?.anzahlUnterstuetzungen).toBe(1);
+  });
+
+  it('zählt Direktspenden und Solidaritäts-Verteilungen zusammen', async () => {
+    await spenden('test-kita-a', 10, 'einmalig');
+    await spenden('test-kita-a', 20, 'einmalig');
+    const kitaA = await getEinrichtungBySlug('test-kita-a');
+    await prisma.spende.create({
+      data: { einrichtungId: kitaA!.id, betrag: 40, frequenz: 'einmalig', quelle: 'solidaritaet' },
+    });
+    const t = await einrichtungsTransparenz('test-kita-a');
+    expect(t?.anzahlUnterstuetzungen).toBe(3);
+  });
+
+  it('zählt nur Spenden der angefragten Einrichtung, nicht anderer', async () => {
+    await spenden('test-kita-a', 10, 'einmalig');
+    await spenden('test-kita-b', 999, 'einmalig');
+    const t = await einrichtungsTransparenz('test-kita-a');
+    expect(t?.anzahlUnterstuetzungen).toBe(1);
+    expect(t?.spendenHistorie).toHaveLength(1);
+    expect(t?.spendenHistorie[0].betrag).toBe(10);
   });
 });

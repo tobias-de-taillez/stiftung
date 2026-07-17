@@ -64,4 +64,59 @@ describe('EinrichtungDetailPage', () => {
       expect(screen.queryByText(/Nächstes Ziel/)).not.toBeInTheDocument();
     });
   });
+
+  // Transparenz auf der Detailseite (Task 34): Förderung pro Kind,
+  // Spendenhistorie mit explizitem Solidaritätsfonds-Label, Anzahl
+  // Unterstützungen gesamt.
+  describe('Transparenz (Task 34)', () => {
+    it('zeigt Förderung pro Kind und Anzahl Unterstützungen ohne Spenden', async () => {
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      // aktuellesKapital 1.000 € / 10 Kinder = 100,00 €
+      expect(screen.getByText(/Förderung pro Kind: 100,00\s*€/)).toBeInTheDocument();
+      expect(screen.getByText(/Unterstützungen insgesamt: 0/)).toBeInTheDocument();
+      expect(screen.getByText(/Noch keine Spenden für diese Einrichtung/)).toBeInTheDocument();
+    });
+
+    it('zeigt Direktspenden in der Historie mit Betrag, ohne Solidaritäts-Label', async () => {
+      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
+      await prisma.spende.create({
+        data: { einrichtungId: kita.id, betrag: 75, frequenz: 'einmalig', quelle: 'direkt' },
+      });
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(screen.getByText(/Unterstützungen insgesamt: 1/)).toBeInTheDocument();
+      expect(screen.getByText(/75,00\s*€/)).toBeInTheDocument();
+      expect(screen.queryByText(/Solidaritätsfonds/)).not.toBeInTheDocument();
+    });
+
+    it('labelt Solidaritäts-Zuflüsse explizit "aus dem Solidaritätsfonds"', async () => {
+      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
+      await prisma.spende.create({
+        data: { einrichtungId: kita.id, betrag: 40, frequenz: 'einmalig', quelle: 'direkt' },
+      });
+      await prisma.spende.create({
+        data: { einrichtungId: kita.id, betrag: 25, frequenz: 'einmalig', quelle: 'solidaritaet' },
+      });
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      const { container } = render(jsx);
+      expect(screen.getByText(/Unterstützungen insgesamt: 2/)).toBeInTheDocument();
+      expect(screen.getByText(/aus dem Solidaritätsfonds/)).toBeInTheDocument();
+      // Text-Label ist Pflicht, die Farbe (turquoise via .positive) ist nur Zusatz.
+      expect(container.querySelector('.positive')).toBeInTheDocument();
+    });
+
+    it('begrenzt die angezeigte Historie auf 10 Einträge', async () => {
+      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
+      for (let i = 0; i < 12; i++) {
+        await prisma.spende.create({
+          data: { einrichtungId: kita.id, betrag: 1, frequenz: 'einmalig', quelle: 'direkt' },
+        });
+      }
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(screen.getByText(/Unterstützungen insgesamt: 12/)).toBeInTheDocument();
+      expect(screen.getAllByText(/1,00\s*€/)).toHaveLength(10);
+    });
+  });
 });
