@@ -108,3 +108,17 @@ Dev-Server gestartet (`dev.db`, geseeded), Browser-Pane geöffnet:
    bewusst nicht mit einem zusätzlichen Listener "gefixt".
 
 Report-Pfad: `docs/loops/runs/task-33-report.md`
+
+## Fix nach Review
+
+**Problem:** `SpendenTicker.tsx` verwendete `key={i}` (Array-Index). Bei stabiler Anzahl (10 Einträge) ersetzt eine neue Ankunft den Inhalt in-place, das CSS-Slide-in triggert nicht neu. Live-Ankünfte sind aber der Sinn des 15s-Polling.
+
+**Lösung:**
+1. `letzteSpenden()`: Feld `zeitpunkt: s.createdAt.getTime()` (Epoch-ms) zu jedem Entry hinzugefügt. Nicht-personales, opaques Schlüsselmaterial.
+2. `SpendenTickerEintrag`-Typ: `zeitpunkt: number` ergänzt.
+3. Component-Key: `key={`${e.zeitpunkt}-${i}`}` (Epoch + Index schützt vor Millisekunden-Kollisionen).
+4. Tests:
+   - `letzteSpenden`-Test: `zeitpunkt` ist number, liegt im Fenster `[beforeTime, afterTime]`.
+   - Komponenten-Test-Fixtures: `zeitpunkt` in allen Mock-Objekten ergänzt.
+
+**Verifikation:** `npx vitest run` (27 Ticker + Service Tests grün) + `npm run verify` (225 Tests, build ok).
