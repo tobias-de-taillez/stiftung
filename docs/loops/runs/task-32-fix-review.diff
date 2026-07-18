@@ -1,0 +1,164 @@
+# Review package: 25910ec..72fa38b
+
+## Commits
+72fa38b fix: Zeitraffer-Gesamtdauer strukturell auf 4 s begrenzt (Stagger skaliert mit Anzahl)
+
+## Files changed
+ stiftung-web/components/ZeitrafferErgebnis.tsx     | 26 +++++++++++++---
+ .../__tests__/SolidaritaetsfondsPanel.test.tsx     | 36 ++++++++++++++++++++++
+ 2 files changed, 57 insertions(+), 5 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/components/ZeitrafferErgebnis.tsx b/stiftung-web/components/ZeitrafferErgebnis.tsx
+index 2b3b310..6677193 100644
+--- a/stiftung-web/components/ZeitrafferErgebnis.tsx
++++ b/stiftung-web/components/ZeitrafferErgebnis.tsx
+@@ -20,25 +20,40 @@ export interface ZeitrafferErgebnisProps {
+   fondsErtrag: number;
+   kapitalErtrag: number;
+   verteiltGesamt: number;
+   verteilung: ZeitrafferVerteilungsPosten[];
+   neuerFondsBestand: number;
+   // Meilenstein-Tags pro Einrichtung (Task 31) — optional: ältere Mocks/Aufrufer
+   // ohne dieses Feld dürfen nicht crashen (Default []).
+   meilensteine?: ZeitrafferMeilenstein[];
+ }
+ 
+-const ITEM_STAGGER_MS = 220;
++// Gesamtdauer strukturell ≤ 4 s: Stagger-Intervall schrumpft mit der Anzahl.
++// PHASE1_MS (900) + N × staggerInterval(N) + ABSCHLUSS_MS (400) ≤ 4000 ms
++export const PHASE1_MS = 900;
++export const ABSCHLUSS_MS = 400;
++export const VERTEILUNG_BUDGET_MS = 2400;
++
++/**
++ * Berechnet das Stagger-Intervall zwischen Verteilungs-Einträgen.
++ * Bei kleinen N (≤9) bleibt es bei max. 220ms für angenehmes Tempo.
++ * Bei größeren N schrumpft es proportional, um Gesamtdauer unter 4s zu halten.
++ */
++export function staggerInterval(anzahl: number): number {
++  if (anzahl <= 0) return 0;
++  return Math.min(220, Math.floor(VERTEILUNG_BUDGET_MS / anzahl));
++}
++
+ // Übergang zur Verteilungs-Phase — orientiert sich an der Count-up-Dauer des
+ // Kapital-Ertrags (useCountUp-Default 800ms) plus kleinem Puffer.
+-const PHASE_KAPITAL_MS = 900;
+-const PHASE_ABSCHLUSS_PUFFER_MS = 400;
++const PHASE_KAPITAL_MS = PHASE1_MS;
++const PHASE_ABSCHLUSS_PUFFER_MS = ABSCHLUSS_MS;
+ 
+ type Phase = 'kapital' | 'verteilung' | 'abschluss';
+ 
+ /**
+  * Inszenierte Sequenz für „Jahr simulieren" (Task 32): (1) Kapital wächst
+  * +6 % mit Count-up, (2) Verteilung an die Bedürftigsten baut sich gestaffelt
+  * auf (größter Empfänger hervorgehoben), (3) Abschluss-Summe. Reine
+  * Client-Inszenierung der bereits vorhandenen API-Antwort — keine neuen
+  * Requests. Gesamtdauer < 4 s (siehe PHASE_*-Konstanten).
+  *
+@@ -55,34 +70,35 @@ export function ZeitrafferErgebnis({
+   neuerFondsBestand,
+   meilensteine = [],
+ }: ZeitrafferErgebnisProps) {
+   const [reduced] = useState(prefersReducedMotion);
+   const [phase, setPhase] = useState<Phase>(reduced ? 'abschluss' : 'kapital');
+   const [revealedCount, setRevealedCount] = useState(reduced ? verteilung.length : 0);
+ 
+   useEffect(() => {
+     if (reduced) return;
+     const timers: ReturnType<typeof setTimeout>[] = [];
++    const stagger = staggerInterval(verteilung.length);
+     timers.push(setTimeout(() => setPhase('verteilung'), PHASE_KAPITAL_MS));
+     for (let i = 0; i < verteilung.length; i++) {
+       const naechsterStand = i + 1;
+       timers.push(
+         setTimeout(
+           () => setRevealedCount((c) => Math.max(c, naechsterStand)),
+-          PHASE_KAPITAL_MS + naechsterStand * ITEM_STAGGER_MS
++          PHASE_KAPITAL_MS + naechsterStand * stagger
+         )
+       );
+     }
+     timers.push(
+       setTimeout(
+         () => setPhase('abschluss'),
+-        PHASE_KAPITAL_MS + verteilung.length * ITEM_STAGGER_MS + PHASE_ABSCHLUSS_PUFFER_MS
++        PHASE_KAPITAL_MS + verteilung.length * stagger + PHASE_ABSCHLUSS_PUFFER_MS
+       )
+     );
+     return () => timers.forEach(clearTimeout);
+     // Nur beim Mount planen: Elternteil vergibt `key={nummer}`, jede neue
+     // Simulation erzeugt also eine frische Instanz mit eigener Sequenz statt
+     // Timer einer laufenden Sequenz neu zu berechnen.
+   }, [reduced, verteilung.length]);
+ 
+   const angezeigterKapitalErtrag = useCountUp(kapitalErtrag);
+   const groessterAnteil = verteilung.reduce((max, v) => Math.max(max, v.anteil), 0);
+diff --git a/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx b/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx
+index ac41301..2dcf396 100644
+--- a/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx
++++ b/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx
+@@ -1,14 +1,15 @@
+ import { render, screen } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+ import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
++import { staggerInterval, PHASE1_MS, ABSCHLUSS_MS, VERTEILUNG_BUDGET_MS } from '../ZeitrafferErgebnis';
+ 
+ // Die Zeitraffer-Sequenz (Task 32) staggert per Timer über mehrere Sekunden —
+ // ohne reduced-motion-Stub wären die Assertions unten flaky/langsam
+ // (Wall-Clock-Timer statt fake timers). reduced-motion erzwingt den
+ // Sofort-Endzustand (siehe useCountUp/ZeitrafferErgebnis), deterministisch für
+ // alle Tests in dieser Datei — auch die, die die Sequenz gar nicht auslösen.
+ function stubReducedMotion() {
+   vi.stubGlobal(
+     'matchMedia',
+     vi.fn().mockImplementation((query: string) => ({
+@@ -178,11 +179,46 @@ describe('SolidaritaetsfondsPanel', () => {
+             neuerFondsBestand: 0,
+           }),
+         })
+       );
+       const user = userEvent.setup();
+       render(<SolidaritaetsfondsPanel initialBestand={0} />);
+       await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
+       expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
+     });
+   });
++
++  // Zeitraffer-Dauer-Invariante (Task 32): staggerInterval skaliert mit der
++  // Anzahl der Einrichtungen, um Gesamtdauer strukturell ≤ 4 Sekunden zu halten.
++  describe('staggerInterval — Dauer-Struktur', () => {
++    it('hält bei kleinen N (9) die volle 220ms bei, da 2400/9 > 220', () => {
++      expect(staggerInterval(9)).toBe(220);
++    });
++
++    it('schrumpft bei großen N (50) auf ~48ms: 2400/50=48', () => {
++      expect(staggerInterval(50)).toBe(48);
++    });
++
++    it('gibt 0 zurück für N ≤ 0', () => {
++      expect(staggerInterval(0)).toBe(0);
++      expect(staggerInterval(-1)).toBe(0);
++    });
++
++    it('garantiert Gesamtdauer ≤ 4000ms für alle kritischen N', () => {
++      const testCases = [1, 9, 13, 50, 200];
++      for (const n of testCases) {
++        const stagger = staggerInterval(n);
++        const totalMs = PHASE1_MS + n * stagger + ABSCHLUSS_MS;
++        expect(totalMs).toBeLessThanOrEqual(4000);
++      }
++    });
++
++    it('nutzt das volle VERTEILUNG_BUDGET_MS korrekt: stagger ≤ floor(2400/N)', () => {
++      // Invariante: für alle N sollte stagger = min(220, floor(2400/n))
++      const testCases = [1, 2, 9, 13, 50, 100];
++      for (const n of testCases) {
++        const expected = Math.min(220, Math.floor(VERTEILUNG_BUDGET_MS / n));
++        expect(staggerInterval(n)).toBe(expected);
++      }
++    });
++  });
+ });

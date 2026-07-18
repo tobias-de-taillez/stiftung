@@ -19,6 +19,7 @@
   --radius: 22px;
   --radius-sm: 14px;
   --shadow: 0 18px 48px rgba(2, 7, 25, 0.32);
+  --shadow-hover: 0 26px 60px rgba(2, 7, 25, 0.4);
 }
 
 * {
@@ -65,6 +66,16 @@ a {
   padding: 1.5rem;
 }
 
+/* Klickbare Cards (in <Link> gewrappt) bekommen Lift + Shadow-Verstärkung beim Hover. */
+a .card {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+a:hover .card {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -75,6 +86,11 @@ a {
   border: none;
   cursor: pointer;
   text-decoration: none;
+  transition: filter 0.15s ease-out;
+}
+
+.pill:hover:not(:disabled) {
+  filter: brightness(1.12);
 }
 
 .pill:disabled {
@@ -113,6 +129,266 @@ a {
   max-width: 1080px;
   margin: 0 auto;
   padding: 0 1.5rem;
+}
+
+/*
+ * Hero-Grid (Task 35): zweispaltig ab 800px — links Text/CTAs, rechts der
+ * Visual-Slot (KennzahlHero + MiniBalkenwald + Live-Ticker), damit bei der
+ * 1080px-Container-Breite keine leere dunkle Fläche rechts mehr entsteht.
+ * Unter 800px fällt die Regel unten auf einspaltig zurück — derselbe
+ * Breakpoint wie die bestehende .container-Padding-Regel.
+ */
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+/*
+ * grid-template-columns: minmax(0, 1fr) statt implizitem Auto-Track — sonst
+ * sizt sich die einzelne Spalte an ihrem Inhalt (Mini-Balkenwald mit
+ * nowrap-Labels) auf und sprengt die von .hero-grid zugewiesene Breite
+ * (derselbe Grund, warum .hero-grid selbst minmax(0, …) statt reinem fr
+ * nutzt).
+ */
+.hero-visual {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * ProgressBar-Füllung: animiert beim ersten Rendern von 0 auf die Zielbreite.
+ * Nur das "from" wird definiert — das implizite "to"-Keyframe übernimmt den
+ * per Inline-Style gesetzten width-Wert (Standardverhalten der CSS Animations
+ * Spec). Läuft rein über CSS, keine JS-Mount-Erkennung nötig; degradiert unter
+ * `prefers-reduced-motion` automatisch über den globalen Override unten
+ * (animation-duration wird dort auf 0.001ms gekappt).
+ */
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sun);
+  animation: progress-bar-fill-in 800ms ease-out;
+}
+
+.progress-bar-fill.is-complete {
+  background: var(--turquoise);
+}
+
+@keyframes progress-bar-fill-in {
+  from {
+    width: 0;
+  }
+}
+
+/*
+ * Marker für Zwischenziele auf dem Fortschrittsbalken (z. B. die fünf
+ * Einrichtungs-Level Bronze–Diamant, Task 30). Rein dekorativ/informativ
+ * (aria-hidden auf dem Element selbst) — der Tooltip (title) ergänzt die
+ * Bedeutung visuell, das umgebende label-Prop des Balkens trägt sie für
+ * Screenreader.
+ */
+.progress-bar-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--cream);
+  opacity: 0.55;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/*
+ * Vorher→Nachher-Balken der Spenden-Bestätigung: Geisterbalken (alter Stand,
+ * blass) liegt unter dem animierten Fill (neuer Stand). Der Fill nutzt
+ * dieselbe progress-bar-fill-in-Animation wie ProgressBar und erbt damit auch
+ * denselben globalen prefers-reduced-motion-Override weiter unten.
+ */
+.vorher-nachher-track {
+  position: relative;
+  background: var(--surface-2);
+  border-radius: 999px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.vorher-nachher-ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cream);
+  opacity: 0.28;
+}
+
+.vorher-nachher-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--sun);
+  animation: progress-bar-fill-in 900ms ease-out;
+}
+
+.vorher-nachher-fill.is-complete {
+  background: var(--turquoise);
+}
+
+/*
+ * Konfetti-Burst: reines CSS, einmalig beim Mounten der Bestätigung. Jede
+ * Drift-Variante ist ein fixes Keyframe (kein JS-Custom-Property-Bedarf),
+ * Zufälligkeit kommt aus Startposition, Verzögerung und Dauer pro Partikel.
+ */
+.konfetti-burst {
+  position: relative;
+  height: 0;
+}
+
+.konfetti-partikel {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.konfetti-partikel-a { animation-name: konfetti-fall-a; }
+.konfetti-partikel-b { animation-name: konfetti-fall-b; }
+.konfetti-partikel-c { animation-name: konfetti-fall-c; }
+
+@keyframes konfetti-fall-a {
+  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
+  to { transform: translate(-36px, 92px) rotate(-220deg); opacity: 0; }
+}
+@keyframes konfetti-fall-b {
+  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
+  to { transform: translate(0, 104px) rotate(180deg); opacity: 0; }
+}
+@keyframes konfetti-fall-c {
+  from { transform: translate(0, -8px) rotate(0deg); opacity: 1; }
+  to { transform: translate(36px, 88px) rotate(220deg); opacity: 0; }
+}
+
+/* Reduced-motion: Container komplett ausblenden statt eingefroren stehen lassen. */
+@media (prefers-reduced-motion: reduce) {
+  .konfetti-burst {
+    display: none;
+  }
+}
+
+/*
+ * Zeitraffer-Ergebnis (Task 32): Verteilungs-Einträge blenden beim Erscheinen
+ * sanft ein (Sichtbarkeit selbst steuert die Komponente per JS-Timer, nicht
+ * diese Animation — sie ist rein kosmetisch). animation-fill-mode: both hält
+ * den "from"-Zustand vor Start und den "to"-Zustand nach Ende, degradiert
+ * unter prefers-reduced-motion automatisch über den globalen Override oben
+ * (animation-duration → 0.001ms, Endzustand bleibt sichtbar).
+ */
+.zeitraffer-eintrag {
+  animation: zeitraffer-eintrag-in 350ms ease-out both;
+}
+
+@keyframes zeitraffer-eintrag-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zeitraffer-eintrag--top {
+  font-weight: 700;
+  color: var(--sun);
+}
+
+/*
+ * Live-Ticker (Task 33): Einträge gleiten seitlich ein. Wie bei
+ * .zeitraffer-eintrag ist das reine Kosmetik — die Sichtbarkeit/Reihenfolge
+ * kommt aus dem Polling-State der Komponente, nicht aus dieser Animation.
+ * Erbt denselben globalen prefers-reduced-motion-Override oben (Endzustand
+ * bleibt sichtbar, nur die Animationsdauer wird gekappt).
+ */
+.spenden-ticker-eintrag {
+  animation: spenden-ticker-eintrag-in 400ms ease-out both;
+}
+
+@keyframes spenden-ticker-eintrag-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/*
+ * Mini-Balkenwald (Task 35): Balken wachsen beim Mounten von 0 auf ihre
+ * per Inline-Style gesetzte Höhe hoch — gleiches "nur from-Keyframe"-Muster
+ * wie .progress-bar-fill-in oben (das implizite "to" übernimmt den
+ * Inline-Style-Wert). Degradiert unter prefers-reduced-motion automatisch
+ * über den globalen Override unten.
+ */
+.mini-balkenwald-bar {
+  animation: mini-balkenwald-grow 700ms ease-out;
+}
+
+@keyframes mini-balkenwald-grow {
+  from {
+    height: 0;
+  }
+}
+
+/*
+ * Wachstums-Illustration (Task 36): sanfte Wind-Animation für den
+ * oberirdischen Teil der Pflanze (Stamm + Krone/Blätter + Früchte) — der
+ * Erdhügel/Topf darunter bleibt unbewegt. Rotiert um den Fußpunkt
+ * (60,100 im 0..120-viewBox-Koordinatenraum aller Wuchsstufen).
+ * `transform-box: view-box` verankert transform-origin am viewBox-
+ * Koordinatensystem des SVGs statt an der Bounding-Box der Gruppe selbst
+ * (die je nach Wuchsstufe unterschiedlich groß/versetzt ist) — sonst würde
+ * der Drehpunkt zwischen den Stufen wandern.
+ *
+ * Bewusst 0%/100% als Ruhezustand (nicht `animation: … alternate` wie bei
+ * .zeitraffer-eintrag/.spenden-ticker-eintrag): unter dem globalen
+ * prefers-reduced-motion-Override unten wird animation-iteration-count auf 1
+ * gekappt, dann ist das LETZTE Keyframe (100%) der eingefrorene Endzustand.
+ * Mit alternate + iteration-count:1 bliebe die Pflanze bei einer ungeraden
+ * Iteration schief bei +3° stehen — hier landet sie garantiert aufrecht,
+ * unabhängig von fill-mode/iteration-count.
+ */
+.wachstum-sway {
+  transform-box: view-box;
+  transform-origin: 60px 100px;
+  animation: wachstum-sway 4s ease-in-out infinite;
+}
+
+@keyframes wachstum-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-3deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
 }
 
 :focus-visible {

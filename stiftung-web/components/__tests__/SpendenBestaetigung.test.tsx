@@ -1,7 +1,31 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SpendenBestaetigung } from '../SpendenBestaetigung';
+
+// useCountUp liest prefers-reduced-motion beim Mounten und läuft sonst über
+// requestAnimationFrame — das würde die synchronen Assertions unten flaky
+// machen. reduced-motion erzwingt den Sofort-Sprung auf den Zielwert
+// (deterministisch, siehe lib/hooks/__tests__/useCountUp.test.ts).
+function stubReducedMotion() {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+  );
+}
+
+beforeEach(() => {
+  stubReducedMotion();
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -11,26 +35,36 @@ const props = {
   betrag: 50,
   frequenz: 'jaehrlich' as const,
   einrichtungName: 'Tagespflege Wirbelwind',
+  altesKapital: 3000,
   neuesKapital: 3050,
+  zielKapital: 25000,
   spendeId: 'spende-123',
 };
 
 describe('SpendenBestaetigung', () => {
   it('zeigt Betrag, Frequenz, neuen Kapitalstand und einen Spielgeld-Hinweis', () => {
     render(<SpendenBestaetigung {...props} />);
-    // Anchored: formatEuro(3050) = "3.050,00 €" contains "50,00 €" as a
-    // substring, so an unanchored regex would ambiguously match both the
-    // betrag paragraph and the neuesKapital <strong> (multiple elements).
+    // Anchored: formatEuro(3050) = "3.050,00 €" taucht sowohl im
+    // Vorher→Nachher-Text ("3.000,00 € → 3.050,00 €") als auch im
+    // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
+    // das <strong> (getNodeText fasst nur direkte Text-Kindknoten zusammen).
     expect(screen.getByText(/^50,00 €/)).toBeInTheDocument();
     expect(screen.getByText(/jährlich/i)).toBeInTheDocument();
-    expect(screen.getByText(/3.050,00 €/)).toBeInTheDocument();
+    expect(screen.getByText(/^3\.050,00 €$/)).toBeInTheDocument();
     expect(screen.getByText(/Spielgeld/i)).toBeInTheDocument();
   });
 
-  it('zeigt einen WhatsApp-Share-Link mit dem Spendentext', () => {
+  it('zeigt einen WhatsApp-Share-Link, dessen Text die Wirkung statt nur die Transaktion erzählt (Ziel-Fortschritt-Delta)', () => {
     render(<SpendenBestaetigung {...props} />);
     const link = screen.getByRole('link', { name: /WhatsApp/i });
-    expect(link.getAttribute('href')).toContain('wa.me');
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('wa.me');
+    const decodedText = decodeURIComponent(href);
+    // altesKapital 3000 / zielKapital 25000 = 12,0 %; neuesKapital 3050 / 25000 = 12,2 %
+    // — dieselben Werte wie im Ziel-Fortschritt-Text unter dem Balken.
+    expect(decodedText).toMatch(/12,0 %/);
+    expect(decodedText).toMatch(/12,2 %/);
+    expect(decodedText).toMatch(/Ziel/);
   });
 
   it('nutzt navigator.share, wenn verfügbar', async () => {
@@ -48,5 +82,79 @@ describe('SpendenBestaetigung', () => {
     await user.click(screen.getByText(/Spendenquittung anzeigen/i));
     expect(screen.getByText(/spende-123/)).toBeInTheDocument();
     expect(screen.getByText(/Demo-Dokument/i)).toBeInTheDocument();
+  });
+
+  it('rendert den Geisterbalken mit korrekten Alt-/Neu-Werten und zeigt den Ziel-Fortschritt als Text', () => {
+    const { container } = render(<SpendenBestaetigung {...props} />);
+    const ghost = container.querySelector('.vorher-nachher-ghost') as HTMLElement;
+    const fill = container.querySelector('.vorher-nachher-fill') as HTMLElement;
+
+    expect(ghost).toBeInTheDocument();
+    expect(fill).toBeInTheDocument();
+    // altesKapital 3000 / zielKapital 25000 = 12 %; neuesKapital 3050 / 25000 = 12,2 %
+    expect(ghost.style.width).toBe('12%');
+    expect(fill.style.width).toBe('12.2%');
+
+    expect(screen.getByText(/3\.000,00 € → 3\.050,00 €/)).toBeInTheDocument();
+    // Ziel-anchorierter Text statt relativem Wachstum: 12,0 % → 12,2 % des Ziels
+    expect(screen.getByText('Von 12,0 % auf 12,2 % des Ziels')).toBeInTheDocument();
+  });
+
+  it('zeigt bei großen Einrichtungen den echten Ziel-Fortschritt statt einer irreführenden Relativ-Prozentzahl (Regressionsschutz)', () => {
+    // Vorher-Bug: (neu-alt)/alt*100 rundet bei großen Kapitalständen auf
+    // "+0,0 %" und widerspricht damit dem sichtbar wachsenden Balken. Der
+    // Ziel-Fortschritt bleibt dagegen immer konsistent mit dem Balken.
+    render(<SpendenBestaetigung {...props} altesKapital={800} neuesKapital={850} zielKapital={20000} />);
+    expect(screen.getByText('Von 4,0 % auf 4,3 % des Ziels')).toBeInTheDocument();
+    expect(screen.queryByText(/^\+0,0 %$/)).not.toBeInTheDocument();
+  });
+
+  // Meilenstein-Feier (Task 31): Banner ÜBER dem Danke, mit Konfetti-Wiederverwendung.
+  describe('Meilenstein-Banner', () => {
+    it('rendert einen Meilenstein-Banner mit Konfetti, wenn meilensteine übergeben werden', () => {
+      const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
+      const banner = screen.getByTestId('meilenstein-banner');
+      expect(banner).toHaveTextContent('Silber erreicht');
+      expect(banner).toHaveTextContent('🎉');
+      // Konfetti wird für die Feier wiederverwendet (Task 27), nicht neu gebaut.
+      expect(container.querySelectorAll('.konfetti-burst').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('zeigt alle übergebenen Meilenstein-Labels', () => {
+      render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht', 'Halbzeit: 50 % des Ziels']} />);
+      const banner = screen.getByTestId('meilenstein-banner');
+      expect(banner).toHaveTextContent('Silber erreicht');
+      expect(banner).toHaveTextContent('Halbzeit: 50 % des Ziels');
+    });
+
+    it('rendert den Banner ÜBER dem Danke-Block', () => {
+      const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
+      const sections = Array.from(container.querySelectorAll('[data-testid]'));
+      const bannerIndex = sections.findIndex((el) => el.getAttribute('data-testid') === 'meilenstein-banner');
+      const dankeIndex = sections.findIndex((el) => el.getAttribute('data-testid') === 'konfetti-danke');
+      expect(bannerIndex).toBeGreaterThanOrEqual(0);
+      expect(bannerIndex).toBeLessThan(dankeIndex);
+    });
+
+    it('zeigt keinen Banner, wenn meilensteine leer oder nicht übergeben ist', () => {
+      const { rerender } = render(<SpendenBestaetigung {...props} />);
+      expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
+
+      rerender(<SpendenBestaetigung {...props} meilensteine={[]} />);
+      expect(screen.queryByTestId('meilenstein-banner')).not.toBeInTheDocument();
+    });
+  });
+
+  it('zeigt den Spielgeld-Hinweis als letztes Element, als dezenten Text statt als Chip', () => {
+    const { container } = render(<SpendenBestaetigung {...props} />);
+    const sections = container.querySelectorAll('[data-testid]');
+    const letztesElement = sections[sections.length - 1];
+
+    expect(letztesElement).toHaveAttribute('data-testid', 'spielgeld-hinweis');
+    expect(letztesElement.textContent).toMatch(/Spielgeld/i);
+    expect(letztesElement.textContent).toMatch(/kein echtes Geld/i);
+    expect(letztesElement.className).toContain('muted');
+    // Kein StatusChip mehr (der rendert eine .status-Span)
+    expect(container.querySelector('.status')).toBeNull();
   });
 });

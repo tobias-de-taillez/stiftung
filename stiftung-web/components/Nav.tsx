@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { NavLink } from './NavLink';
 
 export function Nav() {
   return (
@@ -20,10 +21,10 @@ export function Nav() {
           Deutsche Bildungsstiftung
         </Link>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Link href="/" className="pill pill-secondary">Startseite</Link>
-          <Link href="/einrichtungen" className="pill pill-secondary">Einrichtungen</Link>
-          <Link href="/statistik" className="pill pill-secondary">Statistik</Link>
-          <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
+          <NavLink href="/">Startseite</NavLink>
+          <NavLink href="/einrichtungen">Einrichtungen</NavLink>
+          <NavLink href="/statistik">Statistik</NavLink>
+          <NavLink href="/solidaritaetsfonds">Solidaritätsfonds</NavLink>
         </div>
       </nav>
     </header>

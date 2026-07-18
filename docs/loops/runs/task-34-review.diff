@@ -1,0 +1,628 @@
+# Review package: 8765117..b28ae15
+
+## Commits
+b28ae15 feat(transparenz): Spendenhistorie auf Detailseite + Jahresabschluss-Historie
+
+## Files changed
+ docs/loops/runs/task-34-brief.md                   |  9 +++
+ docs/loops/runs/task-34-report.md                  | 45 +++++++++++++
+ .../einrichtungen/[slug]/__tests__/page.test.tsx   | 55 ++++++++++++++++
+ stiftung-web/app/einrichtungen/[slug]/page.tsx     | 53 ++++++++++++----
+ stiftung-web/app/statistik/page.tsx                | 46 +++++++++++++-
+ .../server/__tests__/einrichtungenService.test.ts  | 74 ++++++++++++++++++++++
+ .../lib/server/__tests__/simulationService.test.ts | 26 +++++++-
+ stiftung-web/lib/server/einrichtungenService.ts    | 45 +++++++++++++
+ stiftung-web/lib/server/simulationService.ts       | 10 +++
+ 9 files changed, 347 insertions(+), 16 deletions(-)
+
+## Diff
+diff --git a/docs/loops/runs/task-34-brief.md b/docs/loops/runs/task-34-brief.md
+new file mode 100644
+index 0000000..0955041
+--- /dev/null
++++ b/docs/loops/runs/task-34-brief.md
+@@ -0,0 +1,9 @@
++### Task 34: Transparenz auf Detailseite + Jahresabschluss-Historie
++
++**Files:** Modify: `stiftung-web/app/einrichtungen/[slug]/page.tsx`, `lib/server/einrichtungenService.ts` (+ Tests), `app/statistik/page.tsx`, `lib/server/simulationService.ts` (Read-Helper).
++
++**Akzeptanzkriterien:**
++- Detailseite zeigt: Förderung pro Kind, Spendenhistorie (letzte 10: Datum, Betrag, Quelle — Solidaritäts-Zuflüsse explizit gelabelt „aus dem Solidaritätsfonds" mit turquoise-Akzent: der Leitbild-Kernmechanismus wird sichtbar), Anzahl Unterstützungen gesamt.
++- Statistik-Seite: Jahresabschluss-Historie als Tabelle (Nr., Fonds-Ertrag, Kapital-Ertrag, Verteilt, Datum) aus der bereits persistierten `Jahresabschluss`-Tabelle; der Kennzahlen-Block „Simulierter Jahresertrag" verweist auf echte Abschlüsse, wenn vorhanden.
++- DB-Tests für neue Service-Reads.
++
+diff --git a/docs/loops/runs/task-34-report.md b/docs/loops/runs/task-34-report.md
+new file mode 100644
+index 0000000..0c58953
+--- /dev/null
++++ b/docs/loops/runs/task-34-report.md
+@@ -0,0 +1,45 @@
++# Task 34: Transparenz auf Detailseite + Jahresabschluss-Historie — Report
++
++## Status
++DONE
++
++## Zusammenfassung
++
++### 1. Detailseite (`app/einrichtungen/[slug]/page.tsx`)
++- Neue Service-Funktion `einrichtungsTransparenz(slug)` in `lib/server/einrichtungenService.ts`:
++  - liefert `einrichtung`, `foerderungProKind`, `anzahlUnterstuetzungen` (Gesamtzahl aller Spende-Zeilen der Einrichtung, **inkl.** `quelle='solidaritaet'` — bewusst anders als der sitesweite Spenderzähler `statistik().anzahlSpenden`, der Solidaritätsfonds-Verteilungen als interne Umbuchung ausschließt; Kommentar im Code erklärt den Unterschied) und `spendenHistorie` (letzte 10 Spenden, neueste zuerst, mit `id`, `betrag`, `quelle`, `createdAt`).
++  - gibt `null` bei unbekanntem slug zurück (kein Wurf) — die Seite entscheidet über `notFound()`.
++- Seite ruft nur noch `einrichtungsTransparenz()` auf (ein DB-Roundtrip statt zwei getrennte Lookups).
++- Neue Karte „Transparenz": Förderung pro Kind, Anzahl Unterstützungen, Historie-Liste (Datum `de-DE`, Betrag, bei `quelle==='solidaritaet'` explizites Text-Label „aus dem Solidaritätsfonds" + turquoise-Akzent via vorhandene CSS-Klasse `.positive` — Text-Label ist Pflicht, Farbe nur Zusatz). Empty State „Noch keine Spenden für diese Einrichtung."
++- `export const dynamic = 'force-dynamic'` ergänzt (fehlte bisher; ohne das könnte Next die `[slug]`-Route trotz dynamischer Params cachen, weil hier nur über Prisma statt `fetch()` gelesen wird — gleiches Muster wie `app/statistik/page.tsx`).
++
++### 2. Statistik-Seite (`app/statistik/page.tsx`)
++- Neue Read-Funktion `jahresabschluesse()` in `lib/server/simulationService.ts`: liest die bereits von `simuliereJahr()` persistierte `Jahresabschluss`-Tabelle, sortiert `nummer` absteigend.
++- Neue Karte „Jahresabschluss-Historie": Tabelle (Nr., Fonds-Ertrag, Kapital-Ertrag, Verteilt, Datum), Empty State „Noch keine Jahresabschlüsse." wenn keine Zeilen existieren.
++- Kachel „Simulierter Jahresertrag (6%)": zeigt bei vorhandenen echten Abschlüssen die Subzeile „Letzter echter Abschluss (Nr. X): Y €" (Y = `fondsErtrag + kapitalErtrag` des neuesten Abschlusses) statt des bisherigen generischen Hinweistexts; ohne echte Abschlüsse bleibt der alte Hinweis („kein realer Auszahlungs-Flow …") erhalten.
++
++### Tests (TDD RED→GREEN, echte DB via `test.db`)
++- `lib/server/__tests__/einrichtungenService.test.ts`: 7 neue Tests für `einrichtungsTransparenz` (unbekannter slug → null, Grunddaten ohne Spenden, Historie-Reihenfolge inkl. Quelle, 10er-Limit, Solidaritäts-Zählung, gemischte Zählung, Isolation zwischen Einrichtungen).
++- `lib/server/__tests__/simulationService.test.ts`: 2 neue Tests für `jahresabschluesse` (leer, neueste zuerst mit allen Kennzahlen).
++- `app/einrichtungen/[slug]/__tests__/page.test.tsx`: 4 neue Tests (Förderung pro Kind + Unterstützungen ohne Spenden, Direktspende ohne Solidaritäts-Label, explizites „aus dem Solidaritätsfonds"-Label + `.positive`-Klasse, 10er-Limit in der Anzeige).
++- Kein Test für `app/statistik/page.tsx` ergänzt — für diese Seite existierte zuvor keine Test-Datei; die neuen Reads sind über die Service-Tests abgedeckt (Bindungsregel „DB-Tests für neue Service-Reads" erfüllt). Tabelle/Subtitle manuell per curl gegen laufenden Dev-Server verifiziert.
++
++### Manuelle Verifikation
++- `npm run verify` (tsc --noEmit && vitest run && next build) zweimal grün: 238/238 Tests, Build erfolgreich, `/einrichtungen/[slug]` als `ƒ (Dynamic)` bestätigt force-dynamic.
++- Dev-Server gestartet, `/einrichtungen/kita-regenbogen-koeln` und `/statistik` per curl geprüft: Transparenz-Karte inkl. Solidaritäts-Label und `.positive`-Klasse sowie Jahresabschluss-Tabelle inkl. „Letzter echter Abschluss"-Subtitle rendern korrekt.
++
++## Geänderte/neue Dateien
++- `stiftung-web/lib/server/einrichtungenService.ts` (neu: `einrichtungsTransparenz`)
++- `stiftung-web/lib/server/simulationService.ts` (neu: `jahresabschluesse`)
++- `stiftung-web/app/einrichtungen/[slug]/page.tsx` (Transparenz-Karte, force-dynamic, Refactor auf einen Service-Call)
++- `stiftung-web/app/statistik/page.tsx` (Jahresabschluss-Historie-Tabelle, Subtitle-Referenz)
++- `stiftung-web/lib/server/__tests__/einrichtungenService.test.ts`
++- `stiftung-web/lib/server/__tests__/simulationService.test.ts`
++- `stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx`
++
++## Test/Verify-Summary
++- `npm run test`: 238 passed (238) — vorher 225, +13 neue Tests.
++- `npm run verify`: exit 0 (tsc clean, Tests grün, Build erfolgreich).
++
++## Concerns (nicht blockierend)
++- Ein Service-Test (`liefert die Historie neueste zuerst, inkl. Quelle`) sortiert zwei Spenden, die im selben DB-Aufruf-Zyklus mit `createdAt: now()` erzeugt werden — bei exakt identischem Timestamp wäre die Reihenfolge nicht deterministisch garantiert. In der Praxis liegen zwischen den beiden `await`-Aufrufen reale Millisekunden, das Risiko ist gering; bei Bedarf ließe sich mit expliziten `createdAt`-Werten hart absichern.
+diff --git a/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx b/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx
+index 9eec331..21d523a 100644
+--- a/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx
++++ b/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx
+@@ -57,11 +57,66 @@ describe('EinrichtungDetailPage', () => {
+       await prisma.einrichtung.update({
+         where: { slug: 'detail-test-kita' },
+         data: { aktuellesKapital: 50000 },
+       });
+       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+       render(jsx);
+       expect(screen.getByText(/Aktuelles Level: Diamant/)).toBeInTheDocument();
+       expect(screen.queryByText(/Nächstes Ziel/)).not.toBeInTheDocument();
+     });
+   });
++
++  // Transparenz auf der Detailseite (Task 34): Förderung pro Kind,
++  // Spendenhistorie mit explizitem Solidaritätsfonds-Label, Anzahl
++  // Unterstützungen gesamt.
++  describe('Transparenz (Task 34)', () => {
++    it('zeigt Förderung pro Kind und Anzahl Unterstützungen ohne Spenden', async () => {
++      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
++      render(jsx);
++      // aktuellesKapital 1.000 € / 10 Kinder = 100,00 €
++      expect(screen.getByText(/Förderung pro Kind: 100,00\s*€/)).toBeInTheDocument();
++      expect(screen.getByText(/Unterstützungen insgesamt: 0/)).toBeInTheDocument();
++      expect(screen.getByText(/Noch keine Spenden für diese Einrichtung/)).toBeInTheDocument();
++    });
++
++    it('zeigt Direktspenden in der Historie mit Betrag, ohne Solidaritäts-Label', async () => {
++      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
++      await prisma.spende.create({
++        data: { einrichtungId: kita.id, betrag: 75, frequenz: 'einmalig', quelle: 'direkt' },
++      });
++      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
++      render(jsx);
++      expect(screen.getByText(/Unterstützungen insgesamt: 1/)).toBeInTheDocument();
++      expect(screen.getByText(/75,00\s*€/)).toBeInTheDocument();
++      expect(screen.queryByText(/Solidaritätsfonds/)).not.toBeInTheDocument();
++    });
++
++    it('labelt Solidaritäts-Zuflüsse explizit "aus dem Solidaritätsfonds"', async () => {
++      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
++      await prisma.spende.create({
++        data: { einrichtungId: kita.id, betrag: 40, frequenz: 'einmalig', quelle: 'direkt' },
++      });
++      await prisma.spende.create({
++        data: { einrichtungId: kita.id, betrag: 25, frequenz: 'einmalig', quelle: 'solidaritaet' },
++      });
++      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
++      const { container } = render(jsx);
++      expect(screen.getByText(/Unterstützungen insgesamt: 2/)).toBeInTheDocument();
++      expect(screen.getByText(/aus dem Solidaritätsfonds/)).toBeInTheDocument();
++      // Text-Label ist Pflicht, die Farbe (turquoise via .positive) ist nur Zusatz.
++      expect(container.querySelector('.positive')).toBeInTheDocument();
++    });
++
++    it('begrenzt die angezeigte Historie auf 10 Einträge', async () => {
++      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
++      for (let i = 0; i < 12; i++) {
++        await prisma.spende.create({
++          data: { einrichtungId: kita.id, betrag: 1, frequenz: 'einmalig', quelle: 'direkt' },
++        });
++      }
++      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
++      render(jsx);
++      expect(screen.getByText(/Unterstützungen insgesamt: 12/)).toBeInTheDocument();
++      expect(screen.getAllByText(/1,00\s*€/)).toHaveLength(10);
++    });
++  });
+ });
+diff --git a/stiftung-web/app/einrichtungen/[slug]/page.tsx b/stiftung-web/app/einrichtungen/[slug]/page.tsx
+index 6dbb0e5..1bd19b0 100644
+--- a/stiftung-web/app/einrichtungen/[slug]/page.tsx
++++ b/stiftung-web/app/einrichtungen/[slug]/page.tsx
+@@ -1,79 +1,106 @@
+ import { notFound } from 'next/navigation';
+ import QRCode from 'qrcode';
+ import { Card } from '@/components/Card';
+ import { ProgressBar } from '@/components/ProgressBar';
+ import { SpendenRechner } from '@/components/SpendenRechner';
+ import { formatEuro } from '@/lib/calc/format';
+ import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
+-import { getEinrichtungBySlug } from '@/lib/server/einrichtungenService';
++import { einrichtungsTransparenz } from '@/lib/server/einrichtungenService';
++
++// Spendenhistorie und Finanztopf-Stand müssen live sein (Task 34) — ohne
++// force-dynamic würde Next diese [slug]-Route trotz dynamischer Params unter
++// dem Full Route Cache ablegen können, weil hier nur über Prisma (nicht
++// fetch()) gelesen wird. Gleiches Muster wie app/statistik/page.tsx.
++export const dynamic = 'force-dynamic';
+ 
+ export default async function EinrichtungDetailPage({ params }: { params: { slug: string } }) {
+-  const einrichtung = await getEinrichtungBySlug(params.slug);
+-  if (!einrichtung) {
++  const transparenz = await einrichtungsTransparenz(params.slug);
++  if (!transparenz) {
+     notFound();
+   }
++  const { einrichtung, foerderungProKind, anzahlUnterstuetzungen, spendenHistorie } = transparenz!;
+ 
+   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
+-  const url = `${baseUrl}/einrichtungen/${einrichtung!.slug}`;
++  const url = `${baseUrl}/einrichtungen/${einrichtung.slug}`;
+   const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 180 });
+ 
+   // Prisma liefert 'typ' als generischen String. impactBeispiel akzeptiert
+   // jede Zeichenkette und fallback auf tagespflege bei unbekannten Typen.
+-  const rechnerEinrichtung = { ...einrichtung! };
++  const rechnerEinrichtung = { ...einrichtung };
+ 
+   // Einrichtungs-Level (Task 30, Brainstorming Abs. 4): Bronze→Diamant als
+   // Zwischenziele des Finanztopfs selbst, definiert als Anteil des
+   // Zielkapitals — nicht zu verwechseln mit dem Spender-Badge im
+   // Spendenrechner (absoluter Spendenbetrag, siehe lib/data/levels.ts).
+-  const level = einrichtungsLevel(einrichtung!.aktuellesKapital, einrichtung!.zielKapital);
++  const level = einrichtungsLevel(einrichtung.aktuellesKapital, einrichtung.zielKapital);
+   const levelMarker = EINRICHTUNGS_LEVELS.map((stufe) => ({
+     position: stufe.anteil * 100,
+     label: stufe.name,
+   }));
+ 
+   return (
+     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
+       <div>
+-        <p className="eyebrow">{einrichtung!.typ}</p>
+-        <h1>{einrichtung!.name}</h1>
+-        <p className="muted">{einrichtung!.ort} · {einrichtung!.kinderAnzahl} Kinder</p>
++        <p className="eyebrow">{einrichtung.typ}</p>
++        <h1>{einrichtung.name}</h1>
++        <p className="muted">{einrichtung.ort} · {einrichtung.kinderAnzahl} Kinder</p>
+       </div>
+ 
+       <Card>
+         <p className="eyebrow">Finanztopf</p>
+         <ProgressBar
+-          value={einrichtung!.aktuellesKapital}
+-          max={einrichtung!.zielKapital}
+-          label={`${formatEuro(einrichtung!.aktuellesKapital)} von ${formatEuro(einrichtung!.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
++          value={einrichtung.aktuellesKapital}
++          max={einrichtung.zielKapital}
++          label={`${formatEuro(einrichtung.aktuellesKapital)} von ${formatEuro(einrichtung.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
+           marker={levelMarker}
+         />
+         {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
+         {level.next && (
+           <p className="muted">
+             Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
+           </p>
+         )}
+       </Card>
+ 
+       <Card>
+         <p className="eyebrow">Spendenrechner</p>
+         <SpendenRechner einrichtung={rechnerEinrichtung} />
+       </Card>
+ 
++      <Card>
++        <p className="eyebrow">Transparenz</p>
++        <p>{`Förderung pro Kind: ${formatEuro(foerderungProKind)}`}</p>
++        <p className="muted">{`Unterstützungen insgesamt: ${anzahlUnterstuetzungen}`}</p>
++        {spendenHistorie.length === 0 ? (
++          <p className="muted">Noch keine Spenden für diese Einrichtung.</p>
++        ) : (
++          <ul style={{ display: 'grid', gap: '0.5rem', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
++            {spendenHistorie.map((eintrag) => (
++              <li key={eintrag.id}>
++                {eintrag.createdAt.toLocaleDateString('de-DE')} · {formatEuro(eintrag.betrag)}
++                {eintrag.quelle === 'solidaritaet' && (
++                  <span className="positive"> · aus dem Solidaritätsfonds</span>
++                )}
++              </li>
++            ))}
++          </ul>
++        )}
++      </Card>
++
+       <Card>
+         <p className="eyebrow">Für Vorträge & Events</p>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+           {/* eslint-disable-next-line @next/next/no-img-element */}
+           <img
+             src={qrDataUrl}
+-            alt={`QR-Code zu ${einrichtung!.name}`}
++            alt={`QR-Code zu ${einrichtung.name}`}
+             width={140}
+             height={140}
+             style={{ borderRadius: 'var(--radius-sm)', background: 'var(--qr-bg)', padding: '8px' }}
+           />
+           <p className="muted" style={{ maxWidth: '32ch' }}>
+             QR-Code scannen, um direkt auf dieser Seite zu landen — praktisch für Vorträge oder Spendenaktionen vor Ort.
+           </p>
+         </div>
+       </Card>
+     </div>
+diff --git a/stiftung-web/app/statistik/page.tsx b/stiftung-web/app/statistik/page.tsx
+index 34c996d..d82c9fd 100644
+--- a/stiftung-web/app/statistik/page.tsx
++++ b/stiftung-web/app/statistik/page.tsx
+@@ -1,26 +1,30 @@
+ import Link from 'next/link';
+ import { Card } from '@/components/Card';
+ import { BarChart } from '@/components/BarChart';
+ import { SpendenTicker } from '@/components/SpendenTicker';
+ import { formatEuro } from '@/lib/calc/format';
+ import { statistik } from '@/lib/server/einrichtungenService';
++import { jahresabschluesse } from '@/lib/server/simulationService';
+ 
+ function fortschrittProzent(aktuellesKapital: number, zielKapital: number): number {
+   if (zielKapital <= 0) return 0;
+   return Math.round(Math.min(100, Math.max(0, (aktuellesKapital / zielKapital) * 100)));
+ }
+ 
+ export const dynamic = 'force-dynamic';
+ 
+ export default async function StatistikPage() {
+-  const stats = await statistik();
++  const [stats, abschluesse] = await Promise.all([statistik(), jahresabschluesse()]);
++  // Neuester Abschluss zuerst (jahresabschluesse() sortiert bereits absteigend
++  // nach nummer) — dient als ehrlicher Realitäts-Check neben der Simulation.
++  const letzterAbschluss = abschluesse[0];
+ 
+   return (
+     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
+       <div>
+         <h1>Statistik</h1>
+         <p className="muted">
+           {stats.anzahlEinrichtungen} Einrichtungen · {stats.gesamtKinder} Kinder ·{' '}
+           {formatEuro(stats.gesamtKapital)} Gesamtkapital
+         </p>
+       </div>
+@@ -30,24 +34,62 @@ export default async function StatistikPage() {
+           <p className="eyebrow">Ø Volumen pro Einrichtung</p>
+           <p className="hero-number" style={{ fontSize: '1.8rem' }}>{formatEuro(stats.durchschnittlichesVolumen)}</p>
+         </Card>
+         <Card>
+           <p className="eyebrow">Zufluss letzte 12 Monate</p>
+           <p className="hero-number" style={{ fontSize: '1.8rem' }}>{formatEuro(stats.zuflussLetztesJahr)}</p>
+         </Card>
+         <Card>
+           <p className="eyebrow">Simulierter Jahresertrag (6%)</p>
+           <p className="hero-number" style={{ fontSize: '1.8rem' }}>{formatEuro(stats.simulierterJahresertrag)}</p>
+-          <p className="muted" style={{ fontSize: '0.8rem' }}>Simuliert auf Basis des Gesamtkapitals — kein realer Auszahlungs-Flow (folgt mit Payment/KYC).</p>
++          {letzterAbschluss ? (
++            <p className="muted" style={{ fontSize: '0.8rem' }}>
++              {`Letzter echter Abschluss (Nr. ${letzterAbschluss.nummer}): ${formatEuro(letzterAbschluss.fondsErtrag + letzterAbschluss.kapitalErtrag)}`}
++            </p>
++          ) : (
++            <p className="muted" style={{ fontSize: '0.8rem' }}>Simuliert auf Basis des Gesamtkapitals — kein realer Auszahlungs-Flow (folgt mit Payment/KYC).</p>
++          )}
+         </Card>
+       </div>
+ 
++      <Card>
++        <p className="eyebrow">Jahresabschluss-Historie</p>
++        {abschluesse.length === 0 ? (
++          <p className="muted">Noch keine Jahresabschlüsse.</p>
++        ) : (
++          <div style={{ overflowX: 'auto' }}>
++            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
++              <thead>
++                <tr>
++                  <th style={{ textAlign: 'left', padding: '0.4rem' }}>Nr.</th>
++                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Fonds-Ertrag</th>
++                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Kapital-Ertrag</th>
++                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Verteilt</th>
++                  <th style={{ textAlign: 'right', padding: '0.4rem' }}>Datum</th>
++                </tr>
++              </thead>
++              <tbody>
++                {abschluesse.map((a) => (
++                  <tr key={a.id}>
++                    <td style={{ padding: '0.4rem' }}>{a.nummer}</td>
++                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuro(a.fondsErtrag)}</td>
++                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuro(a.kapitalErtrag)}</td>
++                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuro(a.verteiltGesamt)}</td>
++                    <td style={{ textAlign: 'right', padding: '0.4rem' }}>{a.createdAt.toLocaleDateString('de-DE')}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        )}
++      </Card>
++
+       <Card>
+         <p className="eyebrow">Förderung pro Kind — Top 5</p>
+         <BarChart
+           data={stats.top5.map((e) => ({ label: e.name, value: Math.round(e.foerderungProKind) }))}
+           xAxisLabel="Einrichtung"
+           yAxisLabel="Förderung pro Kind (€)"
+         />
+       </Card>
+ 
+       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+diff --git a/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts b/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts
+index 1bb3d63..c5a091f 100644
+--- a/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts
++++ b/stiftung-web/lib/server/__tests__/einrichtungenService.test.ts
+@@ -1,18 +1,19 @@
+ import { describe, it, expect, beforeEach } from 'vitest';
+ import { prisma } from '../prismaClient';
+ import {
+   listEinrichtungen,
+   getEinrichtungBySlug,
+   spenden,
+   statistik,
+   letzteSpenden,
++  einrichtungsTransparenz,
+   EinrichtungNotFoundError,
+   UngueltigerBetragError,
+ } from '../einrichtungenService';
+ 
+ beforeEach(async () => {
+   // 5-Tabellen-Reset-Regel (FK-sichere Reihenfolge):
+   // FondsSpende → Spende → Einrichtung → Solidaritaetsfonds → Jahresabschluss.
+   await prisma.fondsSpende.deleteMany();
+   await prisma.spende.deleteMany();
+   await prisma.einrichtung.deleteMany();
+@@ -181,10 +182,83 @@ describe('letzteSpenden', () => {
+   });
+ 
+   it('begrenzt standardmäßig auf die letzten 10 Spenden', async () => {
+     for (let i = 0; i < 12; i++) {
+       await spenden('test-kita-a', 1, 'einmalig');
+     }
+     const eintraege = await letzteSpenden();
+     expect(eintraege).toHaveLength(10);
+   });
+ });
++
++// Transparenz auf der Detailseite (Task 34): Förderung pro Kind, Spendenhistorie
++// (letzte 10) und Anzahl Unterstützungen gesamt — alles für EINE Einrichtung.
++describe('einrichtungsTransparenz', () => {
++  it('liefert null für unbekannten slug (kein Wurf — die Seite entscheidet über notFound())', async () => {
++    expect(await einrichtungsTransparenz('gibt-es-nicht')).toBeNull();
++  });
++
++  it('liefert Einrichtung, Förderung pro Kind und leere Historie ohne Spenden', async () => {
++    const t = await einrichtungsTransparenz('test-kita-a');
++    expect(t?.einrichtung.slug).toBe('test-kita-a');
++    expect(t?.foerderungProKind).toBe(100); // 1000 € / 10 Kinder
++    expect(t?.anzahlUnterstuetzungen).toBe(0);
++    expect(t?.spendenHistorie).toEqual([]);
++  });
++
++  it('liefert die Historie neueste zuerst, inkl. Quelle', async () => {
++    await spenden('test-kita-a', 50, 'einmalig');
++    const kitaA = await getEinrichtungBySlug('test-kita-a');
++    await prisma.spende.create({
++      data: { einrichtungId: kitaA!.id, betrag: 30, frequenz: 'einmalig', quelle: 'solidaritaet' },
++    });
++
++    const t = await einrichtungsTransparenz('test-kita-a');
++    expect(t?.spendenHistorie).toHaveLength(2);
++    expect(t?.spendenHistorie[0].quelle).toBe('solidaritaet');
++    expect(t?.spendenHistorie[0].betrag).toBe(30);
++    expect(t?.spendenHistorie[1].quelle).toBe('direkt');
++    expect(t?.spendenHistorie[1].betrag).toBe(50);
++  });
++
++  it('begrenzt die Historie auf die letzten 10 Spenden', async () => {
++    for (let i = 0; i < 12; i++) {
++      await spenden('test-kita-a', 1, 'einmalig');
++    }
++    const t = await einrichtungsTransparenz('test-kita-a');
++    expect(t?.spendenHistorie).toHaveLength(10);
++  });
++
++  // Bewusst anders als statistik().anzahlSpenden (der sitesweite Spenderzähler):
++  // dort zählen Solidaritätsfonds-Verteilungen NICHT mit, weil sie aus Sicht
++  // der Gesamt-Site interne Umbuchungen sind, keine neue Spende von außen.
++  // Aus Sicht EINER Einrichtung ist jede Zubuchung — egal ob Direktspende oder
++  // Solidaritäts-Verteilung — eine reale Unterstützung, die gezählt wird.
++  it('zählt Solidaritätsfonds-Verteilungen bei der Einrichtung mit (anders als der sitesweite Spenderzähler)', async () => {
++    const kitaA = await getEinrichtungBySlug('test-kita-a');
++    await prisma.spende.create({
++      data: { einrichtungId: kitaA!.id, betrag: 40, frequenz: 'einmalig', quelle: 'solidaritaet' },
++    });
++    const t = await einrichtungsTransparenz('test-kita-a');
++    expect(t?.anzahlUnterstuetzungen).toBe(1);
++  });
++
++  it('zählt Direktspenden und Solidaritäts-Verteilungen zusammen', async () => {
++    await spenden('test-kita-a', 10, 'einmalig');
++    await spenden('test-kita-a', 20, 'einmalig');
++    const kitaA = await getEinrichtungBySlug('test-kita-a');
++    await prisma.spende.create({
++      data: { einrichtungId: kitaA!.id, betrag: 40, frequenz: 'einmalig', quelle: 'solidaritaet' },
++    });
++    const t = await einrichtungsTransparenz('test-kita-a');
++    expect(t?.anzahlUnterstuetzungen).toBe(3);
++  });
++
++  it('zählt nur Spenden der angefragten Einrichtung, nicht anderer', async () => {
++    await spenden('test-kita-a', 10, 'einmalig');
++    await spenden('test-kita-b', 999, 'einmalig');
++    const t = await einrichtungsTransparenz('test-kita-a');
++    expect(t?.anzahlUnterstuetzungen).toBe(1);
++    expect(t?.spendenHistorie).toHaveLength(1);
++    expect(t?.spendenHistorie[0].betrag).toBe(10);
++  });
++});
+diff --git a/stiftung-web/lib/server/__tests__/simulationService.test.ts b/stiftung-web/lib/server/__tests__/simulationService.test.ts
+index 450b7aa..afdb2c8 100644
+--- a/stiftung-web/lib/server/__tests__/simulationService.test.ts
++++ b/stiftung-web/lib/server/__tests__/simulationService.test.ts
+@@ -1,15 +1,15 @@
+ import { describe, it, expect, beforeEach } from 'vitest';
+ import { prisma } from '../prismaClient';
+ import { spendeAnFonds, getFondsBestand } from '../solidaritaetsfondsService';
+ import { statistik } from '../einrichtungenService';
+-import { simuliereJahr } from '../simulationService';
++import { simuliereJahr, jahresabschluesse } from '../simulationService';
+ 
+ beforeEach(async () => {
+   await prisma.fondsSpende.deleteMany();
+   await prisma.spende.deleteMany();
+   await prisma.einrichtung.deleteMany();
+   await prisma.solidaritaetsfonds.deleteMany();
+   await prisma.jahresabschluss.deleteMany();
+   await prisma.einrichtung.create({
+     data: { slug: 'arm', name: 'Arme Kita', typ: 'kita', ort: 'X', kinderAnzahl: 10, aktuellesKapital: 0, zielKapital: 10000 },
+   });
+@@ -94,10 +94,34 @@ describe('simuliereJahr', () => {
+     await spendeZwoelfMalHundertAnFonds();
+     const ergebnis = await simuliereJahr();
+ 
+     const arm = ergebnis.meilensteine.find((m) => m.slug === 'arm');
+     const reich = ergebnis.meilensteine.find((m) => m.slug === 'reich');
+ 
+     expect(arm).toEqual({ slug: 'arm', name: 'Arme Kita', labels: ['Bronze erreicht'] });
+     expect(reich).toBeUndefined();
+   });
+ });
++
++// Jahresabschluss-Historie (Task 34): Read-Helper auf die bereits von
++// simuliereJahr() persistierte Jahresabschluss-Tabelle — für die Statistik-Seite.
++describe('jahresabschluesse', () => {
++  it('liefert ein leeres Array ohne Abschlüsse', async () => {
++    expect(await jahresabschluesse()).toEqual([]);
++  });
++
++  it('liefert Abschlüsse neueste zuerst (nummer absteigend) mit allen Kennzahlen', async () => {
++    await spendeZwoelfMalHundertAnFonds();
++    await simuliereJahr();
++    await spendeZwoelfMalHundertAnFonds();
++    await simuliereJahr();
++
++    const liste = await jahresabschluesse();
++    expect(liste).toHaveLength(2);
++    expect(liste[0].nummer).toBe(2);
++    expect(liste[1].nummer).toBe(1);
++    expect(liste[0].fondsErtrag).toBeGreaterThan(0);
++    expect(liste[0].kapitalErtrag).toBeGreaterThan(0);
++    expect(typeof liste[0].verteiltGesamt).toBe('number');
++    expect(liste[0].createdAt).toBeInstanceOf(Date);
++  });
++});
+diff --git a/stiftung-web/lib/server/einrichtungenService.ts b/stiftung-web/lib/server/einrichtungenService.ts
+index 53a1e72..0378c72 100644
+--- a/stiftung-web/lib/server/einrichtungenService.ts
++++ b/stiftung-web/lib/server/einrichtungenService.ts
+@@ -101,10 +101,55 @@ export async function letzteSpenden(limit = 10) {
+   });
+   const jetzt = Date.now();
+   return spenden.map((s) => ({
+     betrag: s.betrag,
+     einrichtungName: s.einrichtung.name,
+     quelle: s.quelle,
+     vorMinuten: Math.floor((jetzt - s.createdAt.getTime()) / 60000),
+     zeitpunkt: s.createdAt.getTime(),
+   }));
+ }
++
++/**
++ * Transparenz auf der Einrichtungs-Detailseite (Task 34, Leitbild „Transparenz
++ * vor Vertrauensvorschuss"): Förderung pro Kind, die letzten 10 Spenden dieser
++ * EINEN Einrichtung (mit `quelle` — Labeling von 'solidaritaet' als "aus dem
++ * Solidaritätsfonds" ist Sache der Seite, analog zu letzteSpenden()) und die
++ * Gesamtzahl der Unterstützungen.
++ *
++ * `anzahlUnterstuetzungen` zählt bewusst ALLE Spende-Zeilen dieser Einrichtung
++ * mit — auch quelle 'solidaritaet'. Das unterscheidet sich von
++ * statistik().anzahlSpenden (dem sitesweiten Spenderzähler), der
++ * Solidaritätsfonds-Verteilungen ausschließt, weil sie dort interne
++ * Umbuchungen ohne neue Spende von außen sind. Aus Sicht EINER Einrichtung ist
++ * jede Zubuchung — egal aus welcher Quelle — eine reale Unterstützung.
++ *
++ * Gibt `null` zurück (statt zu werfen) bei unbekanntem slug — die aufrufende
++ * Seite entscheidet selbst über notFound().
++ */
++export async function einrichtungsTransparenz(slug: string) {
++  const einrichtung = await getEinrichtungBySlug(slug);
++  if (!einrichtung) {
++    return null;
++  }
++
++  const [historie, anzahlUnterstuetzungen] = await Promise.all([
++    prisma.spende.findMany({
++      where: { einrichtungId: einrichtung.id },
++      orderBy: { createdAt: 'desc' },
++      take: 10,
++    }),
++    prisma.spende.count({ where: { einrichtungId: einrichtung.id } }),
++  ]);
++
++  return {
++    einrichtung,
++    foerderungProKind: foerderungProKind(einrichtung),
++    anzahlUnterstuetzungen,
++    spendenHistorie: historie.map((s) => ({
++      id: s.id,
++      betrag: s.betrag,
++      quelle: s.quelle,
++      createdAt: s.createdAt,
++    })),
++  };
++}
+diff --git a/stiftung-web/lib/server/simulationService.ts b/stiftung-web/lib/server/simulationService.ts
+index bd2e3c3..29a2624 100644
+--- a/stiftung-web/lib/server/simulationService.ts
++++ b/stiftung-web/lib/server/simulationService.ts
+@@ -73,10 +73,20 @@ export async function simuliereJahr(): Promise<{
+       nummer,
+       fondsErtrag,
+       kapitalErtrag,
+       verteiltGesamt,
+       verteilung,
+       meilensteine,
+       neuerFondsBestand: fondsNachher.bestand,
+     };
+   });
+ }
++
++/**
++ * Read-Helper auf die bereits von simuliereJahr() persistierte
++ * Jahresabschluss-Tabelle (Task 34) — für die Jahresabschluss-Historie auf der
++ * Statistik-Seite. Neueste zuerst (nummer absteigend), keine Berechnung, kein
++ * Duplikat der Buchungslogik in simuliereJahr().
++ */
++export async function jahresabschluesse() {
++  return prisma.jahresabschluss.findMany({ orderBy: { nummer: 'desc' } });
++}

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card } from './Card';
 import { ProgressBar } from './ProgressBar';
+import { WachstumsIllustration } from './WachstumsIllustration';
 import { formatEuro } from '@/lib/calc/format';
 
 interface EinrichtungListItem {
@@ -72,7 +73,19 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
             <Link key={e.id} href={`/einrichtungen/${e.slug}`} style={{ textDecoration: 'none' }}>
               <Card>
                 <p className="eyebrow">{e.typ}</p>
-                <h2 style={{ margin: '0.25rem 0' }}>{e.name}</h2>
+                {/*
+                  Wachstums-Illustration (Task 36, klein) direkt neben dem
+                  Namen — dieselbe Bedeutung wie der ProgressBar-Balken
+                  darunter, nur bedeutungstragend statt rein numerisch.
+                */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', margin: '0.25rem 0' }}>
+                  <WachstumsIllustration
+                    aktuellesKapital={e.aktuellesKapital}
+                    zielKapital={e.zielKapital}
+                    groesse="klein"
+                  />
+                  <h2 style={{ margin: 0 }}>{e.name}</h2>
+                </div>
                 <p className="muted" style={{ margin: '0 0 0.75rem' }}>{e.ort} · {e.kinderAnzahl} Kinder</p>
                 <ProgressBar
                   value={e.aktuellesKapital}

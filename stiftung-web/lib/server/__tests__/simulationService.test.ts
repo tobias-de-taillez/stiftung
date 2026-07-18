@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../prismaClient';
 import { spendeAnFonds, getFondsBestand } from '../solidaritaetsfondsService';
 import { statistik } from '../einrichtungenService';
-import { simuliereJahr } from '../simulationService';
+import { simuliereJahr, jahresabschluesse } from '../simulationService';
 
 beforeEach(async () => {
   await prisma.fondsSpende.deleteMany();
@@ -78,9 +78,50 @@ describe('simuliereJahr', () => {
     expect(erster.kapitalErtrag).toBe(0);
     expect(erster.verteiltGesamt).toBe(0);
     expect(erster.verteilung).toEqual([]);
+    expect(erster.meilensteine).toEqual([]);
     expect(erster.nummer).toBe(1);
 
     const zweiter = await simuliereJahr();
     expect(zweiter.nummer).toBe(2);
+  });
+
+  // Meilenstein-Erkennung (Task 31): derselbe Helper wie in einrichtungenService.spenden(),
+  // aber angewendet über die GESAMTE Jahresspanne (Kapital-Ertrag + Solidaritäts-Verteilung).
+  // "arm" startet bei 0 € von 10.000 € Ziel (0 %); Wachstum bringt nichts (0 € Kapital), die
+  // Verteilung hebt sie auf 1.216,06 € (12,16 %) — überschreitet Bronze (10 %).
+  // "reich" startet bei 90 % und landet bei 95,96 % — keine Schwelle überschritten.
+  it('erkennt Meilensteine pro Einrichtung über Wachstum + Verteilung hinweg (gleicher Helper wie bei Spenden)', async () => {
+    await spendeZwoelfMalHundertAnFonds();
+    const ergebnis = await simuliereJahr();
+
+    const arm = ergebnis.meilensteine.find((m) => m.slug === 'arm');
+    const reich = ergebnis.meilensteine.find((m) => m.slug === 'reich');
+
+    expect(arm).toEqual({ slug: 'arm', name: 'Arme Kita', labels: ['Bronze erreicht'] });
+    expect(reich).toBeUndefined();
+  });
+});
+
+// Jahresabschluss-Historie (Task 34): Read-Helper auf die bereits von
+// simuliereJahr() persistierte Jahresabschluss-Tabelle — für die Statistik-Seite.
+describe('jahresabschluesse', () => {
+  it('liefert ein leeres Array ohne Abschlüsse', async () => {
+    expect(await jahresabschluesse()).toEqual([]);
+  });
+
+  it('liefert Abschlüsse neueste zuerst (nummer absteigend) mit allen Kennzahlen', async () => {
+    await spendeZwoelfMalHundertAnFonds();
+    await simuliereJahr();
+    await spendeZwoelfMalHundertAnFonds();
+    await simuliereJahr();
+
+    const liste = await jahresabschluesse();
+    expect(liste).toHaveLength(2);
+    expect(liste[0].nummer).toBe(2);
+    expect(liste[1].nummer).toBe(1);
+    expect(liste[0].fondsErtrag).toBeGreaterThan(0);
+    expect(liste[0].kapitalErtrag).toBeGreaterThan(0);
+    expect(typeof liste[0].verteiltGesamt).toBe('number');
+    expect(liste[0].createdAt).toBeInstanceOf(Date);
   });
 });

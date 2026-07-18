@@ -1,0 +1,698 @@
+# Review package: c8781f5..1572d1a
+
+## Commits
+1572d1a feat(design): eigene Wachstums-Bildwelt statt Weltraum-Illustration (Task 36)
+
+## Files changed
+ stiftung-web/app/__tests__/page.test.tsx           |  10 ++
+ .../einrichtungen/[slug]/__tests__/page.test.tsx   |  17 ++-
+ stiftung-web/app/einrichtungen/[slug]/page.tsx     |  40 ++++--
+ stiftung-web/app/globals.css                       |  37 +++++
+ stiftung-web/app/page.tsx                          |  21 ++-
+ stiftung-web/components/EinrichtungenFilter.tsx    |  15 +-
+ stiftung-web/components/KennzahlHero.tsx           |   4 +-
+ stiftung-web/components/MiniBalkenwald.tsx         |   5 +-
+ stiftung-web/components/WachstumsIllustration.tsx  | 156 +++++++++++++++++++++
+ .../__tests__/EinrichtungenFilter.test.tsx         |  17 +++
+ .../__tests__/WachstumsIllustration.test.tsx       |  56 ++++++++
+ 11 files changed, 358 insertions(+), 20 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/app/__tests__/page.test.tsx b/stiftung-web/app/__tests__/page.test.tsx
+index c0db08a..8d1f8a1 100644
+--- a/stiftung-web/app/__tests__/page.test.tsx
++++ b/stiftung-web/app/__tests__/page.test.tsx
+@@ -107,12 +107,22 @@ describe('Landing Page', () => {
+       expect(balken.length).toBe(2);
+       const labels = Array.from(balken).map((b) => b.getAttribute('aria-label') ?? '');
+       expect(labels.some((l) => l.includes('Gut geförderte Kita') && /10\.000,00\s*€/.test(l))).toBe(true);
+       expect(labels.some((l) => l.includes('Tagespflege mit Bedarf') && /100,00\s*€/.test(l))).toBe(true);
+     });
+ 
+     it('behält den Live-Ticker im Visual-Slot (harmonisch neben Kennzahl und Balkenwald)', async () => {
+       render(await Page());
+       expect(screen.getByText(/Live-Ticker/i)).toBeInTheDocument();
+     });
++
++    // Task 36: Wachstums-Illustration steht groß neben der Kennzahl und
++    // codiert das AGGREGAT über beide Einrichtungen (10.100 € von 70.000 €
++    // Gesamtzielkapital = 14,4 % → Bronze/Stufe 1), nicht eine einzelne.
++    it('zeigt die aggregierte Wachstums-Illustration neben der Kennzahl (Gesamtkapital/-ziel über alle Einrichtungen)', async () => {
++      const { container } = render(await Page());
++      const illustration = container.querySelector('[data-testid="wachstums-illustration"]');
++      expect(illustration).toHaveAttribute('data-stage', '1');
++      expect(screen.getByText('Wachstumsstufe: Keimling — Bronze erreicht')).toBeInTheDocument();
++    });
+   });
+ });
+diff --git a/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx b/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx
+index 2757013..a313b54 100644
+--- a/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx
++++ b/stiftung-web/app/einrichtungen/[slug]/__tests__/page.test.tsx
+@@ -45,41 +45,54 @@ describe('EinrichtungDetailPage', () => {
+     });
+ 
+     it('zeigt "Nächstes Ziel: Bronze — noch 4.000,00 €" unterhalb 10 % (1.000 von 50.000 €), ohne Aktuelles-Level-Zeile', async () => {
+       // aktuellesKapital 1.000 / zielKapital 50.000 = 2 % → unter Bronze (10 %).
+       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+       render(jsx);
+       expect(screen.getByText(/Nächstes Ziel: Bronze — noch 4\.000,00 €/)).toBeInTheDocument();
+       expect(screen.queryByText(/Aktuelles Level/)).not.toBeInTheDocument();
+     });
+ 
++    // Task 36: Wachstums-Illustration neben dem Finanztopf-Balken — codiert
++    // dieselbe Kennzahl (aktuellesKapital/zielKapital) wie levelMarker oben.
++    it('zeigt die Wachstums-Illustration mit dem passenden Zustandstext (2 % → Stufe 0, Samen)', async () => {
++      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
++      const { container } = render(jsx);
++      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '0');
++      expect(screen.getByText('Wachstumsstufe: Samen — noch kein Level erreicht')).toBeInTheDocument();
++    });
++
+     it('zeigt das aktuelle Level und das nächste Ziel bei 60 % des Zielkapitals (Gold, nächstes Platin)', async () => {
+       await prisma.einrichtung.update({
+         where: { slug: 'detail-test-kita' },
+         data: { aktuellesKapital: 30000 },
+       });
+       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+-      render(jsx);
++      const { container } = render(jsx);
+       expect(screen.getByText(/Aktuelles Level: Gold/)).toBeInTheDocument();
+       // Platin liegt bei 75 % von 50.000 € = 37.500 €, aktuell 30.000 € → fehlen 7.500 €.
+       expect(screen.getByText(/Nächstes Ziel: Platin — noch 7\.500,00 €/)).toBeInTheDocument();
++      // Wachstums-Illustration (Task 36) zeigt dasselbe Level als Stufe 3.
++      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '3');
+     });
+ 
+     it('zeigt bei Zielerreichung (100 %) das Diamant-Level ohne Nächstes-Ziel-Zeile', async () => {
+       await prisma.einrichtung.update({
+         where: { slug: 'detail-test-kita' },
+         data: { aktuellesKapital: 50000 },
+       });
+       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+-      render(jsx);
++      const { container } = render(jsx);
+       expect(screen.getByText(/Aktuelles Level: Diamant/)).toBeInTheDocument();
+       expect(screen.queryByText(/Nächstes Ziel/)).not.toBeInTheDocument();
++      // Wachstums-Illustration (Task 36) zeigt Stufe 5 (Baum voller Früchte).
++      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '5');
+     });
+   });
+ 
+   // Transparenz auf der Detailseite (Task 34): Förderung pro Kind,
+   // Spendenhistorie mit explizitem Solidaritätsfonds-Label, Anzahl
+   // Unterstützungen gesamt.
+   describe('Transparenz (Task 34)', () => {
+     it('zeigt Förderung pro Kind und Anzahl Unterstützungen ohne Spenden', async () => {
+       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+       render(jsx);
+diff --git a/stiftung-web/app/einrichtungen/[slug]/page.tsx b/stiftung-web/app/einrichtungen/[slug]/page.tsx
+index 1bd19b0..b48cc72 100644
+--- a/stiftung-web/app/einrichtungen/[slug]/page.tsx
++++ b/stiftung-web/app/einrichtungen/[slug]/page.tsx
+@@ -1,15 +1,16 @@
+ import { notFound } from 'next/navigation';
+ import QRCode from 'qrcode';
+ import { Card } from '@/components/Card';
+ import { ProgressBar } from '@/components/ProgressBar';
+ import { SpendenRechner } from '@/components/SpendenRechner';
++import { WachstumsIllustration } from '@/components/WachstumsIllustration';
+ import { formatEuro } from '@/lib/calc/format';
+ import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
+ import { einrichtungsTransparenz } from '@/lib/server/einrichtungenService';
+ 
+ // Spendenhistorie und Finanztopf-Stand müssen live sein (Task 34) — ohne
+ // force-dynamic würde Next diese [slug]-Route trotz dynamischer Params unter
+ // dem Full Route Cache ablegen können, weil hier nur über Prisma (nicht
+ // fetch()) gelesen wird. Gleiches Muster wie app/statistik/page.tsx.
+ export const dynamic = 'force-dynamic';
+ 
+@@ -41,32 +42,47 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
+   return (
+     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
+       <div>
+         <p className="eyebrow">{einrichtung.typ}</p>
+         <h1>{einrichtung.name}</h1>
+         <p className="muted">{einrichtung.ort} · {einrichtung.kinderAnzahl} Kinder</p>
+       </div>
+ 
+       <Card>
+         <p className="eyebrow">Finanztopf</p>
+-        <ProgressBar
+-          value={einrichtung.aktuellesKapital}
+-          max={einrichtung.zielKapital}
+-          label={`${formatEuro(einrichtung.aktuellesKapital)} von ${formatEuro(einrichtung.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
+-          marker={levelMarker}
+-        />
+-        {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
+-        {level.next && (
+-          <p className="muted">
+-            Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
+-          </p>
+-        )}
++        {/*
++          Wachstums-Illustration (Task 36): dieselbe Kennzahl (aktuellesKapital
++          / zielKapital), die auch levelMarker/ProgressBar unten antreibt —
++          die Pflanze zeigt dasselbe Einrichtungs-Level nur zusätzlich
++          bedeutungstragend statt rein textuell/über den Balken.
++        */}
++        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
++          <WachstumsIllustration
++            aktuellesKapital={einrichtung.aktuellesKapital}
++            zielKapital={einrichtung.zielKapital}
++            groesse="gross"
++          />
++          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
++            <ProgressBar
++              value={einrichtung.aktuellesKapital}
++              max={einrichtung.zielKapital}
++              label={`${formatEuro(einrichtung.aktuellesKapital)} von ${formatEuro(einrichtung.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
++              marker={levelMarker}
++            />
++            {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
++            {level.next && (
++              <p className="muted">
++                Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
++              </p>
++            )}
++          </div>
++        </div>
+       </Card>
+ 
+       <Card>
+         <p className="eyebrow">Spendenrechner</p>
+         <SpendenRechner einrichtung={rechnerEinrichtung} />
+       </Card>
+ 
+       <Card>
+         <p className="eyebrow">Transparenz</p>
+         <p>{`Förderung pro Kind: ${formatEuro(foerderungProKind)}`}</p>
+diff --git a/stiftung-web/app/globals.css b/stiftung-web/app/globals.css
+index f0118f2..e79ddbb 100644
+--- a/stiftung-web/app/globals.css
++++ b/stiftung-web/app/globals.css
+@@ -347,20 +347,57 @@ a:hover .card {
+ .mini-balkenwald-bar {
+   animation: mini-balkenwald-grow 700ms ease-out;
+ }
+ 
+ @keyframes mini-balkenwald-grow {
+   from {
+     height: 0;
+   }
+ }
+ 
++/*
++ * Wachstums-Illustration (Task 36): sanfte Wind-Animation für den
++ * oberirdischen Teil der Pflanze (Stamm + Krone/Blätter + Früchte) — der
++ * Erdhügel/Topf darunter bleibt unbewegt. Rotiert um den Fußpunkt
++ * (60,100 im 0..120-viewBox-Koordinatenraum aller Wuchsstufen).
++ * `transform-box: view-box` verankert transform-origin am viewBox-
++ * Koordinatensystem des SVGs statt an der Bounding-Box der Gruppe selbst
++ * (die je nach Wuchsstufe unterschiedlich groß/versetzt ist) — sonst würde
++ * der Drehpunkt zwischen den Stufen wandern.
++ *
++ * Bewusst 0%/100% als Ruhezustand (nicht `animation: … alternate` wie bei
++ * .zeitraffer-eintrag/.spenden-ticker-eintrag): unter dem globalen
++ * prefers-reduced-motion-Override unten wird animation-iteration-count auf 1
++ * gekappt, dann ist das LETZTE Keyframe (100%) der eingefrorene Endzustand.
++ * Mit alternate + iteration-count:1 bliebe die Pflanze bei einer ungeraden
++ * Iteration schief bei +3° stehen — hier landet sie garantiert aufrecht,
++ * unabhängig von fill-mode/iteration-count.
++ */
++.wachstum-sway {
++  transform-box: view-box;
++  transform-origin: 60px 100px;
++  animation: wachstum-sway 4s ease-in-out infinite;
++}
++
++@keyframes wachstum-sway {
++  0%,
++  100% {
++    transform: rotate(0deg);
++  }
++  25% {
++    transform: rotate(-3deg);
++  }
++  75% {
++    transform: rotate(3deg);
++  }
++}
++
+ :focus-visible {
+   outline: 3px solid var(--focus);
+   outline-offset: 3px;
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+   *, *::before, *::after {
+     animation-duration: 0.001ms !important;
+     animation-iteration-count: 1 !important;
+     transition-duration: 0.001ms !important;
+diff --git a/stiftung-web/app/page.tsx b/stiftung-web/app/page.tsx
+index 154396f..ca6ddbc 100644
+--- a/stiftung-web/app/page.tsx
++++ b/stiftung-web/app/page.tsx
+@@ -1,30 +1,35 @@
+ import Link from 'next/link';
+ import { Card } from '@/components/Card';
+ import { SpendenTicker } from '@/components/SpendenTicker';
+ import { KennzahlHero } from '@/components/KennzahlHero';
+ import { MiniBalkenwald } from '@/components/MiniBalkenwald';
++import { WachstumsIllustration } from '@/components/WachstumsIllustration';
+ import { capitalForAnnualPayout, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+ import { formatEuro } from '@/lib/calc/format';
+ import { statistik, listEinrichtungen } from '@/lib/server/einrichtungenService';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+ export default async function Page() {
+   const beispielZiel = capitalForAnnualPayout(20000);
+   const [stats, einrichtungen] = await Promise.all([statistik(), listEinrichtungen()]);
+   const zielEinrichtung = stats.bottom5[0];
+   const zielHref = zielEinrichtung ? `/einrichtungen/${zielEinrichtung.slug}` : '/einrichtungen';
+   // Verdopplungszeit aus der bestehenden Konstante NET_GROWTH_RATE abgeleitet
+   // (keine zweite Marketing-Zahl): t = ln(2) / ln(1 + r).
+   const verdopplungsjahre = Math.round(Math.log(2) / Math.log(1 + NET_GROWTH_RATE));
+   const balkenwaldDaten = einrichtungen.map((e) => ({ slug: e.slug, name: e.name, kapital: e.aktuellesKapital }));
++  // Wachstums-Illustration (Task 36) im Hero: Aggregat statt einer einzelnen
++  // Einrichtung — Summe aller Zielkapitale, dieselbe Grundgesamtheit wie
++  // stats.gesamtKapital (beide aus derselben listEinrichtungen()-Abfrage).
++  const gesamtZielKapital = einrichtungen.reduce((sum, e) => sum + e.zielKapital, 0);
+ 
+   return (
+     <div style={{ padding: '3rem 0', display: 'grid', gap: '2rem' }}>
+       {/*
+         Hero-Grid (Task 35): links Text/Mission/CTAs, rechts der
+         Visual-Slot (Kennzahl-Komposition + Live-Ticker) — füllt die zuvor
+         leere rechte Hälfte bei 1080px-Containerbreite. Unter 800px fällt
+         .hero-grid (globals.css) auf einspaltig zurück.
+       */}
+       <section className="hero-grid">
+@@ -46,21 +51,35 @@ export default async function Page() {
+           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+             <Link href={zielHref} className="pill pill-primary">Jetzt spenden</Link>
+             <Link href="/einrichtungen" className="pill pill-secondary">Einrichtung finden</Link>
+             <Link href="/statistik" className="pill pill-secondary">Statistik ansehen</Link>
+             <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
+           </div>
+         </div>
+ 
+         <div className="hero-visual">
+           <Card>
+-            <KennzahlHero gesamtKapital={stats.gesamtKapital} />
++            {/*
++              Wachstums-Illustration (Task 36): löst die Platzhalter-Notiz in
++              KennzahlHero/MiniBalkenwald ein ("interimistische Füllung, bis
++              Task 36 ggf. eine Illustration liefert") — steht bewusst NEBEN
++              der Kennzahl (toppt sie, ersetzt sie nicht), Mini-Balkenwald
++              bleibt unverändert darunter erhalten.
++            */}
++            <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
++              <WachstumsIllustration
++                aktuellesKapital={stats.gesamtKapital}
++                zielKapital={gesamtZielKapital}
++                groesse="gross"
++              />
++              <KennzahlHero gesamtKapital={stats.gesamtKapital} />
++            </div>
+             {/*
+               Bewusst kein <p> (statt eyebrow-typisch): der Live-Zahlen-Absatz
+               im linken Grid-Teil ist ebenfalls ein <p> und matcht denselben
+               /Einrichtungen/-Text — screen.getByText(..., { selector: 'p' })
+               im Landing-Test würde sonst zwei Treffer finden.
+             */}
+             <div className="eyebrow" style={{ marginTop: '1.5rem' }}>
+               {einrichtungen.length} Einrichtungen im Überblick
+             </div>
+             <MiniBalkenwald einrichtungen={balkenwaldDaten} />
+diff --git a/stiftung-web/components/EinrichtungenFilter.tsx b/stiftung-web/components/EinrichtungenFilter.tsx
+index 1ad0b90..fb4ee32 100644
+--- a/stiftung-web/components/EinrichtungenFilter.tsx
++++ b/stiftung-web/components/EinrichtungenFilter.tsx
+@@ -1,16 +1,17 @@
+ 'use client';
+ 
+ import { useMemo, useState } from 'react';
+ import Link from 'next/link';
+ import { Card } from './Card';
+ import { ProgressBar } from './ProgressBar';
++import { WachstumsIllustration } from './WachstumsIllustration';
+ import { formatEuro } from '@/lib/calc/format';
+ 
+ interface EinrichtungListItem {
+   id: string;
+   slug: string;
+   name: string;
+   typ: string;
+   ort: string;
+   kinderAnzahl: number;
+   aktuellesKapital: number;
+@@ -65,21 +66,33 @@ export function EinrichtungenFilter({ einrichtungen }: { einrichtungen: Einricht
+       </div>
+ 
+       {gefiltert.length === 0 ? (
+         <Card><p>Keine Einrichtung gefunden. Suche oder Filter anpassen.</p></Card>
+       ) : (
+         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
+           {gefiltert.map((e) => (
+             <Link key={e.id} href={`/einrichtungen/${e.slug}`} style={{ textDecoration: 'none' }}>
+               <Card>
+                 <p className="eyebrow">{e.typ}</p>
+-                <h2 style={{ margin: '0.25rem 0' }}>{e.name}</h2>
++                {/*
++                  Wachstums-Illustration (Task 36, klein) direkt neben dem
++                  Namen — dieselbe Bedeutung wie der ProgressBar-Balken
++                  darunter, nur bedeutungstragend statt rein numerisch.
++                */}
++                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', margin: '0.25rem 0' }}>
++                  <WachstumsIllustration
++                    aktuellesKapital={e.aktuellesKapital}
++                    zielKapital={e.zielKapital}
++                    groesse="klein"
++                  />
++                  <h2 style={{ margin: 0 }}>{e.name}</h2>
++                </div>
+                 <p className="muted" style={{ margin: '0 0 0.75rem' }}>{e.ort} · {e.kinderAnzahl} Kinder</p>
+                 <ProgressBar
+                   value={e.aktuellesKapital}
+                   max={e.zielKapital}
+                   label={`${formatEuro(e.aktuellesKapital)} von ${formatEuro(e.zielKapital)}`}
+                 />
+               </Card>
+             </Link>
+           ))}
+         </div>
+diff --git a/stiftung-web/components/KennzahlHero.tsx b/stiftung-web/components/KennzahlHero.tsx
+index 045a290..a8e3e5d 100644
+--- a/stiftung-web/components/KennzahlHero.tsx
++++ b/stiftung-web/components/KennzahlHero.tsx
+@@ -1,19 +1,19 @@
+ 'use client';
+ 
+ import { useCountUp } from '@/lib/hooks/useCountUp';
+ import { formatEuro } from '@/lib/calc/format';
+ 
+ /**
+  * Kennzahl-Hero (Task 35): große, animiert hochzählende Gesamtkapital-Zahl
+- * für den rechten Hero-Visual-Slot — interimistische Füllung, bis Task 36
+- * ggf. eine Illustration liefert (harter User-Gate, hier nicht vorgegriffen).
++ * für den rechten Hero-Visual-Slot — steht seit Task 36 neben der
++ * Wachstums-Illustration (siehe app/page.tsx), nicht durch sie ersetzt.
+  *
+  * Eigene Client-Komponente, weil `app/page.tsx` eine async Server Component
+  * ist und Hooks (useCountUp) nur in Client-Components laufen dürfen.
+  * useCountUp selbst respektiert `prefers-reduced-motion` (Sofort-Sprung auf
+  * den Zielwert, siehe lib/hooks/useCountUp.ts).
+  */
+ export function KennzahlHero({ gesamtKapital }: { gesamtKapital: number }) {
+   const angezeigt = useCountUp(gesamtKapital, 1200);
+   return (
+     <div data-testid="kennzahl-hero">
+diff --git a/stiftung-web/components/MiniBalkenwald.tsx b/stiftung-web/components/MiniBalkenwald.tsx
+index 094abd5..3e47084 100644
+--- a/stiftung-web/components/MiniBalkenwald.tsx
++++ b/stiftung-web/components/MiniBalkenwald.tsx
+@@ -1,22 +1,23 @@
+ import { formatEuro } from '@/lib/calc/format';
+ 
+ export interface BalkenwaldEintrag {
+   slug: string;
+   name: string;
+   kapital: number;
+ }
+ 
+ /**
+  * Mini-Balkenwald (Task 35): kompakte Balkenübersicht aller Einrichtungen
+- * für den rechten Hero-Visual-Slot — interimistische Füllung, bis Task 36
+- * ggf. eine Illustration liefert. Nutzt echte Daten (listEinrichtungen()),
++ * für den rechten Hero-Visual-Slot — bleibt bewusst neben der
++ * Wachstums-Illustration (Task 36) bestehen, statt von ihr ersetzt zu
++ * werden (siehe app/page.tsx). Nutzt echte Daten (listEinrichtungen()),
+  * keine Fixture — bei 8 Einrichtungen im Seed entsteht so der titelgebende
+  * "Wald" aus 8 Balken, generisch für jede Anzahl.
+  *
+  * Wachstum läuft rein über CSS (.mini-balkenwald-bar in globals.css, gleiches
+  * "nur from-Keyframe"-Muster wie .progress-bar-fill-in): kein Hook, keine
+  * 'use client'-Direktive nötig, SSR-fähig, automatisch reduced-motion-sicher
+  * über den globalen Override.
+  *
+  * Wie bei BarChart.tsx trägt jeder Balken einen Text-Label (Name) UND einen
+  * title-Tooltip mit Name+Betrag — Wert wird nie nur über Balkenhöhe/Farbe
+diff --git a/stiftung-web/components/WachstumsIllustration.tsx b/stiftung-web/components/WachstumsIllustration.tsx
+new file mode 100644
+index 0000000..4a760ff
+--- /dev/null
++++ b/stiftung-web/components/WachstumsIllustration.tsx
+@@ -0,0 +1,156 @@
++import { einrichtungsLevel } from '@/lib/data/levels';
++
++export interface WachstumsIllustrationProps {
++  aktuellesKapital: number;
++  zielKapital: number;
++  groesse?: 'klein' | 'gross';
++}
++
++interface Wuchsstufe {
++  stage: number;
++  name: string;
++  levelLabel: string | null;
++}
++
++// Task 36: eigene Bildwelt „Wachstum" statt der Weltraum-/Missions-
++// Illustration des Vorgänger-Projekts (DESIGN.md §3 im wealth-Projekt:
++// „bedeutungstragend, nicht dekorativ"). Die Wuchsstufe der Pflanze codiert
++// direkt das Einrichtungs-Level aus einrichtungsLevel() (Task 30) — sechs
++// Stufen, wobei Stufe 0 (Samen) den Zustand "current === null" abbildet
++// (noch nicht einmal Bronze/10 % erreicht) und die Stufen 1–5 den fünf
++// EINRICHTUNGS_LEVELS 1:1 entsprechen. Reihenfolge ist absichtlich
++// deckungsgleich mit lib/data/levels.ts EINRICHTUNGS_LEVELS, damit ein
++// Level-Name hier per levelLabel wiedergefunden wird, statt die
++// Schwellenlogik zu duplizieren.
++const WUCHSSTUFEN: Wuchsstufe[] = [
++  { stage: 0, name: 'Samen', levelLabel: null },
++  { stage: 1, name: 'Keimling', levelLabel: 'Bronze' },
++  { stage: 2, name: 'Junges Bäumchen', levelLabel: 'Silber' },
++  { stage: 3, name: 'Baum mit Krone', levelLabel: 'Gold' },
++  { stage: 4, name: 'Großer Baum', levelLabel: 'Platin' },
++  { stage: 5, name: 'Baum voller Früchte', levelLabel: 'Diamant' },
++];
++
++function wuchsstufeFuer(levelName: string | undefined): Wuchsstufe {
++  if (!levelName) return WUCHSSTUFEN[0];
++  return WUCHSSTUFEN.find((s) => s.levelLabel === levelName) ?? WUCHSSTUFEN[0];
++}
++
++// Erdhügel/Topf — für alle Stufen gleich, schwingt NICHT im Wind (nur der
++// oberirdische Pflanzenteil tut das, siehe .wachstum-sway weiter unten).
++function ErdhuegelUndSamen({ zeigeSamen }: { zeigeSamen: boolean }) {
++  return (
++    <>
++      <ellipse cx="60" cy="103" rx="36" ry="11" fill="var(--surface-2)" stroke="var(--lavender)" strokeWidth="2" />
++      {zeigeSamen && <circle cx="60" cy="97" r="6" fill="var(--lavender)" />}
++    </>
++  );
++}
++
++// Oberirdischer Pflanzenteil je Stufe — nur eigene SVG-Primitives
++// (Rechtecke/Ellipsen/Kreise), ausschließlich Token-Farben: Stamm/Blätter/
++// Krone in var(--turquoise), Früchte (nur Stufe 5) in var(--sun).
++function Pflanze({ stage }: { stage: number }) {
++  switch (stage) {
++    case 1: // Keimling: dünner Stiel + zwei kleine Keimblätter
++      return (
++        <>
++          <rect x="57" y="78" width="6" height="22" rx="3" fill="var(--turquoise)" />
++          <ellipse cx="48" cy="80" rx="9" ry="5" fill="var(--turquoise)" transform="rotate(-25 48 80)" />
++          <ellipse cx="72" cy="80" rx="9" ry="5" fill="var(--turquoise)" transform="rotate(25 72 80)" />
++        </>
++      );
++    case 2: // Junges Bäumchen: höherer Stamm + kleine runde Krone
++      return (
++        <>
++          <rect x="56" y="55" width="8" height="45" rx="4" fill="var(--turquoise)" />
++          <circle cx="60" cy="48" r="20" fill="var(--turquoise)" />
++        </>
++      );
++    case 3: // Baum mit Krone: kräftigerer Stamm + größere Krone
++      return (
++        <>
++          <rect x="54" y="38" width="12" height="62" rx="5" fill="var(--turquoise)" />
++          <circle cx="60" cy="34" r="28" fill="var(--turquoise)" />
++        </>
++      );
++    case 4: // Großer Baum: dickerer Stamm + volle Krone aus drei Kreisen
++      return (
++        <>
++          <rect x="52" y="28" width="16" height="72" rx="6" fill="var(--turquoise)" />
++          <circle cx="60" cy="24" r="30" fill="var(--turquoise)" />
++          <circle cx="38" cy="36" r="20" fill="var(--turquoise)" />
++          <circle cx="82" cy="36" r="20" fill="var(--turquoise)" />
++        </>
++      );
++    case 5: // Baum voller Früchte: wie Stufe 4, plus verstreute Früchte
++      return (
++        <>
++          <rect x="52" y="28" width="16" height="72" rx="6" fill="var(--turquoise)" />
++          <circle cx="60" cy="24" r="30" fill="var(--turquoise)" />
++          <circle cx="38" cy="36" r="20" fill="var(--turquoise)" />
++          <circle cx="82" cy="36" r="20" fill="var(--turquoise)" />
++          <circle cx="46" cy="16" r="5" fill="var(--sun)" />
++          <circle cx="74" cy="14" r="5" fill="var(--sun)" />
++          <circle cx="60" cy="32" r="5" fill="var(--sun)" />
++          <circle cx="34" cy="34" r="5" fill="var(--sun)" />
++          <circle cx="86" cy="30" r="5" fill="var(--sun)" />
++        </>
++      );
++    default:
++      return null;
++  }
++}
++
++/**
++ * Wachstums-Illustration (Task 36): bedeutungstragende SVG-Pflanze, deren
++ * Wuchsstufe den Finanztopf-Füllstand einer Einrichtung (oder — auf der
++ * Landing-Page — die Summe aller Einrichtungen) codiert. Reine SVG/CSS-
++ * Primitives, keine Bild-Assets, keine neue Dependency.
++ *
++ * Synchrone Server-Komponente (wie MiniBalkenwald) — keine Hooks nötig, die
++ * Wind-Animation läuft komplett über CSS (.wachstum-sway in globals.css) und
++ * degradiert unter prefers-reduced-motion automatisch über den bestehenden
++ * globalen Override dort.
++ *
++ * Barrierefreiheit (DESIGN.md: „Status nie nur über Farbe/visuell"): das SVG
++ * selbst ist `aria-hidden`, der Zustand steht als sichtbarer Text daneben
++ * (nicht sr-only) — in BEIDEN Größen, nicht nur in der großen.
++ */
++export function WachstumsIllustration({ aktuellesKapital, zielKapital, groesse = 'gross' }: WachstumsIllustrationProps) {
++  const { current } = einrichtungsLevel(aktuellesKapital, zielKapital);
++  const stufe = wuchsstufeFuer(current?.name);
++  const groesseInPx = groesse === 'klein' ? 64 : 180;
++  const zustandsText = stufe.levelLabel
++    ? `Wachstumsstufe: ${stufe.name} — ${stufe.levelLabel} erreicht`
++    : `Wachstumsstufe: ${stufe.name} — noch kein Level erreicht`;
++
++  return (
++    <div
++      data-testid="wachstums-illustration"
++      data-stage={stufe.stage}
++      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', width: groesseInPx }}
++    >
++      <svg
++        aria-hidden="true"
++        viewBox="0 0 120 120"
++        width={groesseInPx}
++        height={groesseInPx}
++        className={`wachstum-stufe-${stufe.stage}`}
++      >
++        <ErdhuegelUndSamen zeigeSamen={stufe.stage === 0} />
++        {stufe.stage > 0 && (
++          <g className="wachstum-sway">
++            <Pflanze stage={stufe.stage} />
++          </g>
++        )}
++      </svg>
++      <p
++        className={groesse === 'klein' ? 'muted' : 'eyebrow'}
++        style={{ margin: 0, fontSize: groesse === 'klein' ? '0.65rem' : undefined, textAlign: 'center', lineHeight: 1.25 }}
++      >
++        {zustandsText}
++      </p>
++    </div>
++  );
++}
+diff --git a/stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx b/stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx
+index f7c9327..5b875bc 100644
+--- a/stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx
++++ b/stiftung-web/components/__tests__/EinrichtungenFilter.test.tsx
+@@ -30,11 +30,28 @@ describe('EinrichtungenFilter', () => {
+     expect(screen.getByText(/Keine Einrichtung gefunden/i)).toBeInTheDocument();
+   });
+ 
+   it('filtert per Suche nach Name oder Ort (trimmt Leerzeichen)', async () => {
+     const user = userEvent.setup();
+     render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
+     await user.type(screen.getByLabelText(/Suche/i), ' wirbelwind ');
+     expect(screen.getByText('Tagespflege Wirbelwind')).toBeInTheDocument();
+     expect(screen.queryByText('Grundschule Sonnenhügel')).not.toBeInTheDocument();
+   });
++
++  // Task 36: Wachstums-Illustration steht klein neben dem Namen jeder Karte.
++  describe('Wachstums-Illustration (Task 36)', () => {
++    it('rendert genau eine Illustration pro Karte', () => {
++      const { container } = render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
++      expect(container.querySelectorAll('[data-testid="wachstums-illustration"]')).toHaveLength(EINRICHTUNGEN.length);
++    });
++
++    it('zeigt den sichtbaren Zustandstext je Karte (beide Fixtures liegen bei Bronze: 12 %/20 %)', () => {
++      render(<EinrichtungenFilter einrichtungen={EINRICHTUNGEN} />);
++      // Beide Fixture-Einrichtungen liegen zwischen 10 % und 25 % ihres
++      // Zielkapitals (3.000/25.000 = 12 %, 50.000/250.000 = 20 %) — beide
++      // zeigen daher denselben Bronze-Zustandstext, deshalb getAllByText
++      // statt getByText.
++      expect(screen.getAllByText('Wachstumsstufe: Keimling — Bronze erreicht')).toHaveLength(EINRICHTUNGEN.length);
++    });
++  });
+ });
+diff --git a/stiftung-web/components/__tests__/WachstumsIllustration.test.tsx b/stiftung-web/components/__tests__/WachstumsIllustration.test.tsx
+new file mode 100644
+index 0000000..3a13cfe
+--- /dev/null
++++ b/stiftung-web/components/__tests__/WachstumsIllustration.test.tsx
+@@ -0,0 +1,56 @@
++import { render, screen } from '@testing-library/react';
++import { describe, it, expect } from 'vitest';
++import { WachstumsIllustration } from '../WachstumsIllustration';
++
++// Sechs Wuchsstufen (Task 36) — deckungsgleich mit den fünf
++// EINRICHTUNGS_LEVELS aus lib/data/levels.ts plus Stufe 0 (current === null,
++// noch nicht einmal Bronze/10 % erreicht). Jede Zeile wählt aktuellesKapital
++// so, dass einrichtungsLevel() eindeutig genau ein Level (oder keins)
++// zurückgibt — siehe lib/data/__tests__/levels.test.ts für dieselben
++// Schwellen (10/25/50/75/100 % von zielKapital).
++const STUFEN = [
++  { stage: 0, aktuell: 0, ziel: 100000, text: 'Wachstumsstufe: Samen — noch kein Level erreicht' },
++  { stage: 1, aktuell: 15000, ziel: 100000, text: 'Wachstumsstufe: Keimling — Bronze erreicht' },
++  { stage: 2, aktuell: 30000, ziel: 100000, text: 'Wachstumsstufe: Junges Bäumchen — Silber erreicht' },
++  { stage: 3, aktuell: 60000, ziel: 100000, text: 'Wachstumsstufe: Baum mit Krone — Gold erreicht' },
++  { stage: 4, aktuell: 80000, ziel: 100000, text: 'Wachstumsstufe: Großer Baum — Platin erreicht' },
++  { stage: 5, aktuell: 100000, ziel: 100000, text: 'Wachstumsstufe: Baum voller Früchte — Diamant erreicht' },
++];
++
++describe('WachstumsIllustration', () => {
++  describe.each(STUFEN)('Stufe $stage (aktuell=$aktuell von $ziel)', ({ stage, aktuell, ziel, text }) => {
++    it(`rendert data-stage=${stage} und den passenden Zustandstext`, () => {
++      const { container } = render(<WachstumsIllustration aktuellesKapital={aktuell} zielKapital={ziel} />);
++      const wrapper = container.querySelector('[data-testid="wachstums-illustration"]');
++      expect(wrapper).toHaveAttribute('data-stage', String(stage));
++      expect(screen.getByText(text)).toBeInTheDocument();
++    });
++  });
++
++  it('versieht das SVG mit aria-hidden — die Bedeutung trägt der sichtbare Text daneben', () => {
++    const { container } = render(<WachstumsIllustration aktuellesKapital={0} zielKapital={100000} />);
++    const svg = container.querySelector('svg');
++    expect(svg).toHaveAttribute('aria-hidden', 'true');
++  });
++
++  it('behandelt ein Zielkapital von 0 defensiv als Stufe 0 (Samen)', () => {
++    const { container } = render(<WachstumsIllustration aktuellesKapital={0} zielKapital={0} />);
++    expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '0');
++  });
++
++  it('rendert bei groesse="klein" ein kleineres SVG (64px) als bei "gross" (180px, Standard)', () => {
++    const { container: klein } = render(
++      <WachstumsIllustration aktuellesKapital={50000} zielKapital={100000} groesse="klein" />
++    );
++    const { container: gross } = render(
++      <WachstumsIllustration aktuellesKapital={50000} zielKapital={100000} groesse="gross" />
++    );
++    expect(klein.querySelector('svg')).toHaveAttribute('width', '64');
++    expect(gross.querySelector('svg')).toHaveAttribute('width', '180');
++  });
++
++  it('zeigt den Zustandstext auch in der kleinen Variante sichtbar (nie nur visuell, unabhängig von der Größe)', () => {
++    render(<WachstumsIllustration aktuellesKapital={15000} zielKapital={100000} groesse="klein" />);
++    expect(screen.getByText('Wachstumsstufe: Keimling — Bronze erreicht')).toBeVisible();
++  });
++});

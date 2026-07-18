@@ -1,0 +1,630 @@
+# Review package: f5d3524..b733696
+
+## Commits
+b733696 feat(landing): zweispaltiges Hero-Layout mit Kennzahl-Komposition (Task 35)
+
+## Files changed
+ docs/loops/runs/task-35-brief.md                   |  8 +++
+ docs/loops/runs/task-35-report.md                  | 51 +++++++++++++++
+ stiftung-web/app/__tests__/page.test.tsx           | 55 ++++++++++++++++
+ stiftung-web/app/globals.css                       | 50 ++++++++++++++
+ stiftung-web/app/page.tsx                          | 74 ++++++++++++++-------
+ stiftung-web/components/KennzahlHero.tsx           | 26 ++++++++
+ stiftung-web/components/MiniBalkenwald.tsx         | 76 ++++++++++++++++++++++
+ .../components/__tests__/KennzahlHero.test.tsx     | 43 ++++++++++++
+ .../components/__tests__/MiniBalkenwald.test.tsx   | 62 ++++++++++++++++++
+ 9 files changed, 421 insertions(+), 24 deletions(-)
+
+## Diff
+diff --git a/docs/loops/runs/task-35-brief.md b/docs/loops/runs/task-35-brief.md
+new file mode 100644
+index 0000000..3b4b305
+--- /dev/null
++++ b/docs/loops/runs/task-35-brief.md
+@@ -0,0 +1,8 @@
++### Task 35: Landing-Belebung (Desktop-Layout)
++
++**Files:** Modify: `stiftung-web/app/page.tsx`, ggf. `app/globals.css`.
++
++**Akzeptanzkriterien:**
++- Hero zweispaltig ab 800px: links Text/CTAs, rechts Visual-Slot — initial gefüllt mit einer großen animierten Kennzahl-Komposition (Gesamtkapital mit Count-up, wachsender Mini-Balkenwald der 8 Einrichtungen aus echten Daten) — bis Task 36 ggf. eine Illustration liefert. Unter 800px einspaltig (bestehende Responsive-Regel).
++- Ticker (Task 33) und Live-Zahlen (Task 26) harmonisch integriert; keine leere dunkle Fläche rechts mehr bei 1080px-Container.
++
+diff --git a/docs/loops/runs/task-35-report.md b/docs/loops/runs/task-35-report.md
+new file mode 100644
+index 0000000..3e32d73
+--- /dev/null
++++ b/docs/loops/runs/task-35-report.md
+@@ -0,0 +1,51 @@
++# Task 35: Landing-Belebung (Desktop-Layout) — Report
++
++## Status
++DONE
++
++## Zusammenfassung
++
++### 1. Hero-Grid (`app/page.tsx`, `app/globals.css`)
++- Hero-Sektion ist jetzt `<section className="hero-grid">`: links unverändertes Text/Mission/CTA-Bündel, rechts ein neuer `.hero-visual`-Slot.
++- `.hero-grid` (globals.css): zweispaltig via `grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr)` ab 800px, fällt unter `@media (max-width: 800px)` auf `1fr` (einspaltig) zurück — derselbe Breakpoint, den `.container` bereits für sein Padding nutzt.
++- `.hero-visual` (Wrapper aus Kennzahl-Karte + Live-Ticker) nutzt ebenfalls `grid-template-columns: minmax(0, 1fr)` statt eines impliziten Auto-Tracks — Begründung siehe Concerns/Bugfix unten.
++
++### 2. Neue Komponenten (Interims-Visual bis Task 36, hartes User-Gate — keine Illustration gebaut)
++- `components/KennzahlHero.tsx` (`'use client'`): großer animierter Gesamtkapital-Wert via vorhandenem `useCountUp`-Hook (1200ms). Eigene Client-Komponente, weil `app/page.tsx` eine async Server Component ist.
++- `components/MiniBalkenwald.tsx` (kein `'use client'`, keine Hooks nötig): Balkenreihe für alle Einrichtungen aus `listEinrichtungen()` (8 im Seed, generisch für jede Anzahl). Wachstum läuft rein über CSS (`.mini-balkenwald-bar` + `@keyframes mini-balkenwald-grow` in globals.css, gleiches "nur `from`-Keyframe"-Muster wie `.progress-bar-fill-in`) — dadurch SSR-fähig und automatisch reduced-motion-sicher über den bestehenden globalen Override. Jeder Balken trägt `title` + `aria-label` (Name + Betrag) UND ein sichtbares Text-Label (Institutionsname) — Wert wird nie nur über Balkenhöhe/Farbe kommuniziert (DESIGN.md: „Status nie nur über Farbe").
++- `app/page.tsx` ruft jetzt zusätzlich `listEinrichtungen()` parallel zu `statistik()` (`Promise.all`) und reicht die Liste als `{ slug, name, kapital }` an `MiniBalkenwald`.
++
++### 3. Ticker + Live-Zahlen „harmonisch integriert"
++- Live-Zahlen-Absatz (Task 26) bleibt unverändert im linken Text-Block (Teil der Mission-Erzählung).
++- `SpendenTicker` (Task 33) zog vom Seitenende in den rechten `.hero-visual`-Slot, direkt unter die Kennzahl-Karte — damit bildet die rechte Spalte einen zusammenhängenden „Live-Dashboard"-Block (Kapital + Balkenwald + Live-Ticker) statt vereinzelt am Seitenende zu hängen. Keine Text-/Prop-Änderung an `SpendenTicker` selbst.
++
++### Bugfix während manueller Verifikation: horizontaler Overflow
++Nach der ersten Implementierung zeigte der Dev-Server (Playwright-Screenshot bei 1280px) einen horizontalen Seiten-Overflow: die Balken-Labels (`white-space: nowrap`) zwangen den *impliziten* Grid-Track von `.hero-visual` (nur `display: grid`, kein `grid-template-columns`) dazu, sich am Inhalt (Max-Content-Breite ~944px) statt an der vom äußeren `.hero-grid` zugewiesenen Spaltenbreite (~446px) auszurichten — klassisches CSS-Grid-"Automatic Minimum Size"-Problem, eine Ebene tiefer als der bereits bekannte Grund für `minmax(0, …)` in `.hero-grid` selbst. Fix: `.hero-visual { grid-template-columns: minmax(0, 1fr); }` erzwingt dieselbe Null-Minimum-Regel eine Ebene tiefer. Verifiziert per `document.body.scrollWidth === document.body.clientWidth` (vorher 1646 vs. 1265, danach 1265 vs. 1265) und Screenshots bei 1280px und 700px (Einspaltig-Fallback korrekt).
++
++### Tests (TDD, `components/__tests__/`, `app/__tests__/page.test.tsx`)
++- `components/__tests__/KennzahlHero.test.tsx`: zeigt unter reduced-motion sofort den formatierten Zielwert; zeigt Eyebrow-Beschriftung.
++- `components/__tests__/MiniBalkenwald.test.tsx`: 8 Balken aus 8 Props-Einträgen; jeder Balken trägt `title` + `aria-label` (Name + Betrag, per direktem `getAttribute`-Vergleich statt `screen.getByLabelText` — Begründung siehe Concerns); sichtbares Text-Label pro Balken; Balkenhöhe skaliert relativ zum größten Kapital; leere Liste crasht nicht.
++- `app/__tests__/page.test.tsx`: neue `describe('Hero-Visual-Slot (Task 35)')` mit 4 Tests (Grid-Klasse vorhanden, Gesamtkapital in der Kennzahl, 2 beschriftete Balken aus den 2 seed-Einrichtungen des Tests, Live-Ticker weiterhin vorhanden). `beforeEach` stubbt jetzt zusätzlich `window.matchMedia` (reduced-motion), weil `KennzahlHero`s `useCountUp` sonst bei 0 startet und asynchron über `requestAnimationFrame` hochzählt (jsdom hat keinen rAF-Polyfill) — bestehende Assertions unverändert, nur ergänzt.
++- Alle bestehenden Landing-Tests (Mission, Live-Zahlen, CTAs, 2-Mio-Modellkarte) unverändert grün — keine Assertion geschwächt.
++
++### Gefundener/behobener Test-Fallstrick: NBSP in `formatEuro`
++`Intl.NumberFormat('de-DE', { style: 'currency', ... })` setzt ein ` ` (NBSP) vor „€". Testing-Library normalisiert bei Text-/Label-Queries (`getByText`, `getByLabelText`) und bei `jest-dom`s `toHaveTextContent` **nur die DOM-Seite** (Whitespace-Kollaps inkl. NBSP → normales Leerzeichen), **nicht** den übergebenen Vergleichsstring — ein direkt aus `formatEuro(...)` gebauter Erwartungsstring (der ebenfalls ein NBSP enthält) matcht dadurch nie. Fix in allen neuen Tests: entweder Regex mit `\s*`/`\s+` (toleriert jede Leerzeichenart) oder direkter `getAttribute`/`textContent`-Vergleich ohne RTL-Normalizer.
++
++## Geänderte/neue Dateien
++- `stiftung-web/app/page.tsx` (Hero-Grid, Kennzahl-Komposition, Ticker-Umzug)
++- `stiftung-web/app/globals.css` (`.hero-grid`, `.hero-visual`, `.mini-balkenwald-bar` + Keyframe)
++- `stiftung-web/components/KennzahlHero.tsx` (neu)
++- `stiftung-web/components/MiniBalkenwald.tsx` (neu)
++- `stiftung-web/components/__tests__/KennzahlHero.test.tsx` (neu)
++- `stiftung-web/components/__tests__/MiniBalkenwald.test.tsx` (neu)
++- `stiftung-web/app/__tests__/page.test.tsx` (erweitert, nicht geschwächt)
++- `docs/loops/runs/task-35-brief.md` (Task-Brief, mitversioniert wie bei früheren Tasks üblich)
++
++## Test/Verify-Summary
++- `npm run test`: 249 passed (249) — vorher 238, +11 neue Tests (2 KennzahlHero, 5 MiniBalkenwald, 4 Page-Hero-Slot).
++- `npm run verify` (tsc --noEmit && vitest run && next build): exit 0.
++- Manuelle Verifikation im Dev-Server (Playwright/Browser-Tool) bei 1280px und 700px: kein horizontaler Overflow, 8 Balken sichtbar, Count-up läuft und landet exakt beim Live-Zahlen-Wert, Einspaltig-Fallback unter 800px korrekt.
++
++## Concerns (nicht blockierend)
++- `SpendenTicker`s Fetch-Effekt löst gelegentlich einen React-„not wrapped in act"-Warnhinweis in `app/__tests__/page.test.tsx` aus (Console-Warning, keine Test-Fehlschläge). Ursache ist vorbestehend (Task 33, unabhängig von dieser Änderung) — die zusätzliche Testanzahl in dieser Datei macht die Race sichtbarer als vorher. Nicht behoben, da außerhalb des Task-35-Scopes (würde Änderungen an `SpendenTicker`s Test-Setup oder Component selbst erfordern).
++- Mini-Balkenwald-Labels sind bei 8 Einrichtungen auf ca. 55px Breite gestaucht und nutzen `text-overflow: ellipsis` — bei sehr langen Institutionsnamen bleibt nur der Anfang lesbar; volle Namen + Betrag stehen im `title`-Tooltip und `aria-label`. Akzeptabel für ein Interims-Visual, könnte Task 36 (Illustration) ohnehin ersetzen.
+diff --git a/stiftung-web/app/__tests__/page.test.tsx b/stiftung-web/app/__tests__/page.test.tsx
+index d35ca0e..c0db08a 100644
+--- a/stiftung-web/app/__tests__/page.test.tsx
++++ b/stiftung-web/app/__tests__/page.test.tsx
+@@ -1,21 +1,43 @@
+ import { render, screen } from '@testing-library/react';
+ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+ import { prisma } from '@/lib/server/prismaClient';
+ import Page from '../page';
+ 
++// Die Landing-Page rendert seit Task 35 KennzahlHero (useCountUp), das beim
++// Mounten `prefers-reduced-motion` liest. Ohne Stub würde der Zähler bei 0
++// starten und asynchron über requestAnimationFrame hochzählen (jsdom hat
++// keinen rAF-Polyfill) — reduced-motion erzwingt den deterministischen
++// Sofort-Sprung auf den Zielwert (siehe components/__tests__/KennzahlHero.test.tsx).
++function stubReducedMotion() {
++  vi.stubGlobal(
++    'matchMedia',
++    vi.fn().mockImplementation((query: string) => ({
++      matches: true,
++      media: query,
++      onchange: null,
++      addListener: vi.fn(),
++      removeListener: vi.fn(),
++      addEventListener: vi.fn(),
++      removeEventListener: vi.fn(),
++      dispatchEvent: vi.fn(),
++    }))
++  );
++}
++
+ // Die Landing-Page rendert seit Task 33 den client-seitigen SpendenTicker,
+ // der beim Mounten `/api/spenden/letzte` fetcht. Ohne Stub würde jsdom einen
+ // echten (fehlschlagenden) Request gegen eine relative URL versuchen — der
+ // Ticker selbst fängt das ab (Empty-State bleibt), aber der Stub hält den
+ // Test hermetisch und leise.
+ beforeEach(async () => {
++  stubReducedMotion();
+   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+   await prisma.fondsSpende.deleteMany();
+   await prisma.spende.deleteMany();
+   await prisma.einrichtung.deleteMany();
+   await prisma.solidaritaetsfonds.deleteMany();
+   await prisma.jahresabschluss.deleteMany();
+   // Zwei Einrichtungen mit eindeutig unterschiedlicher Förderung pro Kind,
+   // damit stats.bottom5[0] (größter Förderbedarf) deterministisch ist.
+   await prisma.einrichtung.create({
+     data: { slug: 'landing-test-gut-gefoerdert', name: 'Gut geförderte Kita', typ: 'kita', ort: 'Musterstadt', kinderAnzahl: 10, aktuellesKapital: 10000, zielKapital: 50000 },
+@@ -53,11 +75,44 @@ describe('Landing Page', () => {
+     expect(einrichtungFinden).toHaveClass('pill-secondary');
+     expect(screen.getByRole('link', { name: /Statistik ansehen/i })).toHaveAttribute('href', '/statistik');
+     expect(screen.getByRole('link', { name: /Solidaritätsfonds/i })).toHaveAttribute('href', '/solidaritaetsfonds');
+   });
+ 
+   it('zeigt das Beispiel-Zielkapital von 2 Mio. € (20.000 € Ausschüttung / 1%) in der "Wie das Modell funktioniert"-Sektion', async () => {
+     render(await Page());
+     expect(screen.getByText(/Wie das Modell funktioniert/i)).toBeInTheDocument();
+     expect(screen.getByText(/2\.000\.000,00\s*€/)).toBeInTheDocument();
+   });
++
++  // Task 35: zweispaltiges Hero-Layout — rechter Visual-Slot füllt die zuvor
++  // leere Fläche mit einer animierten Kennzahl-Komposition aus echten Daten.
++  describe('Hero-Visual-Slot (Task 35)', () => {
++    it('rendert die Hero-Sektion als zweispaltiges Grid (.hero-grid)', async () => {
++      const { container } = render(await Page());
++      expect(container.querySelector('section.hero-grid')).toBeInTheDocument();
++    });
++
++    it('zeigt das Gesamtkapital als große Kennzahl im Visual-Slot', async () => {
++      render(await Page());
++      const kennzahl = screen.getByTestId('kennzahl-hero');
++      // toMatch statt toHaveTextContent: formatEuro nutzt ein schmales
++      // geschütztes Leerzeichen (NBSP) vor "€", das RTL/jest-dom nur
++      // einseitig normalisieren (DOM-Seite ja, Vergleichsstring nein) —
++      // \s* im Regex überbrückt das unabhängig von der genauen Leerzeichenart.
++      expect(kennzahl.textContent).toMatch(/10\.100,00\s*€/);
++    });
++
++    it('zeigt einen Mini-Balkenwald mit einem beschrifteten Balken pro echter Einrichtung', async () => {
++      const { container } = render(await Page());
++      const balken = container.querySelectorAll('[data-testid="mini-balkenwald"] [role="img"]');
++      expect(balken.length).toBe(2);
++      const labels = Array.from(balken).map((b) => b.getAttribute('aria-label') ?? '');
++      expect(labels.some((l) => l.includes('Gut geförderte Kita') && /10\.000,00\s*€/.test(l))).toBe(true);
++      expect(labels.some((l) => l.includes('Tagespflege mit Bedarf') && /100,00\s*€/.test(l))).toBe(true);
++    });
++
++    it('behält den Live-Ticker im Visual-Slot (harmonisch neben Kennzahl und Balkenwald)', async () => {
++      render(await Page());
++      expect(screen.getByText(/Live-Ticker/i)).toBeInTheDocument();
++    });
++  });
+ });
+diff --git a/stiftung-web/app/globals.css b/stiftung-web/app/globals.css
+index 3d937bf..f0118f2 100644
+--- a/stiftung-web/app/globals.css
++++ b/stiftung-web/app/globals.css
+@@ -124,20 +124,53 @@ a:hover .card {
+ .negative { color: var(--coral); }
+ .forecast { color: var(--sun); }
+ .muted { color: var(--muted); }
+ 
+ .container {
+   max-width: 1080px;
+   margin: 0 auto;
+   padding: 0 1.5rem;
+ }
+ 
++/*
++ * Hero-Grid (Task 35): zweispaltig ab 800px — links Text/CTAs, rechts der
++ * Visual-Slot (KennzahlHero + MiniBalkenwald + Live-Ticker), damit bei der
++ * 1080px-Container-Breite keine leere dunkle Fläche rechts mehr entsteht.
++ * Unter 800px fällt die Regel unten auf einspaltig zurück — derselbe
++ * Breakpoint wie die bestehende .container-Padding-Regel.
++ */
++.hero-grid {
++  display: grid;
++  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
++  gap: 2.5rem;
++  align-items: start;
++}
++
++/*
++ * grid-template-columns: minmax(0, 1fr) statt implizitem Auto-Track — sonst
++ * sizt sich die einzelne Spalte an ihrem Inhalt (Mini-Balkenwald mit
++ * nowrap-Labels) auf und sprengt die von .hero-grid zugewiesene Breite
++ * (derselbe Grund, warum .hero-grid selbst minmax(0, …) statt reinem fr
++ * nutzt).
++ */
++.hero-visual {
++  display: grid;
++  grid-template-columns: minmax(0, 1fr);
++  gap: 1.25rem;
++}
++
++@media (max-width: 800px) {
++  .hero-grid {
++    grid-template-columns: 1fr;
++  }
++}
++
+ /*
+  * ProgressBar-Füllung: animiert beim ersten Rendern von 0 auf die Zielbreite.
+  * Nur das "from" wird definiert — das implizite "to"-Keyframe übernimmt den
+  * per Inline-Style gesetzten width-Wert (Standardverhalten der CSS Animations
+  * Spec). Läuft rein über CSS, keine JS-Mount-Erkennung nötig; degradiert unter
+  * `prefers-reduced-motion` automatisch über den globalen Override unten
+  * (animation-duration wird dort auf 0.001ms gekappt).
+  */
+ .progress-bar-fill {
+   height: 100%;
+@@ -297,20 +330,37 @@ a:hover .card {
+   from {
+     opacity: 0;
+     transform: translateX(-12px);
+   }
+   to {
+     opacity: 1;
+     transform: translateX(0);
+   }
+ }
+ 
++/*
++ * Mini-Balkenwald (Task 35): Balken wachsen beim Mounten von 0 auf ihre
++ * per Inline-Style gesetzte Höhe hoch — gleiches "nur from-Keyframe"-Muster
++ * wie .progress-bar-fill-in oben (das implizite "to" übernimmt den
++ * Inline-Style-Wert). Degradiert unter prefers-reduced-motion automatisch
++ * über den globalen Override unten.
++ */
++.mini-balkenwald-bar {
++  animation: mini-balkenwald-grow 700ms ease-out;
++}
++
++@keyframes mini-balkenwald-grow {
++  from {
++    height: 0;
++  }
++}
++
+ :focus-visible {
+   outline: 3px solid var(--focus);
+   outline-offset: 3px;
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+   *, *::before, *::after {
+     animation-duration: 0.001ms !important;
+     animation-iteration-count: 1 !important;
+     transition-duration: 0.001ms !important;
+diff --git a/stiftung-web/app/page.tsx b/stiftung-web/app/page.tsx
+index 08b1a46..fec94d6 100644
+--- a/stiftung-web/app/page.tsx
++++ b/stiftung-web/app/page.tsx
+@@ -1,50 +1,78 @@
+ import Link from 'next/link';
+ import { Card } from '@/components/Card';
+ import { SpendenTicker } from '@/components/SpendenTicker';
++import { KennzahlHero } from '@/components/KennzahlHero';
++import { MiniBalkenwald } from '@/components/MiniBalkenwald';
+ import { capitalForAnnualPayout, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+ import { formatEuro } from '@/lib/calc/format';
+-import { statistik } from '@/lib/server/einrichtungenService';
++import { statistik, listEinrichtungen } from '@/lib/server/einrichtungenService';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+ export default async function Page() {
+   const beispielZiel = capitalForAnnualPayout(20000);
+-  const stats = await statistik();
++  const [stats, einrichtungen] = await Promise.all([statistik(), listEinrichtungen()]);
+   const zielEinrichtung = stats.bottom5[0];
+   const zielHref = zielEinrichtung ? `/einrichtungen/${zielEinrichtung.slug}` : '/einrichtungen';
+   // Verdopplungszeit aus der bestehenden Konstante NET_GROWTH_RATE abgeleitet
+   // (keine zweite Marketing-Zahl): t = ln(2) / ln(1 + r).
+   const verdopplungsjahre = Math.round(Math.log(2) / Math.log(1 + NET_GROWTH_RATE));
++  const balkenwaldDaten = einrichtungen.map((e) => ({ slug: e.slug, name: e.name, kapital: e.aktuellesKapital }));
+ 
+   return (
+     <div style={{ padding: '3rem 0', display: 'grid', gap: '2rem' }}>
+-      <section>
+-        <p className="eyebrow">Deutsche Bildungsstiftung</p>
+-        <h1 className="hero-number" style={{ maxWidth: '18ch' }}>
+-          Gemeinsam zur Bildungsrevolution
+-        </h1>
+-        <p style={{ maxWidth: '60ch', fontSize: '1.1rem' }}>
+-          Bildung darf niemals vom Geldbeutel der Familie abhängen. Wir bauen
+-          unabhängiges, dauerhaftes Bildungskapital auf, damit jede
+-          Bildungs- und Betreuungseinrichtung in Deutschland ihre Kinder
+-          fördern kann — unabhängig davon, wie reich ihr Umfeld ist.
+-        </p>
+-        <p className="muted">
+-          {stats.anzahlEinrichtungen} Einrichtungen · {stats.gesamtKinder} Kinder ·{' '}
+-          {formatEuro(stats.gesamtKapital)} Bildungskapital · {stats.anzahlSpenden} Spenden bisher
+-        </p>
+-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+-          <Link href={zielHref} className="pill pill-primary">Jetzt spenden</Link>
+-          <Link href="/einrichtungen" className="pill pill-secondary">Einrichtung finden</Link>
+-          <Link href="/statistik" className="pill pill-secondary">Statistik ansehen</Link>
+-          <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
++      {/*
++        Hero-Grid (Task 35): links Text/Mission/CTAs, rechts der
++        Visual-Slot (Kennzahl-Komposition + Live-Ticker) — füllt die zuvor
++        leere rechte Hälfte bei 1080px-Containerbreite. Unter 800px fällt
++        .hero-grid (globals.css) auf einspaltig zurück.
++      */}
++      <section className="hero-grid">
++        <div>
++          <p className="eyebrow">Deutsche Bildungsstiftung</p>
++          <h1 className="hero-number" style={{ maxWidth: '18ch' }}>
++            Gemeinsam zur Bildungsrevolution
++          </h1>
++          <p style={{ maxWidth: '60ch', fontSize: '1.1rem' }}>
++            Bildung darf niemals vom Geldbeutel der Familie abhängen. Wir bauen
++            unabhängiges, dauerhaftes Bildungskapital auf, damit jede
++            Bildungs- und Betreuungseinrichtung in Deutschland ihre Kinder
++            fördern kann — unabhängig davon, wie reich ihr Umfeld ist.
++          </p>
++          <p className="muted">
++            {stats.anzahlEinrichtungen} Einrichtungen · {stats.gesamtKinder} Kinder ·{' '}
++            {formatEuro(stats.gesamtKapital)} Bildungskapital · {stats.anzahlSpenden} Spenden bisher
++          </p>
++          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
++            <Link href={zielHref} className="pill pill-primary">Jetzt spenden</Link>
++            <Link href="/einrichtungen" className="pill pill-secondary">Einrichtung finden</Link>
++            <Link href="/statistik" className="pill pill-secondary">Statistik ansehen</Link>
++            <Link href="/solidaritaetsfonds" className="pill pill-secondary">Solidaritätsfonds</Link>
++          </div>
++        </div>
++
++        <div className="hero-visual">
++          <Card>
++            <KennzahlHero gesamtKapital={stats.gesamtKapital} />
++            {/*
++              Bewusst kein <p> (statt eyebrow-typisch): der Live-Zahlen-Absatz
++              im linken Grid-Teil ist ebenfalls ein <p> und matcht denselben
++              /Einrichtungen/-Text — screen.getByText(..., { selector: 'p' })
++              im Landing-Test würde sonst zwei Treffer finden.
++            */}
++            <div className="eyebrow" style={{ marginTop: '1.5rem' }}>
++              {einrichtungen.length} Einrichtungen im Überblick
++            </div>
++            <MiniBalkenwald einrichtungen={balkenwaldDaten} />
++          </Card>
++          <SpendenTicker />
+         </div>
+       </section>
+ 
+       <Card>
+         <p className="eyebrow">So wirkt Ihre Spende</p>
+         <p style={{ maxWidth: '60ch' }}>
+           Schon 5 € wachsen für immer weiter: Bei einer Netto-Wachstumsrate
+           von {Math.round(NET_GROWTH_RATE * 100)} % pro Jahr verdoppelt sich
+           jede gespendete Summe rein rechnerisch alle rund {verdopplungsjahre}{' '}
+           Jahre — das Kapital wird nie ausgegeben, nur sein Ertrag.
+@@ -54,15 +82,13 @@ export default async function Page() {
+       <Card>
+         <p className="eyebrow">Wie das Modell funktioniert</p>
+         <p style={{ maxWidth: '60ch' }}>
+           Für eine jährliche Ausschüttung von 20.000 € an eine Einrichtung
+           braucht der Finanztopf ein Kapital von{' '}
+           <strong>{formatEuro(beispielZiel)}</strong> — bei einer
+           Netto-Wachstumsrate von 6 % pro Jahr wächst jede Spende dauerhaft
+           weiter, ohne dass das Kapital verbraucht wird.
+         </p>
+       </Card>
+-
+-      <SpendenTicker />
+     </div>
+   );
+ }
+diff --git a/stiftung-web/components/KennzahlHero.tsx b/stiftung-web/components/KennzahlHero.tsx
+new file mode 100644
+index 0000000..045a290
+--- /dev/null
++++ b/stiftung-web/components/KennzahlHero.tsx
+@@ -0,0 +1,26 @@
++'use client';
++
++import { useCountUp } from '@/lib/hooks/useCountUp';
++import { formatEuro } from '@/lib/calc/format';
++
++/**
++ * Kennzahl-Hero (Task 35): große, animiert hochzählende Gesamtkapital-Zahl
++ * für den rechten Hero-Visual-Slot — interimistische Füllung, bis Task 36
++ * ggf. eine Illustration liefert (harter User-Gate, hier nicht vorgegriffen).
++ *
++ * Eigene Client-Komponente, weil `app/page.tsx` eine async Server Component
++ * ist und Hooks (useCountUp) nur in Client-Components laufen dürfen.
++ * useCountUp selbst respektiert `prefers-reduced-motion` (Sofort-Sprung auf
++ * den Zielwert, siehe lib/hooks/useCountUp.ts).
++ */
++export function KennzahlHero({ gesamtKapital }: { gesamtKapital: number }) {
++  const angezeigt = useCountUp(gesamtKapital, 1200);
++  return (
++    <div data-testid="kennzahl-hero">
++      <p className="eyebrow">Bildungskapital heute</p>
++      <p className="hero-number" style={{ fontSize: 'clamp(1.8rem, 4vw, 3.4rem)', margin: 0 }}>
++        {formatEuro(angezeigt)}
++      </p>
++    </div>
++  );
++}
+diff --git a/stiftung-web/components/MiniBalkenwald.tsx b/stiftung-web/components/MiniBalkenwald.tsx
+new file mode 100644
+index 0000000..094abd5
+--- /dev/null
++++ b/stiftung-web/components/MiniBalkenwald.tsx
+@@ -0,0 +1,76 @@
++import { formatEuro } from '@/lib/calc/format';
++
++export interface BalkenwaldEintrag {
++  slug: string;
++  name: string;
++  kapital: number;
++}
++
++/**
++ * Mini-Balkenwald (Task 35): kompakte Balkenübersicht aller Einrichtungen
++ * für den rechten Hero-Visual-Slot — interimistische Füllung, bis Task 36
++ * ggf. eine Illustration liefert. Nutzt echte Daten (listEinrichtungen()),
++ * keine Fixture — bei 8 Einrichtungen im Seed entsteht so der titelgebende
++ * "Wald" aus 8 Balken, generisch für jede Anzahl.
++ *
++ * Wachstum läuft rein über CSS (.mini-balkenwald-bar in globals.css, gleiches
++ * "nur from-Keyframe"-Muster wie .progress-bar-fill-in): kein Hook, keine
++ * 'use client'-Direktive nötig, SSR-fähig, automatisch reduced-motion-sicher
++ * über den globalen Override.
++ *
++ * Wie bei BarChart.tsx trägt jeder Balken einen Text-Label (Name) UND einen
++ * title-Tooltip mit Name+Betrag — Wert wird nie nur über Balkenhöhe/Farbe
++ * kommuniziert (DESIGN.md: „Status nie nur über Farbe — immer Zahl daneben").
++ */
++export function MiniBalkenwald({ einrichtungen }: { einrichtungen: BalkenwaldEintrag[] }) {
++  const max = Math.max(1, ...einrichtungen.map((e) => e.kapital));
++
++  return (
++    <div
++      data-testid="mini-balkenwald"
++      style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: '140px' }}
++    >
++      {einrichtungen.map((e) => {
++        const pct = Math.max(3, Math.round((e.kapital / max) * 100));
++        const beschriftung = `${e.name}: ${formatEuro(e.kapital)}`;
++        return (
++          <div
++            key={e.slug}
++            style={{
++              flex: '1 1 0',
++              minWidth: 0,
++              display: 'flex',
++              flexDirection: 'column',
++              alignItems: 'center',
++              justifyContent: 'flex-end',
++              height: '100%',
++              gap: '0.35rem',
++            }}
++          >
++            <div
++              role="img"
++              aria-label={beschriftung}
++              title={beschriftung}
++              className="mini-balkenwald-bar"
++              style={{ width: '100%', height: `${pct}%`, borderRadius: '4px 4px 0 0', background: 'var(--turquoise)' }}
++            />
++            <span
++              className="muted"
++              style={{
++                fontSize: '0.6rem',
++                textAlign: 'center',
++                lineHeight: 1.15,
++                maxWidth: '100%',
++                overflow: 'hidden',
++                textOverflow: 'ellipsis',
++                whiteSpace: 'nowrap',
++              }}
++            >
++              {e.name}
++            </span>
++          </div>
++        );
++      })}
++    </div>
++  );
++}
+diff --git a/stiftung-web/components/__tests__/KennzahlHero.test.tsx b/stiftung-web/components/__tests__/KennzahlHero.test.tsx
+new file mode 100644
+index 0000000..01f719d
+--- /dev/null
++++ b/stiftung-web/components/__tests__/KennzahlHero.test.tsx
+@@ -0,0 +1,43 @@
++import { render, screen } from '@testing-library/react';
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
++import { KennzahlHero } from '../KennzahlHero';
++
++// useCountUp liest prefers-reduced-motion beim Mounten und läuft sonst über
++// requestAnimationFrame — das würde die synchrone Assertion unten flaky
++// machen. reduced-motion erzwingt den Sofort-Sprung auf den Zielwert (siehe
++// components/__tests__/SpendenBestaetigung.test.tsx für dasselbe Muster).
++function stubReducedMotion() {
++  vi.stubGlobal(
++    'matchMedia',
++    vi.fn().mockImplementation((query: string) => ({
++      matches: true,
++      media: query,
++      onchange: null,
++      addListener: vi.fn(),
++      removeListener: vi.fn(),
++      addEventListener: vi.fn(),
++      removeEventListener: vi.fn(),
++      dispatchEvent: vi.fn(),
++    }))
++  );
++}
++
++beforeEach(() => {
++  stubReducedMotion();
++});
++
++afterEach(() => {
++  vi.unstubAllGlobals();
++});
++
++describe('KennzahlHero', () => {
++  it('zeigt unter reduced-motion sofort den formatierten Zielwert (Gesamtkapital)', () => {
++    render(<KennzahlHero gesamtKapital={614800} />);
++    expect(screen.getByText(/614\.800,00\s*€/)).toBeInTheDocument();
++  });
++
++  it('rendert eine erklärende Eyebrow-Beschriftung', () => {
++    render(<KennzahlHero gesamtKapital={1000} />);
++    expect(screen.getByText(/Bildungskapital/i)).toBeInTheDocument();
++  });
++});
+diff --git a/stiftung-web/components/__tests__/MiniBalkenwald.test.tsx b/stiftung-web/components/__tests__/MiniBalkenwald.test.tsx
+new file mode 100644
+index 0000000..97f56d6
+--- /dev/null
++++ b/stiftung-web/components/__tests__/MiniBalkenwald.test.tsx
+@@ -0,0 +1,62 @@
++import { render, screen } from '@testing-library/react';
++import { describe, it, expect } from 'vitest';
++import { MiniBalkenwald } from '../MiniBalkenwald';
++import { formatEuro } from '@/lib/calc/format';
++
++// Acht Einträge wie im echten Seed (prisma/seed.ts) — der titelgebende
++// "Wald" aus 8 Balken.
++const ACHT = [
++  { slug: 'tagespflege-wirbelwind', name: 'Tagespflege Wirbelwind', kapital: 3000 },
++  { slug: 'tagespflege-sonnenschein', name: 'Tagespflege Sonnenschein', kapital: 800 },
++  { slug: 'tagespflege-kleine-forscher', name: 'Tagespflege Kleine Forscher', kapital: 12000 },
++  { slug: 'kita-wirbelwind', name: 'Kita Wirbelwind', kapital: 15000 },
++  { slug: 'kita-regenbogen', name: 'Kita Regenbogen', kapital: 5000 },
++  { slug: 'grundschule-sonnenhuegel', name: 'Grundschule Sonnenhügel', kapital: 50000 },
++  { slug: 'gymnasium-neustadt', name: 'Gymnasium Neustadt', kapital: 450000 },
++  { slug: 'foerderschule-pestalozzi', name: 'Förderschule Pestalozzi', kapital: 80000 },
++];
++
++describe('MiniBalkenwald', () => {
++  it('rendert einen Balken pro Einrichtung (8 aus echten Daten)', () => {
++    const { container } = render(<MiniBalkenwald einrichtungen={ACHT} />);
++    expect(container.querySelectorAll('[role="img"]').length).toBe(8);
++  });
++
++  it('beschriftet jeden Balken mit Name UND Betrag (title + aria-label) — nie nur Farbe/Höhe', () => {
++    const { container } = render(<MiniBalkenwald einrichtungen={ACHT} />);
++    const bars = container.querySelectorAll('[role="img"]');
++    expect(bars.length).toBe(ACHT.length);
++    // Direkter Attribut-Vergleich statt screen.getByLabelText: formatEuro
++    // nutzt ein NBSP vor "€" — RTLs Text-Matcher normalisiert nur die
++    // DOM-Seite, nicht den Vergleichsstring, und würde hier falsch-negativ
++    // melden. getAttribute()-Vergleich betrifft beide Seiten roh/identisch.
++    ACHT.forEach((e, i) => {
++      const beschriftung = `${e.name}: ${formatEuro(e.kapital)}`;
++      expect(bars[i].getAttribute('aria-label')).toBe(beschriftung);
++      expect(bars[i].getAttribute('title')).toBe(beschriftung);
++    });
++  });
++
++  it('zeigt zusätzlich ein sichtbares Text-Label (Institutionsname) je Balken', () => {
++    render(<MiniBalkenwald einrichtungen={ACHT} />);
++    ACHT.forEach((e) => {
++      expect(screen.getByText(e.name)).toBeInTheDocument();
++    });
++  });
++
++  it('skaliert die Balkenhöhe relativ zum größten Kapital', () => {
++    const { container } = render(<MiniBalkenwald einrichtungen={ACHT} />);
++    const bars = container.querySelectorAll('.mini-balkenwald-bar');
++    const groessterName = 'Gymnasium Neustadt: ' + formatEuro(450000);
++    const kleinsterName = 'Tagespflege Sonnenschein: ' + formatEuro(800);
++    const groessterBar = Array.from(bars).find((b) => b.getAttribute('title') === groessterName) as HTMLElement;
++    const kleinsterBar = Array.from(bars).find((b) => b.getAttribute('title') === kleinsterName) as HTMLElement;
++    expect(groessterBar.style.height).toBe('100%');
++    expect(parseInt(kleinsterBar.style.height)).toBeLessThan(parseInt(groessterBar.style.height));
++  });
++
++  it('stürzt bei leerer Liste nicht ab und rendert keine Balken', () => {
++    const { container } = render(<MiniBalkenwald einrichtungen={[]} />);
++    expect(container.querySelectorAll('[role="img"]').length).toBe(0);
++  });
++});

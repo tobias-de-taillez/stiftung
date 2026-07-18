@@ -24,8 +24,16 @@ npm run test     # Vitest (einmalig)
 - Charts immer mit beschrifteten Achsen.
 - Jede Daten-Ansicht: Loading/Empty/Populated/Error; DB-Seiten mit `loading.tsx` + `error.tsx`.
 - Backend-Tests gegen echte SQLite-Datei (`prisma/test.db`), kein DB-Mocking.
+- Anrede in User-Copy: Du-Form (nicht Sie) — konsistent über alle Seiten.
 
 ## Hinweise
 
 - `project-rules.md` Rule #2 (Auto-Push nach jedem Commit) ist obsolet — niemals ohne expliziten Auftrag pushen.
 - `projekt-status.md` wird beim Branch-Abschluss aktualisiert, nicht pro Commit.
+
+## Loops
+
+- Loop-Verzeichnis: `docs/loops/` — Loop-Definitionen + `STATE.md` (versioniertes Ledger, append-only; bei Wiederaufnahme gilt Ledger + `git log`, nicht Erinnerung).
+- Aktiver Loop: `docs/loops/plan-executor.md` (Plan-Tasks 25–35, Branch `begeisterung-pakete`, Level 2 Draft).
+- Mechanischer Check: `cd stiftung-web && npm run verify` (tsc + Tests + Build) — das Urteil, nicht die Agenten-Meinung.
+- Human-Gates: push, PR-Merge, Task 36, Deploy, Löschen — nie autonom.

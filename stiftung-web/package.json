@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "verify": "tsc --noEmit && npm run test && npm run build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -28,6 +28,28 @@ describe('POST /api/einrichtungen/[slug]/spenden', () => {
     expect(inDb?.aktuellesKapital).toBe(1100);
   });
 
+  it('gibt erreichteMeilensteine im Response mit, wenn die Spende eine Schwelle überschreitet (Task 31)', async () => {
+    // 1.000 € → 5.000 € von 50.000 € Ziel = genau 10 % → Bronze.
+    const request = new Request('http://localhost/api/einrichtungen/api-test-kita/spenden', {
+      method: 'POST',
+      body: JSON.stringify({ betrag: 4000, frequenz: 'einmalig' }),
+    });
+    const response = await POST(request, { params: { slug: 'api-test-kita' } });
+    expect(response.status).toBe(201);
+    const json = await response.json();
+    expect(json.erreichteMeilensteine).toEqual(['Bronze erreicht']);
+  });
+
+  it('gibt ein leeres erreichteMeilensteine-Array mit, wenn keine Schwelle überschritten wird', async () => {
+    const request = new Request('http://localhost/api/einrichtungen/api-test-kita/spenden', {
+      method: 'POST',
+      body: JSON.stringify({ betrag: 100, frequenz: 'einmalig' }),
+    });
+    const response = await POST(request, { params: { slug: 'api-test-kita' } });
+    const json = await response.json();
+    expect(json.erreichteMeilensteine).toEqual([]);
+  });
+
   it('gibt 404 bei unbekanntem slug', async () => {
     const request = new Request('http://localhost/api/einrichtungen/unbekannt/spenden', {
       method: 'POST',

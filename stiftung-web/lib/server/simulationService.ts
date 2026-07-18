@@ -1,6 +1,7 @@
 import { prisma } from './prismaClient';
 import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 import { verteileMitClient } from './solidaritaetsfondsService';
+import { erreichteMeilensteine } from '@/lib/data/levels';
 
 function round2(x: number): number {
   return Math.round(x * 100) / 100;
@@ -12,6 +13,7 @@ export async function simuliereJahr(): Promise<{
   kapitalErtrag: number;
   verteiltGesamt: number;
   verteilung: { slug: string; name: string; anteil: number }[];
+  meilensteine: { slug: string; name: string; labels: string[] }[];
   neuerFondsBestand: number;
 }> {
   return prisma.$transaction(async (tx) => {
@@ -52,13 +54,39 @@ export async function simuliereJahr(): Promise<{
       data: { nummer, fondsErtrag, kapitalErtrag, verteiltGesamt },
     });
 
+    // (5) Meilenstein-Erkennung pro Einrichtung — über die GESAMTE Jahresspanne
+    // (Kapital-Ertrag aus (2) + Solidaritäts-Verteilung aus (3) zusammen, nicht
+    // getrennt), mit demselben Helper wie einrichtungenService.spenden()
+    // (kein Duplikat der Schwellenlogik). `alle` ist der Vorher-Stand vor
+    // Schritt (2); für den Nachher-Stand wird frisch aus der tx gelesen.
+    const nachAlle = await tx.einrichtung.findMany();
+    const vorherNachSlug = new Map(alle.map((e) => [e.slug, e.aktuellesKapital]));
+    const meilensteine = nachAlle
+      .map((e) => ({
+        slug: e.slug,
+        name: e.name,
+        labels: erreichteMeilensteine(vorherNachSlug.get(e.slug) ?? e.aktuellesKapital, e.aktuellesKapital, e.zielKapital),
+      }))
+      .filter((m) => m.labels.length > 0);
+
     return {
       nummer,
       fondsErtrag,
       kapitalErtrag,
       verteiltGesamt,
       verteilung,
+      meilensteine,
       neuerFondsBestand: fondsNachher.bestand,
     };
   });
+}
+
+/**
+ * Read-Helper auf die bereits von simuliereJahr() persistierte
+ * Jahresabschluss-Tabelle (Task 34) — für die Jahresabschluss-Historie auf der
+ * Statistik-Seite. Neueste zuerst (nummer absteigend), keine Berechnung, kein
+ * Duplikat der Buchungslogik in simuliereJahr().
+ */
+export async function jahresabschluesse() {
+  return prisma.jahresabschluss.findMany({ orderBy: { nummer: 'desc' } });
 }

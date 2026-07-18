@@ -1,5 +1,6 @@
 import { prisma } from './prismaClient';
 import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+import { erreichteMeilensteine } from '@/lib/data/levels';
 
 export type Frequenz = 'einmalig' | 'jaehrlich';
 
@@ -31,7 +32,15 @@ export async function spenden(slug: string, betrag: number, frequenz: Frequenz) 
       data: { einrichtungId: einrichtung.id, betrag, frequenz, quelle: 'direkt' },
     }),
   ]);
-  return { einrichtung: aktualisiert, spende };
+  // Meilenstein-Erkennung (Task 31): welche Einrichtungs-Level/Prozent-Marken
+  // hat diese eine Spende übersprungen? Derselbe Helper wie in
+  // simulationService.ts (kein Duplikat der Schwellenlogik).
+  const erreichteMeilensteineFuerSpende = erreichteMeilensteine(
+    einrichtung.aktuellesKapital,
+    aktualisiert.aktuellesKapital,
+    einrichtung.zielKapital
+  );
+  return { einrichtung: aktualisiert, spende, erreichteMeilensteine: erreichteMeilensteineFuerSpende };
 }
 
 export function foerderungProKind(e: { aktuellesKapital: number; kinderAnzahl: number }): number {
@@ -54,6 +63,16 @@ export async function statistik() {
   ]);
   const zuflussLetztesJahr = (direktSumme._sum.betrag ?? 0) + (fondsSumme._sum.betrag ?? 0);
 
+  // Spenderzähler (Task 33): "echte Spender-Akte" — direkte Spenden
+  // (quelle != 'solidaritaet') plus Fonds-Einzahlungen (FondsSpende).
+  // Solidaritätsfonds-Verteilungen sind interne Umbuchungen, keine neue
+  // Spende, und zählen daher nicht mit.
+  const [anzahlDirekteSpenden, anzahlFondsSpenden] = await Promise.all([
+    prisma.spende.count({ where: { quelle: { not: 'solidaritaet' } } }),
+    prisma.fondsSpende.count(),
+  ]);
+  const anzahlSpenden = anzahlDirekteSpenden + anzahlFondsSpenden;
+
   return {
     anzahlEinrichtungen,
     gesamtKapital,
@@ -61,7 +80,80 @@ export async function statistik() {
     durchschnittlichesVolumen: anzahlEinrichtungen > 0 ? gesamtKapital / anzahlEinrichtungen : 0,
     zuflussLetztesJahr,
     simulierterJahresertrag: gesamtKapital * NET_GROWTH_RATE,
+    anzahlSpenden,
     top5: ranked.slice(0, 5),
     bottom5: ranked.slice(-5).reverse(),
+  };
+}
+
+/**
+ * Letzte Spenden für den Live-Ticker (Task 33): anonymisiert (keine
+ * personenbezogenen Daten — existieren im Modell ohnehin nicht), `quelle`
+ * wird unverändert durchgereicht (Labeling von 'solidaritaet' als
+ * "Solidaritätsfonds-Verteilung" ist Sache der UI-Komponente).
+ * `zeitpunkt` ist der Epoch-Millisekunden-Wert für stabile Keys in React.
+ */
+export async function letzteSpenden(limit = 10) {
+  const spenden = await prisma.spende.findMany({
+    take: limit,
+    // Sekundärer Sortierschlüssel `id`: createdAt hat nur Millisekunden-
+    // Auflösung, gleichzeitige Inserts können denselben Wert haben. Ohne
+    // Tiebreaker liefert die DB dann eine nichtdeterministische Reihenfolge.
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    include: { einrichtung: true },
+  });
+  const jetzt = Date.now();
+  return spenden.map((s) => ({
+    betrag: s.betrag,
+    einrichtungName: s.einrichtung.name,
+    quelle: s.quelle,
+    vorMinuten: Math.floor((jetzt - s.createdAt.getTime()) / 60000),
+    zeitpunkt: s.createdAt.getTime(),
+  }));
+}
+
+/**
+ * Transparenz auf der Einrichtungs-Detailseite (Task 34, Leitbild „Transparenz
+ * vor Vertrauensvorschuss"): Förderung pro Kind, die letzten 10 Spenden dieser
+ * EINEN Einrichtung (mit `quelle` — Labeling von 'solidaritaet' als "aus dem
+ * Solidaritätsfonds" ist Sache der Seite, analog zu letzteSpenden()) und die
+ * Gesamtzahl der Unterstützungen.
+ *
+ * `anzahlUnterstuetzungen` zählt bewusst ALLE Spende-Zeilen dieser Einrichtung
+ * mit — auch quelle 'solidaritaet'. Das unterscheidet sich von
+ * statistik().anzahlSpenden (dem sitesweiten Spenderzähler), der
+ * Solidaritätsfonds-Verteilungen ausschließt, weil sie dort interne
+ * Umbuchungen ohne neue Spende von außen sind. Aus Sicht EINER Einrichtung ist
+ * jede Zubuchung — egal aus welcher Quelle — eine reale Unterstützung.
+ *
+ * Gibt `null` zurück (statt zu werfen) bei unbekanntem slug — die aufrufende
+ * Seite entscheidet selbst über notFound().
+ */
+export async function einrichtungsTransparenz(slug: string) {
+  const einrichtung = await getEinrichtungBySlug(slug);
+  if (!einrichtung) {
+    return null;
+  }
+
+  const [historie, anzahlUnterstuetzungen] = await Promise.all([
+    prisma.spende.findMany({
+      where: { einrichtungId: einrichtung.id },
+      // Sekundärer Sortierschlüssel `id` s. letzteSpenden() oben.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 10,
+    }),
+    prisma.spende.count({ where: { einrichtungId: einrichtung.id } }),
+  ]);
+
+  return {
+    einrichtung,
+    foerderungProKind: foerderungProKind(einrichtung),
+    anzahlUnterstuetzungen,
+    spendenHistorie: historie.map((s) => ({
+      id: s.id,
+      betrag: s.betrag,
+      quelle: s.quelle,
+      createdAt: s.createdAt,
+    })),
   };
 }

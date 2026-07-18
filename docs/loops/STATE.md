@@ -1,0 +1,35 @@
+# Loop-State
+
+**Goal:** Plan-Tasks 25–35 (Begeisterungs-Pakete „Puls"/„Story"/„Leben", `docs/superpowers/plans/2026-07-15-website-rebuild-lokal.md`, Erweiterung 2) sind implementiert, einzeln verifier-approved und auf dem Feature-Branch committet. Task 36 ist ausgenommen (braucht explizites User-Go).
+**Done-Sentinel:** Diese Datei enthält die Zeile `ALL TASKS DONE`, wenn fertig.
+
+## Blockers
+
+(leer)
+
+## Next
+
+Alle Plan-Tasks 25-35 abgeschlossen. Nächster Schritt: finale Whole-Branch-Review, dann PR (Human-Gate). Task 36 (Bildwelt) wartet auf explizites User-Go.
+
+ALL TASKS DONE
+
+## Ledger (append-only, eine Zeile pro Pass)
+
+| Pass | Datum | Aktion | Evidence (Kommando → Ergebnis) | Ergebnis |
+|------|-------|--------|-------------------------------|----------|
+| 1 | 2026-07-16 | Task 25 Motion-Fundament (Commit 5f788ae) | `npm run verify` → Exit 0, 103/103 Tests; Verifier-Verdict Approved (0 Critical/Important, 1 Minor stilistisch); Keyframe-Technik per Browser-Repro verifiziert | ✅ approved |
+| 2 | 2026-07-16 | Task 26 Conversion-Pfad (Commit ac02f1e) | `npm run verify` → Exit 0, 107/107; Verifier reproduzierte tsc/vitest/build unabhängig, Empty-DB-Edge empirisch geprüft (CTA-Fallback /einrichtungen); Approved 0C/0I, 1 Minor (fortschrittProzent ohne Unit-Test, disclosed) | ✅ approved |
+| 3 | 2026-07-17 | Task 27 Feier-Moment (e22c130 + Fix b0395c5) | verify Exit 0, 112/112; Erstreview 2 Important (Relativ-% irreführend; altesKapital stale bei Zweitspende) → Fix + Re-Review Approved 0C/0I; Verifier reproduzierte verify unabhängig | ✅ approved (nach 1 Fix-Zyklus) |
+| 4 | 2026-07-17 | Task 28 Impact-Beispiele+Share (866ed5b + Fix 4f475c2) | verify Exit 0, 129/129; Erstreview 1 Important (unguarded typ-Lookup, Crash-Pfad bei unbekanntem Einrichtungstyp) → Fallback-Fix + Re-Review Approved 0C/0I. Scope-Bleed: Fixer committete untracked launch.json + Loop-Artefakte mit (Inhalt geprüft, keine Secrets, akzeptiert). Minors: pointless shallow copy; Kommentar-Grammatik; typ:string statt Union | ✅ approved (nach 1 Fix-Zyklus) |
+| 5 | 2026-07-17 | Task 29 Zukunftswert-Story (8433d5f + Test-Fix f440c6c) | verify Exit 0, 152/152; Verifier re-derivierte FV-Mathe mit echten Zahlen (409,84 €-Fixture, 4.782,61 € jährlich); Erstreview 1 Important (Jährlich-Hero ohne Komponententest) → Test-only-Fix, Re-Review Approved 0C/0I. Minor: 'Rentenbarwert' im Testtitel müsste Zukunftswert heißen | ✅ approved (nach 1 Fix-Zyklus) |
+| 6 | 2026-07-17 | Task 30 Level-Reparatur (e48861a) | verify Exit 0, 179/179 (+27); Verifier re-lief tsc/test/build unabhängig, Boundary-Mathe handgeprüft; Approved direkt 0C/0I. Minors: 24,99-Boundary nicht wörtlich getestet; marker-key=label kollisionsanfällig bei Duplikaten | ✅ approved |
+| 7 | 2026-07-17 | Task 31 Meilensteine (01b9836) | verify Exit 0, 199/199 (+20); Verifier tracete Boundary-Crossings mit echten Zahlen, kombinierte Wachstum+Verteilungs-Delta bestätigt; Approved direkt 0C/0I. PAKET STORY (29-31) KOMPLETT. Minors: Dedupe-Asymmetrie Level vs. %-Labels (Produktentscheidung offen); Simulations-DB-Test ohne Near-Threshold-Fall; doppelte Konfetti-Nodes möglich | ✅ approved |
+| 8 | 2026-07-17 | Task 32 Zeitraffer (25910ec + Fix 72fa38b) | verify Exit 0, 207/207; Erstreview 1 Important (Stagger unbegrenzt, >4s ab 13 Einrichtungen) → staggerInterval-Budget-Fix, Re-Review Approved 0C/0I mit strukturellem Beweis (≤3700ms für alle N). Minors: tautologischer Formel-Test; Konstanten-Alias; Tie-Break Highlight; Non-Reduced-Motion-Pfad ungetestet | ✅ approved (nach 1 Fix-Zyklus) |
+| 9 | 2026-07-17 | Task 33 Ticker+Zähler (71d2843 + Fix 474e8f5) | verify Exit 0, 225/225; Verifier-Session brach 1× an API-Fehler ab, per Resume fortgesetzt; Erstreview 1 Important (Index-Keys unterdrücken Live-Slide-in) → zeitpunkt-Epoch-Key-Fix, Re-Review Approved 0C/0I. Minors: Voll-Listen-Re-Animation bei Ankunft; ms-Timing exponiert (harmlos); Route-Test ohne zeitpunkt-Assertion | ✅ approved (nach 1 Fix-Zyklus) |
+| 10 | 2026-07-17 | Task 34 Transparenz (b28ae15) | verify Exit 0, 238/238 (+13); Verifier prüfte same-ms-Ordering empirisch (8 Läufe stabil), Empty-State per Direkt-Render; Approved direkt 0C/0I. Minors: kein orderBy-Tiebreaker (nur bei Concurrent-Writes relevant); Detail-Page-Test 4-Tabellen-beforeEach (pre-existing); Report-Wording | ✅ approved |
+| 11 | 2026-07-17 | Task 35 Landing-Belebung (b733696) + Flake-Fix (8332597) | verify Exit 0, 249/249; Verifier verifizierte live im Browser (Overflow-Fix, Breakpoints, echte Daten); Approved direkt 0C/0I. Verifier fand pre-existing Ordering-Flake (247-249 je Lauf) → Root-Cause-Fix (explizite Test-Timestamps + id-Tiebreaker), 5×+2× stabil grün | ✅ approved · PAKET LEBEN KOMPLETT |
+
+FINALE WHOLE-BRANCH-REVIEW (2026-07-17): Verdict 'With fixes' → Fix-Welle 4027022 (gebuchte Spende eingefroren statt Live-Regler; Du-Form durchgängig + CLAUDE.md-Konvention; router.refresh nach Buchung/Verteilung/Simulation; Doppel-Konfetti weg; Betrag<5-Hinweis) → Re-Review unabhängig: 252/252 zweimal, tsc clean, READY FOR PR: YES. Verbleibende Minors explizit ACCEPTED-FOR-LOCAL-DEMO triagiert. Zwei offene Produktentscheidungen für später: Meilenstein-Doppel-Labels; Ticker-Voll-Re-Animation.
+
+PASS 12 (2026-07-17): Task 36 User-Gate GEOEFFNET (User: "ja und go"). Bildwelt Wachstum, eigenes Design-Review-Gate vor Merge. PR #2 erstellt (Tasks 25-35).
+| 12 | 2026-07-17 | Task 36 Bildwelt Wachstum (1572d1a + Design-Fix 6af6f80) | verify Exit 0, 268/268 (Reviewer 2x unabhaengig reproduziert); Design-Gate Erstreview 2 Important (Karten-Text-Overflow; Stufe 2/3 = Map-Pin-Silhouette) - Fix (Kurzlabel klein, Baum-Silhouetten, sichtbarer Erdhuegel, Samen groesser) - Design-Re-Review im Browser: Approved 0C/0I. Minors: lange Stufennamen ellipsiert; Landing-Label ohne Gesamt-Wording | approved (nach 1 Design-Fix-Zyklus) - GESAMTER PLAN KOMPLETT |

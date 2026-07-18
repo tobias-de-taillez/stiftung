@@ -1,26 +1,63 @@
 'use client';
 
 import { useState } from 'react';
-import { computeYearsToGoal } from '@/lib/calc/spendenrechner';
-import { formatDuration, formatEuro } from '@/lib/calc/format';
-import { currentLevel } from '@/lib/data/levels';
+import { useRouter } from 'next/navigation';
+import {
+  ANNUAL_PAYOUT_RATE,
+  NET_GROWTH_RATE,
+  computeYearsToGoal,
+  zukunftswert,
+  futureValueWithAnnualDonation,
+  dauerhafteJahresfoerderung,
+  verkuerzungMonate,
+} from '@/lib/calc/spendenrechner';
+import { formatDuration, formatEuro, formatMonate } from '@/lib/calc/format';
+import { currentLevel, nextLevel } from '@/lib/data/levels';
+import { impactBeispiel } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
+import { ProgressBar } from './ProgressBar';
 import { SpendenBestaetigung } from './SpendenBestaetigung';
 
 interface EinrichtungFuerRechner {
   slug: string;
   name: string;
+  typ: string;
   kinderAnzahl: number;
   aktuellesKapital: number;
   zielKapital: number;
 }
 
+const BETRAG_PRESETS = [25, 50, 100, 250];
+
 export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRechner }) {
+  const router = useRouter();
   const [betrag, setBetrag] = useState(50);
   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  // kapitalStand ist der jeweils aktuelle Live-Stand (startet beim Seitenlade-
+  // Snapshot, wandert nach jeder erfolgreichen Spende weiter). altesKapital
+  // hält den Vorher-Stand der zuletzt gebuchten Spende separat fest, damit er
+  // nicht durch das Update von kapitalStand überschrieben wird, bevor die
+  // Bestätigung ihn anzeigt — sonst zeigt eine zweite Spende wieder den
+  // Seitenlade-Stand statt des tatsächlichen Vorher-Werts.
+  const [kapitalStand, setKapitalStand] = useState(einrichtung.aktuellesKapital);
+  const [altesKapital, setAltesKapital] = useState(einrichtung.aktuellesKapital);
   const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
   const [spendeId, setSpendeId] = useState<string | null>(null);
+  // gebuchterBetrag/gebuchteFrequenz sind ein Snapshot der zuletzt GEBUCHTEN
+  // Spende — analog zu altesKapital oben. Ohne diesen Snapshot würde die
+  // Bestätigung/Quittung/Share-Text die LIVE betrag/frequenz-States anzeigen,
+  // die der Regler nach der Buchung beliebig weiterverändert: eine zweite
+  // Reglerbewegung nach dem Spenden würde sonst eine falsche Quittung zeigen
+  // (Betrag, der nie tatsächlich gebucht wurde). Default-Werte spiegeln die
+  // Initialwerte von betrag/frequenz — sie werden nie angezeigt, bevor eine
+  // echte Buchung sie überschreibt (Anzeige ist an status === 'done' geknüpft).
+  const [gebuchterBetrag, setGebuchterBetrag] = useState(50);
+  const [gebuchteFrequenz, setGebuchteFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
+  // Meilenstein-Erkennung (Task 31): kommt direkt aus der POST-Response
+  // (erreichteMeilensteine, serverseitig via lib/data/levels.ts berechnet).
+  // Default [] deckt Mocks ab, die dieses Feld (noch) nicht liefern.
+  const [meilensteine, setMeilensteine] = useState<string[]>([]);
 
   async function handleSpenden() {
     setStatus('loading');
@@ -31,27 +68,103 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
         body: JSON.stringify({ betrag, frequenz }),
       });
       if (!res.ok) throw new Error('request_failed');
-      const { einrichtung: updated, spende } = await res.json();
+      const { einrichtung: updated, spende, erreichteMeilensteine } = await res.json();
+      setAltesKapital(kapitalStand);
       setNeuesKapital(updated.aktuellesKapital);
+      setKapitalStand(updated.aktuellesKapital);
       setSpendeId(spende.id);
+      setMeilensteine(erreichteMeilensteine ?? []);
+      setGebuchterBetrag(betrag);
+      setGebuchteFrequenz(frequenz);
       setStatus('done');
+      // Server-Sektionen auf derselben Seite (Finanztopf-Karte, Transparenz-
+      // Historie in app/einrichtungen/[slug]/page.tsx) lesen direkt aus der DB
+      // und werden sonst erst nach einem manuellen Reload aktuell — router.
+      // refresh() holt die Server Components neu, ohne den Client-State
+      // (Bestätigung/Konfetti) dieser Komponente zu verlieren.
+      router.refresh();
     } catch {
       setStatus('error');
     }
   }
 
+  // "Bei Zielerreichung" — Jahre bis zum Ziel MIT der Spende (nicht ohne),
+  // wie im Task-29-Brief gefordert.
   const jahre = computeYearsToGoal({
-    startCapital: einrichtung.aktuellesKapital,
+    startCapital: kapitalStand,
     targetCapital: einrichtung.zielKapital,
     donation: betrag,
     frequency: frequenz,
   });
+  const zielErreichbar = isFinite(jahre);
 
-  const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
-  const level = currentLevel(annualDonationPerChild);
+  // Zukunftswert MEINES Beitrags zum Zielzeitpunkt — bewusst unabhängig vom
+  // Startkapital der Einrichtung (siehe zukunftswert()-Kommentar): Bei
+  // "einmalig" wächst der einmalige Betrag über die Jahre; bei "jährlich"
+  // ist es der Renten-Zukunftswert der wiederkehrenden Spenden (dieselbe
+  // Formel wie computeYearsToGoal intern nutzt, mit Startkapital 0 aufgerufen
+  // — keine Formel-Duplikation). Nur sinnvoll, wenn das Ziel erreichbar ist
+  // (endliche jahre); bei Infinity würde die Formel selbst Infinity liefern.
+  const zukunftswertMeinerSpende = zielErreichbar
+    ? frequenz === 'jaehrlich'
+      ? futureValueWithAnnualDonation(0, betrag, NET_GROWTH_RATE, jahre)
+      : zukunftswert(betrag, jahre)
+    : 0;
+
+  // Verkürzung des Wegs zum Ziel durch die Spende, in Monaten (sekundäre
+  // Botschaft). Bei unerreichbarem Ziel liefert die Funktion 0 (keine
+  // ausweisbare Verkürzung) — wird dann ohnehin nicht angezeigt.
+  const verkuerzung = verkuerzungMonate(
+    { startCapital: kapitalStand, targetCapital: einrichtung.zielKapital },
+    betrag,
+    frequenz
+  );
+
+  // Dauerförderungs-Perspektive für den Fall, dass das Ziel unerreichbar ist
+  // (Infinity darf laut Akzeptanzkriterium nie die Hauptbotschaft sein).
+  // KORREKTUR aus dem Brief: Ohne definierten Zielzeitpunkt kann nur die "ab
+  // sofort"-Untergrenze (jahre=0-Default) ausgewiesen werden, nicht die
+  // gewachsene Ausschüttung — das wird im Text ehrlich als Untergrenze
+  // benannt, die mit dem Kapital weiterwächst.
+  const dauerhaftAbSofort = dauerhafteJahresfoerderung(betrag);
+
+  // Spender-Badge (Task 30): absolute Schwellen auf den Spendenbetrag
+  // selbst — unabhängig von Kinderzahl und Frequenz. Vorher war die
+  // Schwelle als annualDonationPerChild definiert und griff bei
+  // Einmalspenden nie (Zähler war dort immer 0) und lag bei großen
+  // Einrichtungen faktisch unerreichbar hoch.
+  const level = currentLevel(betrag);
+  const naechstesLevel = nextLevel(betrag);
+
+  // Wirkungs-Zeile: X = Spendenbetrag × ANNUAL_PAYOUT_RATE (1%) — dieselbe
+  // Ausschüttungsquote, mit der auch capitalForAnnualPayout rechnet. Bei
+  // "jährlich" gilt dieselbe Formel je gespendetem Betrag (nicht kumuliert
+  // über die Jahre) — siehe Fußnote, die das ehrlich einordnet.
+  const jahresertrag = betrag * ANNUAL_PAYOUT_RATE;
+  const wirkungsBeispiel = impactBeispiel(einrichtung.typ, jahresertrag);
+
+  // Betrag < 5 € (z. B. Zahlenfeld geleert) macht Zukunftswert-Hero und
+  // Wirkungs-Zeile absurd ("0,00 € angewachsen" / "0,00 €/Jahr erwirtschaftet").
+  // Statt dieser Story zeigen wir einen neutralen Hinweis — das Feld erlaubt
+  // laut min={5} ohnehin keine sinnvolle Spende darunter.
+  const betragZuNiedrig = betrag < 5;
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
+      <div role="group" aria-label="Betrag-Vorschläge" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        {BETRAG_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className={`pill ${betrag === preset ? 'pill-primary' : 'pill-secondary'}`}
+            aria-pressed={betrag === preset}
+            onClick={() => setBetrag(preset)}
+          >
+            {preset} €
+          </button>
+        ))}
+      </div>
+
       <label>
         <span className="eyebrow" style={{ display: 'block' }}>Spendenbetrag</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -85,12 +198,74 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
         </button>
       </div>
 
+      {betragZuNiedrig ? (
+        <p className="muted" data-testid="betrag-hinweis">Wähle einen Betrag ab 5 €.</p>
+      ) : zielErreichbar ? (
+        <div data-testid="zukunftswert-hero">
+          <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>
+            {frequenz === 'jaehrlich'
+              ? `Deine jährlichen ${formatEuro(betrag)} wachsen bis zur Zielerreichung zusammen auf ~${formatEuro(zukunftswertMeinerSpende)} an.`
+              : `Deine ${formatEuro(betrag)} sind bei Zielerreichung auf ~${formatEuro(zukunftswertMeinerSpende)} angewachsen.`}
+          </p>
+          <ProgressBar
+            value={zukunftswertMeinerSpende}
+            max={einrichtung.zielKapital}
+            label={`${formatEuro(zukunftswertMeinerSpende)} von ${formatEuro(einrichtung.zielKapital)} — dein Anteil am Ziel`}
+          />
+          <p className="muted" style={{ fontSize: '0.8rem' }}>
+            Angenommene Netto-Wachstumsrate: {NET_GROWTH_RATE * 100} % pro Jahr, konstant bis zur
+            Zielerreichung — eine Modellrechnung auf Basis des heutigen Finanzmodells, keine garantierte Prognose.
+          </p>
+        </div>
+      ) : (
+        // Fallback laut Akzeptanzkriterium: "nicht erreichbar" (Infinity)
+        // erscheint nie als Hauptbotschaft — stattdessen die
+        // Dauerförderungs-Perspektive (KORREKTUR: "ab sofort"-Untergrenze,
+        // die mit dem Kapital weiterwächst, siehe dauerhafteJahresfoerderung()).
+        <div data-testid="dauerfoerderung-perspektive">
+          <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>
+            Dein Beitrag trägt schon ab sofort dauerhaft mit ~{formatEuro(dauerhaftAbSofort)}/Jahr bei.
+          </p>
+          <p className="muted">
+            Diese Zahl ist eine ehrliche Untergrenze: Sie wächst mit, sobald der Finanztopf wächst — für
+            dieses Ziel lässt sich der Zeitpunkt der vollen Kapitalreife derzeit nicht seriös vorhersagen.
+          </p>
+        </div>
+      )}
+
+      {!betragZuNiedrig && zielErreichbar && verkuerzung > 0 && (
+        <p data-testid="verkuerzung" className="muted">
+          Und verkürzen den Weg zum Ziel um {formatMonate(verkuerzung)}.
+        </p>
+      )}
+
       <div data-testid="years-result">
-        <p className="hero-number" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)' }}>{formatDuration(jahre)}</p>
-        <p className="muted">bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
+        <p className="muted" style={{ fontSize: '0.9rem' }}>{formatDuration(jahre)} bis zum Ziel von {formatEuro(einrichtung.zielKapital)}</p>
       </div>
 
+      {!betragZuNiedrig && (
+        <div data-testid="impact-beispiel">
+          <p>
+            {frequenz === 'jaehrlich'
+              ? `Jede deiner jährlichen Spenden erwirtschaftet je gespendetem Betrag dauerhaft ~${formatEuro(jahresertrag)}/Jahr — das ist z. B. ${wirkungsBeispiel}, jedes Jahr aufs Neue.`
+              : `Deine Spende erwirtschaftet dauerhaft ~${formatEuro(jahresertrag)}/Jahr — das ist z. B. ${wirkungsBeispiel}, jedes Jahr aufs Neue.`}
+          </p>
+          <p className="muted" style={{ fontSize: '0.8rem' }}>
+            Formel: {formatEuro(betrag)} × 1 % jährliche Ausschüttungsquote = {formatEuro(jahresertrag)}/Jahr. Dein
+            Spendenbetrag selbst bleibt dauerhaft im Finanztopf angelegt — ausgeschüttet wird nur dieser jährliche
+            Ertrag, Jahr für Jahr aufs Neue, ohne dass das Kapital schrumpft. Die Beispiele oben stehen dafür, wofür
+            solche wiederkehrenden Ausschüttungen über viele Spenden hinweg eingesetzt werden.
+            {frequenz === 'jaehrlich' && ' Bei jährlicher Spende gilt diese Rechnung für jeden gespendeten Jahresbetrag erneut.'}
+          </p>
+        </div>
+      )}
+
       {level && <StatusChip tone={level.tone}>{level.name}-Spender:in</StatusChip>}
+      {naechstesLevel && (
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          noch {formatEuro(naechstesLevel.schwelleEuro - betrag)} bis {naechstesLevel.name}
+        </p>
+      )}
 
       <button
         type="button"
@@ -107,11 +282,14 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
 
       {status === 'done' && neuesKapital !== null && spendeId && (
         <SpendenBestaetigung
-          betrag={betrag}
-          frequenz={frequenz}
+          betrag={gebuchterBetrag}
+          frequenz={gebuchteFrequenz}
           einrichtungName={einrichtung.name}
+          altesKapital={altesKapital}
           neuesKapital={neuesKapital}
+          zielKapital={einrichtung.zielKapital}
           spendeId={spendeId}
+          meilensteine={meilensteine}
         />
       )}
     </div>

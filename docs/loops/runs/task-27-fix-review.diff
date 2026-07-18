@@ -1,0 +1,333 @@
+# Review package: e22c130..b0395c5
+
+## Commits
+b0395c5 fix: Feier-Moment ehrlich — Ziel-Prozente statt Relativ-Wachstum, Kapitalstand-Tracking bei Folgespenden
+
+## Files changed
+ docs/loops/runs/task-27-report.md                  | 55 ++++++++++++++++++++++
+ stiftung-web/components/SpendenBestaetigung.tsx    | 11 +++--
+ stiftung-web/components/SpendenRechner.tsx         | 14 +++++-
+ .../__tests__/SpendenBestaetigung.test.tsx         | 15 ++++--
+ .../components/__tests__/SpendenRechner.test.tsx   | 37 +++++++++++++++
+ 5 files changed, 123 insertions(+), 9 deletions(-)
+
+## Diff
+diff --git a/docs/loops/runs/task-27-report.md b/docs/loops/runs/task-27-report.md
+new file mode 100644
+index 0000000..b064ee1
+--- /dev/null
++++ b/docs/loops/runs/task-27-report.md
+@@ -0,0 +1,55 @@
++### Task 27: Feier-Moment nach der Spende — Report
++
++**Status:** DONE
++
++**Commit:** e22c130 — `feat(spenden): Feier-Moment nach der Spende — Konfetti, Vorher/Nachher-Balken, Count-up` (branch `begeisterung-pakete`)
++
++**Was wurde gebaut**
++
++- `components/Konfetti.tsx` (neu): einmaliger CSS-Partikel-Burst beim Mounten, keine Abhängigkeiten. 20 Partikel mit zufälliger Startposition/Delay/Dauer, 3 fixe Drift-Keyframe-Varianten (kein JS-Custom-Property-Bedarf). `aria-hidden="true"`. Unter `prefers-reduced-motion` blendet die globale Media Query den Container komplett aus (`display: none`), damit nichts eingefroren mitten im Bild hängen bleibt.
++- `components/SpendenBestaetigung.tsx` (umgebaut): neue Reihenfolge exakt nach Akzeptanzkriterium — (1) Konfetti + „Danke für Ihre Spende!" (2) Vorher→Nachher-Fortschrittsbalken: Geisterbalken (`.vorher-nachher-ghost`, blass, `altesKapital`-Anteil) unter animiertem Fill (`.vorher-nachher-fill`, `neuesKapital`-Anteil, wiederverwendet die bestehende `progress-bar-fill-in`-Keyframe-Animation und erbt damit den globalen reduced-motion-Override) + Prozentzuwachs-Text `(neu-alt)/alt*100`, gerundet auf 1 Nachkommastelle; (3) neuer Kapitalstand via `useCountUp` (Task 25); (4) Share/Quittung unverändert; (5) Spielgeld-Hinweis als letztes Element, jetzt ein dezenter `muted`-Absatz statt `StatusChip` (Chip-Import entfernt). Jede Sektion trägt `data-testid` für die Reihenfolge-Assertion.
++- `components/SpendenRechner.tsx`: übergibt zusätzlich `altesKapital={einrichtung.aktuellesKapital}` und `zielKapital={einrichtung.zielKapital}` an die Bestätigung (beide waren bereits im `einrichtung`-Prop vorhanden).
++- `app/globals.css`: CSS für Geisterbalken/Fill (`.vorher-nachher-*`) und Konfetti (`.konfetti-*`, 3 Keyframes, reduced-motion-Override).
++
++**Designentscheidung (nicht durch Akzeptanzkriterium fixiert):** „Prozentzuwachs" wurde als relatives Wachstum des Kapitalstands `(neu-alt)/alt*100` interpretiert (nicht als Prozentpunkte-Fortschritt zum Ziel) — liest sich als eigenständige Wachstums-Aussage und bleibt auch bei sehr großem `zielKapital` sichtbar (Prozentpunkte-Fortschritt würde bei kleinen Spenden auf 0,0 % runden). Edge Case notiert: bei `altesKapital = 0` (erste Spende überhaupt) zeigt der Text „+0,0 %" — bewusst nicht sonderbehandelt, da unauffällig und sicher.
++
++**Tests:** 110/110 grün (107 bestehend + 3 neu: Geisterbalken-Werte alt/neu + Prozentzuwachs-Text, Reihenfolge/Existenz Spielgeld-Hinweis als letztes Element ohne Chip, Konfetti-Burst-Rendering). Bestehende Tests angepasst, nicht abgeschwächt:
++- Zwei Assertions (`SpendenBestaetigung.test.tsx`, `SpendenRechner.test.tsx`) mussten von `getByText(/3.050,00 €/)` auf `getByText(/^3\.050,00 €$/)` verschärft werden, weil derselbe Betrag jetzt zusätzlich im Vorher→Nachher-Text vorkommt (`"3.000,00 € → 3.050,00 €"`) und ohne Anker zwei Treffer entstünden. Die volle Anker-Regex trifft eindeutig nur das `<strong>` im Kapitalstand (RTL `getNodeText` fasst nur direkte Text-Kindknoten zusammen).
++- Beide Testdateien bekamen ein `beforeEach`, das `window.matchMedia` auf `reduced-motion: true` stubbt (`vi.stubGlobal`, per bestehendem `afterEach(() => vi.unstubAllGlobals())` sauber zurückgesetzt) — sonst würde `useCountUp` über `requestAnimationFrame` real hochzählen und die synchronen/`findByText`-Assertions wären flaky.
++- Regressionsschutz Ehrlichkeits-Constraint (`/Spielgeld/i`, „kein echtes Geld") bleibt bestehen, jetzt gegen den neuen `muted`-Absatz statt den `StatusChip`.
++
++**Verify:** `cd stiftung-web && npm run verify` → exit 0 (tsc --noEmit clean, 110 Tests grün, `next build` erfolgreich).
++
++**Branch-Check:** `git rev-parse --abbrev-ref HEAD` = `begeisterung-pakete` (vor Commit geprüft).
++
++**Concerns:** keine harten Blocker. Eine offene Designentscheidung (Prozentzuwachs-Formel) ist oben dokumentiert, da das Akzeptanzkriterium keinen exakten Wert vorgibt — vom Advisor vor Umsetzung gegengeprüft.
++
++## Fix nach Review
++
++**Review-Findings (Pass 3, beide Important):**
++
++1. **Prozentzuwachs widerspricht Zielbalken:** Die in Pass 1 getroffene Designentscheidung `(neu-alt)/alt*100` erzeugte bei großen Einrichtungen (z. B. `altesKapital` im fünfstelligen Bereich) einen Text wie „+0,0 %" direkt neben einem Balken, der sichtbar von 4,0 % auf 4,25 % wächst — der Text widersprach dem Balken.
++2. **`altesKapital` stale bei Zweitspenden:** `SpendenRechner.tsx` übergab immer `einrichtung.aktuellesKapital` (Seitenlade-Snapshot) als `altesKapital`. Da „Jetzt spenden" nach Erfolg wieder klickbar ist, zeigte eine zweite Spende denselben (falschen) Vorher-Stand statt des tatsächlichen Stands nach der ersten Spende. Die Live-Simulation (`computeYearsToGoal`) nutzte ebenfalls weiterhin den stale Startwert.
++
++**Fix 1 — `components/SpendenBestaetigung.tsx`:**
++Der relative Wachstumstext wurde entfernt. Die bereits berechneten `altPct`/`neuPct` (Prozent zum Ziel, für den Balken) werden jetzt auch für den Text verwendet: `Von ${formatProzent(altPct)} % auf ${formatProzent(neuPct)} % des Ziels`, 1 Nachkommastelle, de-DE-Formatierung (`toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })`). Der Text ist damit immer konsistent mit dem darüber liegenden Balken.
++
++**Fix 2 — `components/SpendenRechner.tsx`:**
++Neuer State `kapitalStand` (Init: `einrichtung.aktuellesKapital`) hält den jeweils aktuellen Live-Stand und wird als `startCapital` der Simulation genutzt. Ein zweiter State `altesKapital` (ebenfalls init `einrichtung.aktuellesKapital`) hält separat den Vorher-Stand der zuletzt gebuchten Spende fest. In `handleSpenden` wird beim Empfang der Server-Antwort zuerst `setAltesKapital(kapitalStand)` aufgerufen (Snapshot des noch nicht überschriebenen Live-Stands), danach `setKapitalStand(updated.aktuellesKapital)`. Zwei separate States sind hier nötig: React batcht `setKapitalStand` und `setStatus('done')` in einem Render, sodass ein einzelner State für „Vorher" beim Rendern bereits den neuen Wert zeigen würde.
++
++**Tests:**
++- `SpendenBestaetigung.test.tsx`: bestehender Test „Geisterbalken + Prozentzuwachs" umbenannt/angepasst auf „Ziel-Fortschritt als Text", Assertion prüft jetzt `„Von 12,0 % auf 12,2 % des Ziels"` (Fixture 3000→3050/25000) statt der alten Regex `/\+1,7 %/`. Neuer Regressionstest mit der 800→850/20000-Fixture prüft exakt `„Von 4,0 % auf 4,3 % des Ziels"` und stellt sicher, dass kein `+0,0 %`-Text mehr erscheint.
++- `SpendenRechner.test.tsx`: neuer Test mit zwei aufeinanderfolgenden gemockten POSTs (aktuellesKapital 3000→3050→3150). Nach der zweiten Spende wird geprüft, dass der Vorher-Wert der Bestätigung dem Nachher-Wert der ersten Spende entspricht (`„3.050,00 € → 3.150,00 €"`), nicht dem Seitenlade-Snapshot (`3.000,00 €`).
++
++**Testbefehle + Ergebnis:**
++```
++npx vitest run components/__tests__/SpendenBestaetigung.test.tsx components/__tests__/SpendenRechner.test.tsx
++→ Test Files 2 passed (2), Tests 15 passed (15)
++
++npm run verify
++→ tsc --noEmit clean, 112/112 Tests grün (25 Testdateien), next build erfolgreich, exit 0
++```
++
++**Branch-Check:** `git rev-parse --abbrev-ref HEAD` = `begeisterung-pakete` (vor Commit geprüft).
++
++**Commit:** siehe Git-Log (`fix: Feier-Moment ehrlich — Ziel-Prozente statt Relativ-Wachstum, Kapitalstand-Tracking bei Folgespenden`).
+diff --git a/stiftung-web/components/SpendenBestaetigung.tsx b/stiftung-web/components/SpendenBestaetigung.tsx
+index d0e014e..721bb05 100644
+--- a/stiftung-web/components/SpendenBestaetigung.tsx
++++ b/stiftung-web/components/SpendenBestaetigung.tsx
+@@ -36,33 +36,36 @@ export function SpendenBestaetigung({
+     if (typeof navigator !== 'undefined' && navigator.share) {
+       await navigator.share({ title: 'Meine Spende', text: shareText, url: shareUrl });
+     } else if (typeof window !== 'undefined') {
+       window.alert('Teilen wird von diesem Browser nicht unterstützt — nutze den WhatsApp-Link.');
+     }
+   }
+ 
+   const altPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (altesKapital / zielKapital) * 100))) : 0;
+   const neuPct = zielKapital > 0 ? rundeAufZweiNachkommastellen(Math.min(100, Math.max(0, (neuesKapital / zielKapital) * 100))) : 0;
+   const istZielErreicht = neuPct >= 100;
+-  const prozentZuwachs = altesKapital > 0 ? ((neuesKapital - altesKapital) / altesKapital) * 100 : 0;
+-  const prozentZuwachsText = `+${prozentZuwachs.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
++  const formatProzent = (wert: number) => wert.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
++  // Ziel-anchored statt relatives Wachstum: (neu-alt)/alt zeigt bei großen
++  // Einrichtungen "+0,0 %" und widerspricht damit dem sichtbar wachsenden
++  // Balken darunter. altPct/neuPct sind bereits für den Balken berechnet.
++  const zielFortschrittText = `Von ${formatProzent(altPct)} % auf ${formatProzent(neuPct)} % des Ziels`;
+ 
+   return (
+     <Card>
+       {/* (1) Konfetti-Burst + Danke — prominent, als Erstes zu sehen */}
+       <div data-testid="konfetti-danke">
+         <Konfetti />
+         <h2>Danke für Ihre Spende!</h2>
+         <p>{formatEuro(betrag)} {frequenz === 'jaehrlich' ? 'jährlich' : 'einmalig'} für {einrichtungName}.</p>
+       </div>
+ 
+-      {/* (2) Vorher→Nachher-Balken (Geisterbalken = alter Stand) + Prozentzuwachs */}
++      {/* (2) Vorher→Nachher-Balken (Geisterbalken = alter Stand) + Ziel-Fortschritt */}
+       <div data-testid="vorher-nachher" style={{ marginTop: '1.25rem' }}>
+         <p className="eyebrow" style={{ marginBottom: '0.4rem' }}>Kapitalstand-Zuwachs</p>
+         <div
+           className="vorher-nachher-track"
+           role="progressbar"
+           aria-valuemin={0}
+           aria-valuemax={zielKapital}
+           aria-valuenow={Math.round(Math.min(zielKapital, Math.max(0, neuesKapital)))}
+           aria-label="Kapitalstand-Fortschritt zum Ziel"
+         >
+@@ -70,21 +73,21 @@ export function SpendenBestaetigung({
+           <div
+             className={`vorher-nachher-fill${istZielErreicht ? ' is-complete' : ''}`}
+             style={{ width: `${neuPct}%` }}
+           />
+         </div>
+         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginTop: '0.4rem' }}>
+           <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+             {formatEuro(altesKapital)} → {formatEuro(neuesKapital)}
+           </p>
+           <p className="muted" style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+-            {prozentZuwachsText}
++            {zielFortschrittText}
+           </p>
+         </div>
+       </div>
+ 
+       {/* (3) Neuer Kapitalstand mit Count-up */}
+       <div data-testid="kapitalstand" style={{ marginTop: '1.25rem' }}>
+         <p className="muted">
+           Neuer Kapitalstand im Finanztopf: <strong>{formatEuro(angezeigtesKapital)}</strong>
+         </p>
+       </div>
+diff --git a/stiftung-web/components/SpendenRechner.tsx b/stiftung-web/components/SpendenRechner.tsx
+index 7a09428..f8d1c3d 100644
+--- a/stiftung-web/components/SpendenRechner.tsx
++++ b/stiftung-web/components/SpendenRechner.tsx
+@@ -14,43 +14,53 @@ interface EinrichtungFuerRechner {
+   aktuellesKapital: number;
+   zielKapital: number;
+ }
+ 
+ const BETRAG_PRESETS = [25, 50, 100, 250];
+ 
+ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRechner }) {
+   const [betrag, setBetrag] = useState(50);
+   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
+   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
++  // kapitalStand ist der jeweils aktuelle Live-Stand (startet beim Seitenlade-
++  // Snapshot, wandert nach jeder erfolgreichen Spende weiter). altesKapital
++  // hält den Vorher-Stand der zuletzt gebuchten Spende separat fest, damit er
++  // nicht durch das Update von kapitalStand überschrieben wird, bevor die
++  // Bestätigung ihn anzeigt — sonst zeigt eine zweite Spende wieder den
++  // Seitenlade-Stand statt des tatsächlichen Vorher-Werts.
++  const [kapitalStand, setKapitalStand] = useState(einrichtung.aktuellesKapital);
++  const [altesKapital, setAltesKapital] = useState(einrichtung.aktuellesKapital);
+   const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
+   const [spendeId, setSpendeId] = useState<string | null>(null);
+ 
+   async function handleSpenden() {
+     setStatus('loading');
+     try {
+       const res = await fetch(`/api/einrichtungen/${einrichtung.slug}/spenden`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ betrag, frequenz }),
+       });
+       if (!res.ok) throw new Error('request_failed');
+       const { einrichtung: updated, spende } = await res.json();
++      setAltesKapital(kapitalStand);
+       setNeuesKapital(updated.aktuellesKapital);
++      setKapitalStand(updated.aktuellesKapital);
+       setSpendeId(spende.id);
+       setStatus('done');
+     } catch {
+       setStatus('error');
+     }
+   }
+ 
+   const jahre = computeYearsToGoal({
+-    startCapital: einrichtung.aktuellesKapital,
++    startCapital: kapitalStand,
+     targetCapital: einrichtung.zielKapital,
+     donation: betrag,
+     frequency: frequenz,
+   });
+ 
+   const annualDonationPerChild = (frequenz === 'jaehrlich' ? betrag : 0) / einrichtung.kinderAnzahl;
+   const level = currentLevel(annualDonationPerChild);
+ 
+   return (
+     <div style={{ display: 'grid', gap: '1rem' }}>
+@@ -119,19 +129,19 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
+ 
+       {status === 'error' && (
+         <p className="negative">Spende konnte nicht gebucht werden. Bitte erneut versuchen.</p>
+       )}
+ 
+       {status === 'done' && neuesKapital !== null && spendeId && (
+         <SpendenBestaetigung
+           betrag={betrag}
+           frequenz={frequenz}
+           einrichtungName={einrichtung.name}
+-          altesKapital={einrichtung.aktuellesKapital}
++          altesKapital={altesKapital}
+           neuesKapital={neuesKapital}
+           zielKapital={einrichtung.zielKapital}
+           spendeId={spendeId}
+         />
+       )}
+     </div>
+   );
+ }
+diff --git a/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx b/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
+index 133527c..c48af7b 100644
+--- a/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenBestaetigung.test.tsx
+@@ -70,34 +70,43 @@ describe('SpendenBestaetigung', () => {
+   });
+ 
+   it('zeigt eine Spendenquittung mit Beleg-Nummer nach Aufklappen', async () => {
+     const user = userEvent.setup();
+     render(<SpendenBestaetigung {...props} />);
+     await user.click(screen.getByText(/Spendenquittung anzeigen/i));
+     expect(screen.getByText(/spende-123/)).toBeInTheDocument();
+     expect(screen.getByText(/Demo-Dokument/i)).toBeInTheDocument();
+   });
+ 
+-  it('rendert den Geisterbalken mit korrekten Alt-/Neu-Werten und zeigt den Prozentzuwachs als Text', () => {
++  it('rendert den Geisterbalken mit korrekten Alt-/Neu-Werten und zeigt den Ziel-Fortschritt als Text', () => {
+     const { container } = render(<SpendenBestaetigung {...props} />);
+     const ghost = container.querySelector('.vorher-nachher-ghost') as HTMLElement;
+     const fill = container.querySelector('.vorher-nachher-fill') as HTMLElement;
+ 
+     expect(ghost).toBeInTheDocument();
+     expect(fill).toBeInTheDocument();
+     // altesKapital 3000 / zielKapital 25000 = 12 %; neuesKapital 3050 / 25000 = 12,2 %
+     expect(ghost.style.width).toBe('12%');
+     expect(fill.style.width).toBe('12.2%');
+ 
+     expect(screen.getByText(/3\.000,00 € → 3\.050,00 €/)).toBeInTheDocument();
+-    // (3050 - 3000) / 3000 * 100 = 1,666...% → gerundet "1,7 %"
+-    expect(screen.getByText(/\+1,7 %/)).toBeInTheDocument();
++    // Ziel-anchorierter Text statt relativem Wachstum: 12,0 % → 12,2 % des Ziels
++    expect(screen.getByText('Von 12,0 % auf 12,2 % des Ziels')).toBeInTheDocument();
++  });
++
++  it('zeigt bei großen Einrichtungen den echten Ziel-Fortschritt statt einer irreführenden Relativ-Prozentzahl (Regressionsschutz)', () => {
++    // Vorher-Bug: (neu-alt)/alt*100 rundet bei großen Kapitalständen auf
++    // "+0,0 %" und widerspricht damit dem sichtbar wachsenden Balken. Der
++    // Ziel-Fortschritt bleibt dagegen immer konsistent mit dem Balken.
++    render(<SpendenBestaetigung {...props} altesKapital={800} neuesKapital={850} zielKapital={20000} />);
++    expect(screen.getByText('Von 4,0 % auf 4,3 % des Ziels')).toBeInTheDocument();
++    expect(screen.queryByText(/^\+0,0 %$/)).not.toBeInTheDocument();
+   });
+ 
+   it('zeigt den Spielgeld-Hinweis als letztes Element, als dezenten Text statt als Chip', () => {
+     const { container } = render(<SpendenBestaetigung {...props} />);
+     const sections = container.querySelectorAll('[data-testid]');
+     const letztesElement = sections[sections.length - 1];
+ 
+     expect(letztesElement).toHaveAttribute('data-testid', 'spielgeld-hinweis');
+     expect(letztesElement.textContent).toMatch(/Spielgeld/i);
+     expect(letztesElement.textContent).toMatch(/kein echtes Geld/i);
+diff --git a/stiftung-web/components/__tests__/SpendenRechner.test.tsx b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+index 2cc90f5..dcd5bd7 100644
+--- a/stiftung-web/components/__tests__/SpendenRechner.test.tsx
++++ b/stiftung-web/components/__tests__/SpendenRechner.test.tsx
+@@ -104,18 +104,55 @@ describe('SpendenRechner', () => {
+       `/api/einrichtungen/${einrichtung.slug}/spenden`,
+       expect.objectContaining({ method: 'POST' })
+     );
+     expect(await screen.findByText(/Spielgeld/i)).toBeInTheDocument();
+     // Anchored: "3.050,00 €" taucht sowohl im Vorher→Nachher-Text als auch im
+     // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
+     // das <strong> (siehe SpendenBestaetigung.test.tsx für die Begründung).
+     expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
+   });
+ 
++  it('verwendet bei einer zweiten Spende den tatsächlichen Kapitalstand als Vorher-Wert statt des Seitenlade-Snapshots (Regressionsschutz)', async () => {
++    // Vorher-Bug: altesKapital wurde immer aus einrichtung.aktuellesKapital
++    // (Seitenlade-Snapshot) gelesen, sodass eine zweite Spende wieder den
++    // ursprünglichen Stand als "Vorher" zeigte statt des Stands nach der
++    // ersten Spende.
++    const fetchMock = vi
++      .fn()
++      .mockResolvedValueOnce({
++        ok: true,
++        json: async () => ({
++          einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
++          spende: { id: 'spende-1', betrag: 50, frequenz: 'einmalig' },
++        }),
++      })
++      .mockResolvedValueOnce({
++        ok: true,
++        json: async () => ({
++          einrichtung: { ...einrichtung, aktuellesKapital: 3150 },
++          spende: { id: 'spende-2', betrag: 100, frequenz: 'einmalig' },
++        }),
++      });
++    vi.stubGlobal('fetch', fetchMock);
++
++    const user = userEvent.setup();
++    render(<SpendenRechner einrichtung={einrichtung} />);
++
++    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
++    expect(await screen.findByText(/^3\.050,00 €$/)).toBeInTheDocument();
++
++    await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
++    // Nachher-Wert der zweiten Spende:
++    expect(await screen.findByText(/^3\.150,00 €$/)).toBeInTheDocument();
++    // Vorher-Wert der zweiten Spende muss der Nachher-Wert der ersten sein
++    // (3.050,00 €), nicht der Seitenlade-Stand (3.000,00 €).
++    expect(screen.getByText(/3\.050,00 € → 3\.150,00 €/)).toBeInTheDocument();
++  });
++
+   it('zeigt einen Fehlertext, wenn die Buchung fehlschlägt', async () => {
+     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+     const user = userEvent.setup();
+     render(<SpendenRechner einrichtung={einrichtung} />);
+     await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+     expect(await screen.findByText(/Spende konnte nicht gebucht werden/i)).toBeInTheDocument();
+   });
+ });

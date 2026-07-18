@@ -1,0 +1,498 @@
+# Review package: 6ee8f34..25910ec
+
+## Commits
+25910ec feat: Simulations-Zeitraffer für Jahresabschluss (Task 32)
+
+## Files changed
+ stiftung-web/app/globals.css                       |  28 ++++
+ .../components/SolidaritaetsfondsPanel.tsx         |  24 ++--
+ stiftung-web/components/ZeitrafferErgebnis.tsx     | 151 +++++++++++++++++++++
+ .../__tests__/SolidaritaetsfondsPanel.test.tsx     | 105 +++++++++++++-
+ stiftung-web/lib/hooks/useCountUp.ts               |   4 +-
+ 5 files changed, 297 insertions(+), 15 deletions(-)
+
+## Diff
+diff --git a/stiftung-web/app/globals.css b/stiftung-web/app/globals.css
+index 743f96f..f47fdc3 100644
+--- a/stiftung-web/app/globals.css
++++ b/stiftung-web/app/globals.css
+@@ -247,20 +247,48 @@ a:hover .card {
+   to { transform: translate(36px, 88px) rotate(220deg); opacity: 0; }
+ }
+ 
+ /* Reduced-motion: Container komplett ausblenden statt eingefroren stehen lassen. */
+ @media (prefers-reduced-motion: reduce) {
+   .konfetti-burst {
+     display: none;
+   }
+ }
+ 
++/*
++ * Zeitraffer-Ergebnis (Task 32): Verteilungs-Einträge blenden beim Erscheinen
++ * sanft ein (Sichtbarkeit selbst steuert die Komponente per JS-Timer, nicht
++ * diese Animation — sie ist rein kosmetisch). animation-fill-mode: both hält
++ * den "from"-Zustand vor Start und den "to"-Zustand nach Ende, degradiert
++ * unter prefers-reduced-motion automatisch über den globalen Override oben
++ * (animation-duration → 0.001ms, Endzustand bleibt sichtbar).
++ */
++.zeitraffer-eintrag {
++  animation: zeitraffer-eintrag-in 350ms ease-out both;
++}
++
++@keyframes zeitraffer-eintrag-in {
++  from {
++    opacity: 0;
++    transform: translateY(6px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++.zeitraffer-eintrag--top {
++  font-weight: 700;
++  color: var(--sun);
++}
++
+ :focus-visible {
+   outline: 3px solid var(--focus);
+   outline-offset: 3px;
+ }
+ 
+ @media (prefers-reduced-motion: reduce) {
+   *, *::before, *::after {
+     animation-duration: 0.001ms !important;
+     animation-iteration-count: 1 !important;
+     transition-duration: 0.001ms !important;
+diff --git a/stiftung-web/components/SolidaritaetsfondsPanel.tsx b/stiftung-web/components/SolidaritaetsfondsPanel.tsx
+index 9286d96..19619b5 100644
+--- a/stiftung-web/components/SolidaritaetsfondsPanel.tsx
++++ b/stiftung-web/components/SolidaritaetsfondsPanel.tsx
+@@ -1,23 +1,29 @@
+ 'use client';
+ 
+ import { useState } from 'react';
+ import { Card } from './Card';
+ import { StatusChip } from './StatusChip';
+ import { formatEuro } from '@/lib/calc/format';
++import { ZeitrafferErgebnis, type ZeitrafferErgebnisProps } from './ZeitrafferErgebnis';
+ 
+ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: number }) {
+   const [bestand, setBestand] = useState(initialBestand);
+   const [betrag, setBetrag] = useState(50);
+   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+   const [verteilung, setVerteilung] = useState<{ slug: string; name: string; anteil: number }[] | null>(null);
+-  const [jahresErgebnis, setJahresErgebnis] = useState<{ fondsErtrag: number; kapitalErtrag: number; verteiltGesamt: number } | null>(null);
++  // Ergebnis der Jahres-Simulation (Task 32): trägt den kompletten
++  // /api/simulation/jahr-Response an ZeitrafferErgebnis weiter, das daraus die
++  // inszenierte Sequenz baut. `nummer` dient dort als React-`key`, damit ein
++  // erneutes Simulieren eine frische Instanz (und damit eine frische Sequenz)
++  // statt eines Timer-Neuaufsatzes bekommt.
++  const [zeitraffer, setZeitraffer] = useState<(ZeitrafferErgebnisProps & { nummer: number }) | null>(null);
+ 
+   async function handleSpenden() {
+     setStatus('loading');
+     try {
+       const res = await fetch('/api/solidaritaetsfonds/spenden', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ betrag }),
+       });
+       if (!res.ok) throw new Error('failed');
+@@ -42,26 +48,29 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
+       setStatus('error');
+     }
+   }
+ 
+   async function handleSimulieren() {
+     setStatus('loading');
+     try {
+       const res = await fetch('/api/simulation/jahr', { method: 'POST' });
+       if (!res.ok) throw new Error('failed');
+       const json = await res.json();
+-      setJahresErgebnis({
++      setZeitraffer({
++        nummer: json.nummer,
+         fondsErtrag: json.fondsErtrag,
+         kapitalErtrag: json.kapitalErtrag,
+         verteiltGesamt: json.verteiltGesamt,
++        verteilung: json.verteilung,
++        neuerFondsBestand: json.neuerFondsBestand,
++        meilensteine: json.meilensteine,
+       });
+-      setVerteilung(json.verteilung);
+       setBestand(json.neuerFondsBestand);
+       setStatus('idle');
+     } catch {
+       setStatus('error');
+     }
+   }
+ 
+   return (
+     <Card>
+       <StatusChip tone="forecast">Spielgeld — echte Buchung, kein echtes Geld</StatusChip>
+@@ -100,28 +109,21 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
+         className="pill pill-secondary"
+         style={{ marginTop: '1rem', marginLeft: '0.75rem' }}
+         onClick={handleSimulieren}
+         disabled={status === 'loading'}
+       >
+         Jahr simulieren (+6 %)
+       </button>
+ 
+       {status === 'error' && <p className="negative">Aktion fehlgeschlagen. Bitte erneut versuchen.</p>}
+ 
+-      {jahresErgebnis && (
+-        <div style={{ marginTop: '1rem' }}>
+-          <p className="eyebrow">Jahresabschluss</p>
+-          <p>Fonds-Ertrag: {formatEuro(jahresErgebnis.fondsErtrag)}</p>
+-          <p>Kapital-Ertrag (alle Einrichtungen): {formatEuro(jahresErgebnis.kapitalErtrag)}</p>
+-          <p>Verteilt: {formatEuro(jahresErgebnis.verteiltGesamt)}</p>
+-        </div>
+-      )}
++      {zeitraffer && <ZeitrafferErgebnis key={zeitraffer.nummer} {...zeitraffer} />}
+ 
+       {verteilung && (
+         <div style={{ marginTop: '1rem' }}>
+           <p className="eyebrow">Letzte Verteilung</p>
+           {verteilung.length === 0 ? (
+             <p className="muted">Kein Bedarf — alle Einrichtungen haben ihr Pro-Kind-Ziel erreicht.</p>
+           ) : (
+             <ul>
+               {verteilung.map((v) => (
+                 <li key={v.slug}>{v.name}: {formatEuro(v.anteil)}</li>
+diff --git a/stiftung-web/components/ZeitrafferErgebnis.tsx b/stiftung-web/components/ZeitrafferErgebnis.tsx
+new file mode 100644
+index 0000000..2b3b310
+--- /dev/null
++++ b/stiftung-web/components/ZeitrafferErgebnis.tsx
+@@ -0,0 +1,151 @@
++'use client';
++
++import { useEffect, useState } from 'react';
++import { formatEuro } from '@/lib/calc/format';
++import { useCountUp, prefersReducedMotion } from '@/lib/hooks/useCountUp';
++
++export interface ZeitrafferVerteilungsPosten {
++  slug: string;
++  name: string;
++  anteil: number;
++}
++
++export interface ZeitrafferMeilenstein {
++  slug: string;
++  name: string;
++  labels: string[];
++}
++
++export interface ZeitrafferErgebnisProps {
++  fondsErtrag: number;
++  kapitalErtrag: number;
++  verteiltGesamt: number;
++  verteilung: ZeitrafferVerteilungsPosten[];
++  neuerFondsBestand: number;
++  // Meilenstein-Tags pro Einrichtung (Task 31) — optional: ältere Mocks/Aufrufer
++  // ohne dieses Feld dürfen nicht crashen (Default []).
++  meilensteine?: ZeitrafferMeilenstein[];
++}
++
++const ITEM_STAGGER_MS = 220;
++// Übergang zur Verteilungs-Phase — orientiert sich an der Count-up-Dauer des
++// Kapital-Ertrags (useCountUp-Default 800ms) plus kleinem Puffer.
++const PHASE_KAPITAL_MS = 900;
++const PHASE_ABSCHLUSS_PUFFER_MS = 400;
++
++type Phase = 'kapital' | 'verteilung' | 'abschluss';
++
++/**
++ * Inszenierte Sequenz für „Jahr simulieren" (Task 32): (1) Kapital wächst
++ * +6 % mit Count-up, (2) Verteilung an die Bedürftigsten baut sich gestaffelt
++ * auf (größter Empfänger hervorgehoben), (3) Abschluss-Summe. Reine
++ * Client-Inszenierung der bereits vorhandenen API-Antwort — keine neuen
++ * Requests. Gesamtdauer < 4 s (siehe PHASE_*-Konstanten).
++ *
++ * `prefersReducedMotion()` wird einmal beim Mounten gelesen: unter
++ * reduced-motion ist die gesamte Sequenz von Anfang an im Endzustand
++ * (deterministisch, keine Timer) — siehe useCountUp, das denselben Check
++ * intern für den jeweiligen Count-up-Wert nutzt.
++ */
++export function ZeitrafferErgebnis({
++  fondsErtrag,
++  kapitalErtrag,
++  verteiltGesamt,
++  verteilung,
++  neuerFondsBestand,
++  meilensteine = [],
++}: ZeitrafferErgebnisProps) {
++  const [reduced] = useState(prefersReducedMotion);
++  const [phase, setPhase] = useState<Phase>(reduced ? 'abschluss' : 'kapital');
++  const [revealedCount, setRevealedCount] = useState(reduced ? verteilung.length : 0);
++
++  useEffect(() => {
++    if (reduced) return;
++    const timers: ReturnType<typeof setTimeout>[] = [];
++    timers.push(setTimeout(() => setPhase('verteilung'), PHASE_KAPITAL_MS));
++    for (let i = 0; i < verteilung.length; i++) {
++      const naechsterStand = i + 1;
++      timers.push(
++        setTimeout(
++          () => setRevealedCount((c) => Math.max(c, naechsterStand)),
++          PHASE_KAPITAL_MS + naechsterStand * ITEM_STAGGER_MS
++        )
++      );
++    }
++    timers.push(
++      setTimeout(
++        () => setPhase('abschluss'),
++        PHASE_KAPITAL_MS + verteilung.length * ITEM_STAGGER_MS + PHASE_ABSCHLUSS_PUFFER_MS
++      )
++    );
++    return () => timers.forEach(clearTimeout);
++    // Nur beim Mount planen: Elternteil vergibt `key={nummer}`, jede neue
++    // Simulation erzeugt also eine frische Instanz mit eigener Sequenz statt
++    // Timer einer laufenden Sequenz neu zu berechnen.
++  }, [reduced, verteilung.length]);
++
++  const angezeigterKapitalErtrag = useCountUp(kapitalErtrag);
++  const groessterAnteil = verteilung.reduce((max, v) => Math.max(max, v.anteil), 0);
++  const meilensteineNachSlug = new Map(meilensteine.map((m) => [m.slug, m.labels]));
++
++  return (
++    <div data-testid="zeitraffer-ergebnis">
++      <div data-testid="zeitraffer-kapital" style={{ marginTop: '1rem' }}>
++        <p className="eyebrow">Kapital wächst +6 % (Jahressimulation)</p>
++        <p>Fonds-Ertrag: {formatEuro(fondsErtrag)}</p>
++        <p>Kapital-Ertrag (alle Einrichtungen): {formatEuro(angezeigterKapitalErtrag)}</p>
++      </div>
++
++      {(phase === 'verteilung' || phase === 'abschluss') && (
++        <div data-testid="zeitraffer-verteilung" style={{ marginTop: '1rem' }}>
++          <p className="eyebrow">Fonds verteilt an die Bedürftigsten</p>
++          {verteilung.length === 0 ? (
++            <p className="muted">Kein Bedarf — alle Einrichtungen haben ihr Pro-Kind-Ziel erreicht.</p>
++          ) : (
++            <ul>
++              {verteilung.slice(0, revealedCount).map((v) => (
++                <ZeitrafferVerteilungsEintrag
++                  key={v.slug}
++                  eintrag={v}
++                  istGroesster={v.anteil === groessterAnteil}
++                  meilensteinLabels={meilensteineNachSlug.get(v.slug) ?? []}
++                />
++              ))}
++            </ul>
++          )}
++        </div>
++      )}
++
++      {phase === 'abschluss' && (
++        <div data-testid="zeitraffer-abschluss" style={{ marginTop: '1rem' }}>
++          <p className="eyebrow">Jahresabschluss</p>
++          <p>Verteilt: {formatEuro(verteiltGesamt)}</p>
++          <p>Neuer Fonds-Bestand: {formatEuro(neuerFondsBestand)}</p>
++        </div>
++      )}
++    </div>
++  );
++}
++
++function ZeitrafferVerteilungsEintrag({
++  eintrag,
++  istGroesster,
++  meilensteinLabels,
++}: {
++  eintrag: ZeitrafferVerteilungsPosten;
++  istGroesster: boolean;
++  meilensteinLabels: string[];
++}) {
++  // Eigene Komponente pro Eintrag, damit useCountUp nicht in einer
++  // .map()-Schleife aufgerufen wird (Rules of Hooks).
++  const angezeigterAnteil = useCountUp(eintrag.anteil, 500);
++  return (
++    <li className={istGroesster ? 'zeitraffer-eintrag zeitraffer-eintrag--top' : 'zeitraffer-eintrag'}>
++      {istGroesster && <span aria-hidden="true">⭐ </span>}
++      {eintrag.name}: {formatEuro(angezeigterAnteil)}
++      {meilensteinLabels.map((label) => (
++        <span key={label} className="zeitraffer-meilenstein-tag"> 🎉 {label}</span>
++      ))}
++    </li>
++  );
++}
+diff --git a/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx b/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx
+index bb720d8..ac41301 100644
+--- a/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx
++++ b/stiftung-web/components/__tests__/SolidaritaetsfondsPanel.test.tsx
+@@ -1,15 +1,40 @@
+ import { render, screen } from '@testing-library/react';
+ import userEvent from '@testing-library/user-event';
+-import { describe, it, expect, vi, afterEach } from 'vitest';
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+ import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
+ 
++// Die Zeitraffer-Sequenz (Task 32) staggert per Timer über mehrere Sekunden —
++// ohne reduced-motion-Stub wären die Assertions unten flaky/langsam
++// (Wall-Clock-Timer statt fake timers). reduced-motion erzwingt den
++// Sofort-Endzustand (siehe useCountUp/ZeitrafferErgebnis), deterministisch für
++// alle Tests in dieser Datei — auch die, die die Sequenz gar nicht auslösen.
++function stubReducedMotion() {
++  vi.stubGlobal(
++    'matchMedia',
++    vi.fn().mockImplementation((query: string) => ({
++      matches: true,
++      media: query,
++      onchange: null,
++      addListener: vi.fn(),
++      removeListener: vi.fn(),
++      addEventListener: vi.fn(),
++      removeEventListener: vi.fn(),
++      dispatchEvent: vi.fn(),
++    }))
++  );
++}
++
++beforeEach(() => {
++  stubReducedMotion();
++});
++
+ afterEach(() => vi.unstubAllGlobals());
+ 
+ describe('SolidaritaetsfondsPanel', () => {
+   it('zeigt den initialen Bestand', () => {
+     render(<SolidaritaetsfondsPanel initialBestand={120} />);
+     expect(screen.getByText(/120,00 €/)).toBeInTheDocument();
+   });
+ 
+   it('zahlt ein und aktualisiert den Bestand aus der Server-Antwort', async () => {
+     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ bestand: 170 }) }));
+@@ -63,27 +88,101 @@ describe('SolidaritaetsfondsPanel', () => {
+           nummer: 1,
+           fondsErtrag: 12.34,
+           kapitalErtrag: 88.1,
+           verteiltGesamt: 45.67,
+           verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 45.67 }],
+           neuerFondsBestand: 3.21,
+         }),
+       })
+     );
+     const user = userEvent.setup();
+-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
++    const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+     await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
+     expect(await screen.findByText(/Fonds-Ertrag:\s*12,34\s*€/)).toBeInTheDocument();
+     expect(screen.getByText(/Kapital-Ertrag.*88,10\s*€/)).toBeInTheDocument();
+     expect(screen.getByText(/Verteilt:\s*45,67\s*€/)).toBeInTheDocument();
+     expect(screen.getByText(/Arme Kita: 45,67\s*€/)).toBeInTheDocument();
+-    expect(screen.getByText(/3,21\s*€/)).toBeInTheDocument();
++    // Bestand-Derivation: der Kartenkopf ("Aktueller Bestand") übernimmt
++    // neuerFondsBestand. Der Zeitraffer-Abschluss (Task 32) nennt denselben
++    // Wert zusätzlich explizit — daher gezielt der Kartenkopf statt
++    // getByText (das bei zwei Treffern sonst mehrdeutig wäre).
++    expect(container.querySelector('.hero-number')?.textContent).toMatch(/3,21\s*€/);
+   });
+ 
+   it('zeigt Fehlertext, wenn die Jahres-Simulation fehlschlägt', async () => {
+     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+     const user = userEvent.setup();
+     render(<SolidaritaetsfondsPanel initialBestand={120} />);
+     await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
+     expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+   });
++
++  // Simulations-Zeitraffer (Task 32): "Jahr simulieren" rendert jetzt eine
++  // inszenierte Sequenz (ZeitrafferErgebnis) statt drei bloßer Textzeilen.
++  // Unter reduced-motion (Stub oben) ist die Sequenz sofort im Endzustand —
++  // deterministisch, ohne fake timers.
++  describe('Zeitraffer-Sequenz', () => {
++    const zeitrafferResponse = {
++      nummer: 7,
++      fondsErtrag: 5,
++      kapitalErtrag: 200,
++      verteiltGesamt: 100,
++      verteilung: [
++        { slug: 'klein', name: 'Kleine Kita', anteil: 10 },
++        { slug: 'gross', name: 'Große Kita', anteil: 90 },
++      ],
++      neuerFondsBestand: 15,
++      meilensteine: [{ slug: 'gross', name: 'Große Kita', labels: ['Bronze erreicht'] }],
++    };
++
++    it('zeigt sofort den vollständigen Endzustand als gestaffelten Container, mit hervorgehobenem größtem Empfänger', async () => {
++      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => zeitrafferResponse }));
++      const user = userEvent.setup();
++      const { container } = render(<SolidaritaetsfondsPanel initialBestand={0} />);
++      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
++
++      // Staged-Container existiert, beide Einträge und die Abschluss-Summe
++      // sind sofort da (kein Warten auf gestaffelte Timer nötig).
++      expect(await screen.findByTestId('zeitraffer-ergebnis')).toBeInTheDocument();
++      expect(screen.getByText(/Kleine Kita: 10,00\s*€/)).toBeInTheDocument();
++      expect(screen.getByText(/Große Kita: 90,00\s*€/)).toBeInTheDocument();
++      expect(screen.getByText(/Verteilt:\s*100,00\s*€/)).toBeInTheDocument();
++      expect(screen.getByText(/Neuer Fonds-Bestand:\s*15,00\s*€/)).toBeInTheDocument();
++
++      // Größter Empfänger (Große Kita, 90 €) ist optisch hervorgehoben.
++      const eintraege = container.querySelectorAll('.zeitraffer-eintrag');
++      expect(eintraege).toHaveLength(2);
++      const hervorgehoben = container.querySelector('.zeitraffer-eintrag--top');
++      expect(hervorgehoben).not.toBeNull();
++      expect(hervorgehoben?.textContent).toMatch(/Große Kita/);
++    });
++
++    it('zeigt Meilenstein-Tags an der passenden Einrichtung, wenn vorhanden', async () => {
++      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => zeitrafferResponse }));
++      const user = userEvent.setup();
++      render(<SolidaritaetsfondsPanel initialBestand={0} />);
++      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
++      expect(await screen.findByText(/🎉 Bronze erreicht/)).toBeInTheDocument();
++    });
++
++    it('zeigt „Kein Bedarf", wenn die Simulation keine Verteilung liefert', async () => {
++      vi.stubGlobal(
++        'fetch',
++        vi.fn().mockResolvedValue({
++          ok: true,
++          json: async () => ({
++            nummer: 2,
++            fondsErtrag: 0,
++            kapitalErtrag: 0,
++            verteiltGesamt: 0,
++            verteilung: [],
++            neuerFondsBestand: 0,
++          }),
++        })
++      );
++      const user = userEvent.setup();
++      render(<SolidaritaetsfondsPanel initialBestand={0} />);
++      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
++      expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
++    });
++  });
+ });
+diff --git a/stiftung-web/lib/hooks/useCountUp.ts b/stiftung-web/lib/hooks/useCountUp.ts
+index 1258e92..5c27fa2 100644
+--- a/stiftung-web/lib/hooks/useCountUp.ts
++++ b/stiftung-web/lib/hooks/useCountUp.ts
+@@ -1,19 +1,21 @@
+ import { useEffect, useState } from 'react';
+ 
+ const DEFAULT_DURATION_MS = 800;
+ 
+ function easeOutQuad(progress: number): number {
+   return 1 - (1 - progress) * (1 - progress);
+ }
+ 
+-function prefersReducedMotion(): boolean {
++// Exportiert, damit andere gestaffelte Sequenzen (z. B. ZeitrafferErgebnis,
++// Task 32) denselben reduced-motion-Check nutzen statt ihn zu duplizieren.
++export function prefersReducedMotion(): boolean {
+   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+     return false;
+   }
+   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ }
+ 
+ /**
+  * Animiert einen Zahlenwert von 0 auf `target` hoch (ease-out, requestAnimationFrame).
+  * Respektiert `prefers-reduced-motion`: springt dann sofort auf `target`.
+  */
