@@ -44,6 +44,11 @@ sequenziell ausführt. Neue DB-Test-Suiten müssen dieses beforeEach-Muster
 
 ## Solidaritätsfonds
 
+> **Ist-Zustand.** Das Zielmodell steht in
+> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) und ist hier
+> noch nicht umgesetzt — Abweichungen unten unter
+> [Was hier bewusst fehlt](#was-hier-bewusst-fehlt-lokale-version).
+
 Nicht zweckgebundene Spenden sammeln sich im Fonds. Eine Verteilung berechnet
 pro Einrichtung den Pro-Kind-Abstand zum Ziel (`bedarfProKind`) und teilt den
 Fonds-Bestand proportional dazu auf — Einrichtungen mit dem größten Rückstand
@@ -74,7 +79,22 @@ nicht im Zufluss auf.
 - Kein echtes Payment (Stripe/PayPal) — Buchung ist real in der DB, aber ohne echtes Zahlungsmittel ("Spielgeld").
 - Kein Login/KYC — Spenden sind anonym.
 - Keine Auszahlung an Einrichtungen (nur Zufluss modelliert, kein Abfluss aus der Stiftung heraus).
-- Kein Arbeits-Konto/Fonds-Konto-Split — pro Einrichtung nur ein `aktuellesKapital`-Feld.
 
-Diese Punkte sind laut Leitbild (`../leitbild.md`) die nächsten Schritte für
-eine Produktions-Version.
+### Abstand zum Zielmodell
+
+Gegenüber [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) fehlt:
+
+| Zielmodell | Hier |
+|---|---|
+| Töpfe als **Pool-Anteile** (Kursbewegung = 0 Schreibvorgänge) | `aktuellesKapital: Float` in Euro |
+| Einrichtungs-Depot + Verrechnungskonto + Soli-Depot + Soli-Verrechnungskonto + Management-Konto | Kein Konten-/Depot-Split |
+| **Solidaritätsabgabe** (`p × 1 %`) der besser ausgestatteten Einrichtungen | Fehlt — Fonds speist sich nur aus freien Spenden |
+| Verteilung nach **relativer** Position, P5/P95-winsorisiert | Verteilung nach **absolutem** Abstand zum Ziel-Kapital (`bedarfProKind`) |
+| Nur 1 % des Fonds wird verteilt | Kompletter Bestand wird verteilt, danach 0 |
+| Direktförderung 1 % an die Einrichtung | Nicht modelliert |
+| Ertragsblinde Buchung auf Stichtagswert | Deterministische 6 %-Simulation |
+
+Die 6 %-Jahressimulation bleibt als **Projektion** sinnvoll — sie ist nur
+keine Buchungsregel. Prognose ist erlaubt, Zusage nicht.
+
+Nächste Schritte: siehe Leitbild (`../leitbild.md`) und die Spec.

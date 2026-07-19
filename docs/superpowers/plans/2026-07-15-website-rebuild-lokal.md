@@ -14,9 +14,19 @@
 
 ## Global Constraints
 
+> **Ausgeführter Plan (Tasks 1–36 abgeschlossen).** Der Text beschreibt, was
+> gebaut wurde, und bleibt als Bau-Protokoll unverändert.
+>
+> **Für neue Arbeit gilt vorrangig
+> [`docs/verrechnungsmodell.md`](../../verrechnungsmodell.md).** Die beiden
+> Finanz-Constraints unten beschreiben den umgesetzten Ist-Zustand, nicht das
+> Zielmodell — siehe die markierten Punkte.
+
 - Lokale Version: kein echtes Payment, kein echtes Geld, kein Login/KYC — aber jede Buchung (direkte Spende UND Solidaritätsfonds-Verteilung) ist eine echte, persistierte DB-Transaktion.
-- Finanzmodell exakt aus `projekt-status.md`: 7 % Brutto-Rendite, 1 % jährliche Ausschüttung, **6 % Netto-Wachstumsrate**. Formel: benötigtes Kapital = gewünschter Jahresbetrag / 0.01.
+- Finanzmodell: 7 % Brutto-Rendite, 1 % jährliche Ausschüttung, **6 % Netto-Wachstumsrate**. Formel: benötigtes Kapital = gewünschter Jahresbetrag / 0.01.
+  - ⚠️ **Nur Projektionsebene.** Die 6 %-Simulation ist eine Prognose für Spender:innen. Die Jahresbuchung im Zielmodell ist ertragsblind und nimmt den Stichtagswert — auch im Verlustjahr. Der 1 %-Satz und die Kapitalformel stimmen dagegen mit dem Zielmodell überein.
 - **Solidaritätsprinzip ist aktiv, nicht nur sichtbar:** Der Solidaritätsfonds verteilt real nach Bedarfs-Score (Pro-Kind-Lücke zum Ziel) — Einrichtungen mit dem größten Rückstand bekommen proportional am meisten. Kein Geld bleibt ungenutzt liegen, solange irgendwo Bedarf besteht (bleibt der Bedarf bei 0, bleibt der Fonds-Bestand bewusst unangetastet, statt sinnlos verteilt zu werden).
+  - ⚠️ **Weicht vom Zielmodell ab.** Dort wird nach *relativer* Position zwischen den Einrichtungen verteilt (P5/P95-winsorisiert), nicht nach *absolutem* Abstand zu einem Zielkapital; ausgeschüttet wird nur 1 % des Fonds statt des ganzen Bestands; und die Solidaritätsabgabe der besser ausgestatteten Einrichtungen fehlt bisher ganz.
 - Design: Farbtokens/Radien/Typografie aus `docs/DESIGN.md` im `wealth`-Projekt (`/Users/tdetaillez/CodingInternal/wealth/docs/DESIGN.md`) übernehmen, aber **keine** Planet/Orbit/Satellit-Illustration, keine Mission-Terminologie. Nur visuelle Primitives.
 - Farben ausschließlich als `var(--token)`, keine rohen Hex-Werte außerhalb des Token-Blocks in `globals.css` — **keine Ausnahme, auch nicht für den QR-Code-Hintergrund** (Task 18): dafür trägt der Token-Block ein eigenes `--qr-bg: #fff;` (Pre-Flight-Entscheidung, 2026-07-16). Gilt auch für rgba-Literale: Rahmen-/Nav-Transparenzen sind als `--border`, `--border-subtle`, `--nav-bg` tokenisiert (Entscheidung 2026-07-16, Task-2-Review).
 - Eine Schriftfamilie: `Inter, ui-rounded, "SF Pro Rounded", system-ui, sans-serif`.
@@ -2046,9 +2056,11 @@ export default function Page() {
         <p style={{ maxWidth: '60ch' }}>
           Für eine jährliche Ausschüttung von 20.000 € an eine Einrichtung
           braucht der Finanztopf ein Kapital von{' '}
-          <strong>{formatEuro(beispielZiel)}</strong> — bei einer
-          Netto-Wachstumsrate von 6 % pro Jahr wächst jede Spende dauerhaft
-          weiter, ohne dass das Kapital verbraucht wird.
+          <strong>{formatEuro(beispielZiel)}</strong> — ausgeschüttet wird
+          jährlich 1 % des Topfes. Der Rest bleibt angelegt und arbeitet
+          weiter; bei einer langfristig angenommenen Netto-Wachstumsrate von
+          6 % wächst der Topf im Schnitt deutlich schneller, als entnommen
+          wird.
         </p>
       </Card>
     </div>

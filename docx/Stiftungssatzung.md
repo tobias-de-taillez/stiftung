@@ -1,3 +1,29 @@
+> ⚠️ **Status: Phase-3-Artefakt.**
+>
+> Diese Satzung gilt für die spätere **Stiftungsphase**. Bis zum Erreichen des
+> Schwellenwerts arbeitet das Projekt als **gemeinnütziger Verein** — siehe
+> [`leitbild.md`](../leitbild.md) (Phase 1 Verein → Phase 3 Stiftung; „Die
+> Rechtsform folgt dem Kapital, nicht umgekehrt"). Die hier durchgängige
+> Stiftungssprache (Stiftungsrat, Stiftungsleitung, NStiftG) ist deshalb
+> **kein Fehler**, sondern der Zielzustand.
+>
+> **Die Verrechnungsmechanik ist ersetzt durch
+> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).** Betroffen
+> sind insbesondere die Abschnitte zur Ertragsverwendung und zur Rang- bzw.
+> Quartilsberechnung: verteilt wird nicht mehr nach ordinalem Rang mit
+> `×2`-Faktor, sondern wertbasiert mit P5/P95-Winsorisierung und
+> proportionaler Allokation. Betriebskosten laufen über ein gedeckeltes
+> Management-Konto statt direkt aus dem Soli-Fonds.
+>
+> Für die Verrechnung selbst ändert die Rechtsform nichts — Kaskade, Formeln
+> und Kontenmodell sind identisch. Es wechselt nur das beschlussfassende
+> Organ (Mitgliederversammlung statt Stiftungsrat).
+>
+> Der nachfolgende Entwurfstext bleibt unverändert erhalten und ist vor der
+> Stiftungsgründung notariell zu prüfen.
+
+---
+
 Entwurf der Stiftungssatzung der Deutschen Bildungsstiftung
 
 # Präambel
