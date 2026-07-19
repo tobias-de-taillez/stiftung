@@ -352,12 +352,29 @@ des Vorhabens; die Direktausschüttung ist die bewusste Abweichung. Die
 Voreinstellung darf nicht versteckt sein — beide Optionen stehen sichtbar
 nebeneinander, mit einem Satz, der die Folge erklärt.
 
-> ⚠️ **Spannung zum Leitbild.** [`leitbild.md`](../leitbild.md) sagt: „Wir
-> verwalten kein Almosen, sondern bauen Vermögen: Spenden werden nicht
-> verbraucht, sondern angelegt." Verwendungsart B ist genau der verbrauchende
-> Fall. Das Leitbild ist entsprechend nachzuziehen — entweder als bewusste
-> Ausnahme oder durch Umformulierung der Mission. **Bis das entschieden ist,
-> steht hier ein Widerspruch.**
+#### Warum die Direktspende überhaupt existiert
+
+Nicht als Zugeständnis, sondern wegen der **Zuwendungsbestätigung**: Die
+Spende geht an den Verein, also stellt der Verein die Bestätigung aus. Eine
+Tagesmutter oder eine kleine Kita — häufig gar nicht selbst gemeinnützig —
+muss sich nie mit Spendenquittungen befassen. Genau daran scheitern
+Direktspenden an Kleinsteinrichtungen sonst.
+
+Das ist zugleich ein Argument gegenüber Einrichtungen: Wer sich verifiziert,
+kann Spenden entgegennehmen, ohne eigene steuerliche Infrastruktur aufzubauen.
+
+Im [Leitbild](../leitbild.md) ist die Direktspende seit dem 2026-07-19
+ausdrücklich Teil der Mission — der frühere Widerspruch zum Satz „Spenden
+werden nicht verbraucht, sondern angelegt" ist damit aufgelöst.
+
+> ⚠️ **Ungeklärt: Empfängerfähigkeit der Einrichtungen.** Betrifft **beide**
+> Verwendungsarten, nicht nur die Direktspende — siehe Frage S9 im
+> [Vereinsgründungs-Spec](superpowers/specs/2026-07-19-vereinsgruendung-design.md).
+> Eine Tagesmutter ist in der Regel ein privatwirtschaftliches
+> Einzelunternehmen und damit weder steuerbegünstigte Körperschaft noch
+> juristische Person des öffentlichen Rechts. Die Mittelweitergabe nach
+> § 58 Nr. 1 AO setzt aber genau das voraus. Vor dem ersten realen Abfluss zu
+> klären.
 
 ### 3.2 Sweep ins Depot
 

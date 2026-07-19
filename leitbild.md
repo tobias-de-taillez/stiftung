@@ -23,7 +23,11 @@ Dieses Dokument ist der oberste Ausrichtungspunkt des Projekts. Es steht *über*
 
 **Bildung darf niemals vom Geldbeutel der Familie abhängen. Wir bauen unabhängiges, dauerhaftes Bildungskapital auf, damit jede Bildungs- und Betreuungseinrichtung in Deutschland ihre Kinder fördern kann – unabhängig davon, wie reich ihr Umfeld ist.**
 
-Wir sind die Brücke zwischen Menschen, die etwas beitragen wollen, und den Einrichtungen, die Unterstützung brauchen. Wir verwalten kein Almosen, sondern bauen Vermögen: Spenden werden nicht verbraucht, sondern angelegt; ausgeschüttet wird ein kleiner, bewusst konservativer Anteil, das Kapital bleibt und wächst.
+Wir sind die Brücke zwischen Menschen, die etwas beitragen wollen, und den Einrichtungen, die Unterstützung brauchen. Unser Schwerpunkt ist Vermögensaufbau statt Almosen: Gewidmete Spenden werden nicht verbraucht, sondern angelegt; ausgeschüttet wird ein kleiner, bewusst konservativer Anteil, das Kapital bleibt und wächst.
+
+**Daneben ermöglichen wir die Direktspende** — Geld, das nicht angelegt, sondern zeitnah an eine Einrichtung ausgezahlt wird. Das ist kein Bruch mit dem Vermögensgedanken, sondern erfüllt einen eigenen Zweck: Weil die Spende an *uns* geht, stellen *wir* die Zuwendungsbestätigung aus. Eine Tagesmutter oder eine kleine Kita muss sich also nie selbst mit Spendenquittungen befassen — genau die Bürokratie, an der Direktspenden an Kleinsteinrichtungen sonst scheitern. Wir nehmen den Einrichtungen diesen Aufwand ab und den Spender:innen die Unsicherheit, ob ihre Spende absetzbar ist.
+
+Die Spendenden wählen selbst: **Vermögensaufbau** (Voreinstellung, wirkt dauerhaft) oder **Direktspende** (wirkt sofort). Steuerlich sind beide gleich absetzbar. Mechanik: [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md), Abschnitt 3.1.
 
 **Kernwerte (was wahr bleibt, egal welches Produkt, welche Rechtsform):**
 
