@@ -267,9 +267,97 @@ liegt sie über dem Basisbetrag und wird wirkungslos.
 
 ### 3.1 Spendeneingang
 
-Zweckgebundene Spenden gehen aufs Verrechnungskonto und werden sofort dem
-Topf der Einrichtung gutgeschrieben (Anteilskauf). Nicht zweckgebundene
-Spenden gehen aufs Soli-Verrechnungskonto.
+Eine Spende hat **zwei unabhängige Merkmale**:
+
+| Merkmal | Werte |
+|---|---|
+| **Empfänger** | eine bestimmte Einrichtung · oder Solidaritätsfonds |
+| **Verwendungsart** | Vermögenszuführung · oder Direktausschüttung |
+
+#### Verwendungsart A — Vermögenszuführung (Regelfall)
+
+Die spendende Person bestimmt ausdrücklich, dass die Zuwendung dem Vermögen
+zugeführt werden soll (**§ 62 Abs. 3 Nr. 2 AO**). Die Spende unterliegt damit
+nicht der zeitnahen Mittelverwendung, wird dauerhaft angelegt und finanziert
+die Einrichtung über ihre Erträge.
+
+Buchung: Verrechnungskonto → Anteilskauf im Topf der Einrichtung
+beziehungsweise im Soli-Fonds. Wie bisher.
+
+#### Verwendungsart B — Direktausschüttung
+
+Die Spende wird **nicht** angelegt, sondern zeitnah an die Einrichtung
+ausgezahlt. Sie ist zeitnah zu verwendendes Mittel nach § 55 Abs. 1 Nr. 5 AO;
+die Frist wird durch die Auszahlung selbst erfüllt.
+
+**Nur wählbar, wenn die Einrichtung KYC-verifiziert ist.** Ohne verifizierten
+Zugang gibt es kein Konto, auf das ausgezahlt werden könnte — und die
+Leitbild-Regel „niedrige Hürde zum Geben, hohe Hürde zum Nehmen" verlangt die
+Prüfung vor jedem Abfluss. Für nicht verifizierte Einrichtungen steht daher
+ausschließlich Verwendungsart A zur Verfügung.
+
+**Für den Solidaritätsfonds gibt es keine Direktausschüttung.** Eine
+Soli-Spende hat keinen benannten Empfänger; ohne Empfänger ist die Widmung
+gegenstandslos. Soli-Spenden sind immer Verwendungsart A.
+
+#### Buchungstechnische Folge: durchlaufende Mittel
+
+Geld der Verwendungsart B darf **niemals Anteile kaufen** und **nicht in den
+Poolwert eingehen**. Sonst bricht die Invariante aus Abschnitt 2:
+
+```
+Σ Topf_€ (alle Einrichtungen) == Poolwert
+```
+
+Direktausschüttungen sind **durchlaufende Posten**: Sie liegen als
+Verbindlichkeit gegenüber der Einrichtung auf dem Verrechnungskonto und
+werden von dort ausgezahlt. Der Sweep (Abschnitt 3.2) muss sie deshalb vom
+investierbaren Cash abziehen:
+
+```
+investierbar = Verrechnungskonto − offene Direktausschüttungen
+```
+
+Wird das übersehen, investiert der Sweep fremdes Geld und die Auszahlung
+scheitert an fehlender Liquidität.
+
+#### Auszahlungsrhythmus
+
+Direktausschüttungen werden **gesammelt und monatlich** ausgezahlt, nicht
+einzeln. Einzelüberweisungen bei Kleinspenden würden von Transaktionskosten
+aufgefressen — dieselbe Logik wie beim Sweep. Die Zwei-Jahres-Frist des § 55
+Abs. 1 Nr. 5 AO ist dabei mit großem Abstand eingehalten.
+
+#### Dokumentation der Widmung
+
+Damit § 62 Abs. 3 Nr. 2 AO trägt, muss die Widmung **von der spendenden
+Person** erklärt und nachweisbar sein. Zu jeder Spende der Verwendungsart A
+sind daher zu speichern:
+
+- der Zeitpunkt der Erklärung (muss zum Zahlungszeitpunkt vorliegen, nicht später),
+- der **Wortlaut**, der der Person angezeigt wurde, versioniert — ändert sich
+  die Formulierung, bleibt die alte Fassung den alten Spenden zugeordnet,
+- die getroffene Auswahl.
+
+**Die Widmung gehört nicht auf die Zuwendungsbestätigung.** Die amtlichen
+Muster sind verbindlich (§ 50 Abs. 1 EStDV, BMF v. 07.11.2013); das
+Vermögensstock-Ankreuzfeld existiert nur in den Stiftungs-Mustern. Für die
+spendende Person ist der Abzug in beiden Fällen identisch (§ 10b Abs. 1 EStG)
+— die Wahl hat für sie **keine steuerliche Auswirkung**, nur eine inhaltliche.
+
+#### Voreinstellung
+
+Vorausgewählt ist **Verwendungsart A**. Das Kapitalaufbau-Modell ist der Kern
+des Vorhabens; die Direktausschüttung ist die bewusste Abweichung. Die
+Voreinstellung darf nicht versteckt sein — beide Optionen stehen sichtbar
+nebeneinander, mit einem Satz, der die Folge erklärt.
+
+> ⚠️ **Spannung zum Leitbild.** [`leitbild.md`](../leitbild.md) sagt: „Wir
+> verwalten kein Almosen, sondern bauen Vermögen: Spenden werden nicht
+> verbraucht, sondern angelegt." Verwendungsart B ist genau der verbrauchende
+> Fall. Das Leitbild ist entsprechend nachzuziehen — entweder als bewusste
+> Ausnahme oder durch Umformulierung der Mission. **Bis das entschieden ist,
+> steht hier ein Widerspruch.**
 
 ### 3.2 Sweep ins Depot
 
@@ -277,12 +365,16 @@ Um Transaktionsgebühren zu vermeiden, wird Cash nicht bei jeder Spende
 investiert, sondern erst ab einer Schwelle:
 
 ```
-Ziel     = 1,0 % des Poolwerts
-Schwelle = 1,2 % des Poolwerts
+investierbar = Verrechnungskonto − offene Direktausschüttungen
+Ziel         = 1,0 % des Poolwerts
+Schwelle     = 1,2 % des Poolwerts
 
-WENN Verrechnungskonto > Schwelle:
-    kaufe ETF für (Verrechnungskonto − Ziel)
+WENN investierbar > Schwelle:
+    kaufe ETF für (investierbar − Ziel)
 ```
+
+Der Abzug der offenen Direktausschüttungen ist zwingend — dieses Geld gehört
+bereits den Einrichtungen (Abschnitt 3.1).
 
 Es wird also **auf das 1-%-Ziel abgeschöpft**, nicht um feste 0,2 %. Die
 Formulierung „bei 1,2 % werden die 0,2 % eingezahlt" beschreibt nur den
