@@ -3,7 +3,7 @@
 > **⚠️ Entwurf — kein Rechtsrat.**
 > Dieses Dokument ist ein Arbeitsentwurf und ersetzt keine Rechts- oder Steuerberatung. Vor Gründungsversammlung und Anmeldung zum Vereinsregister ist er durch eine Rechtsanwältin/einen Rechtsanwalt oder eine Notarin/einen Notar zu prüfen und beim zuständigen Finanzamt zur Vorabprüfung der Satzung nach § 60a AO einzureichen. Die Mustersatzung der Anlage 1 zu § 60 AO ist einzuhalten; andernfalls entfällt die Steuerbegünstigung.
 >
-> **Offene Punkte vor Verwendung:** Der Vereinsname steht noch nicht fest (§ 1). Die steuerliche Tragfähigkeit der Anlagekonstruktion nach § 4 Abs. 6 ist mit einer Steuerberater:in zu klären — siehe die Fragen S1–S7 in [`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](../docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md).
+> **Offene Punkte vor Verwendung:** Der Vereinsname steht noch nicht fest (§ 1). Die steuerliche Tragfähigkeit der Anlagekonstruktion nach § 4 Abs. 6 ist mit einer Steuerberater:in zu klären — siehe die Fragen S1–S10 in [`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](../docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md).
 >
 > **Stand:** 2026-07-19
 

@@ -108,6 +108,18 @@ ausschließlich über Tabellenzeilen. Buchhaltung und Kassenlage sind
 entkoppelt: Der Topf einer Einrichtung kann Geld ausweisen, das physisch
 gerade als Cash auf dem Verrechnungskonto liegt statt im ETF.
 
+**Einrichtung und Rechtsträger sind zu trennen.** Ein Träger — etwa eine
+gGmbH — kann mehrere Einrichtungen betreiben. Der Topf gehört der
+Einrichtung, die Auszahlung geht an den Träger, und dessen
+Gemeinnützigkeitsstatus entscheidet über den Auszahlungspfad (Abschnitt 3.5):
+
+```
+Traeger  1 ──── n  Einrichtung  1 ──── 1  Topf
+```
+
+*Betrifft den Bestand:* `stiftung-web/` kennt heute nur `Einrichtung` ohne
+Träger. Die Trennung ist Teil des Umbaus.
+
 Das Soli-Depot ist bewusst getrennt: Erreicht es **zwei Millionen Euro**, löst
 das die Pflicht zur Umwandlung des Vereins in eine Stiftung aus (§ 13 der
 [Vereinssatzung](../docx/Vereinssatzung.md)). Maßgeblich ist allein der
@@ -267,9 +279,114 @@ liegt sie über dem Basisbetrag und wird wirkungslos.
 
 ### 3.1 Spendeneingang
 
-Zweckgebundene Spenden gehen aufs Verrechnungskonto und werden sofort dem
-Topf der Einrichtung gutgeschrieben (Anteilskauf). Nicht zweckgebundene
-Spenden gehen aufs Soli-Verrechnungskonto.
+Eine Spende hat **zwei unabhängige Merkmale**:
+
+| Merkmal | Werte |
+|---|---|
+| **Empfänger** | eine bestimmte Einrichtung · oder Solidaritätsfonds |
+| **Verwendungsart** | Vermögenszuführung · oder Direktausschüttung |
+
+#### Verwendungsart A — Vermögenszuführung (Regelfall)
+
+Die spendende Person bestimmt ausdrücklich, dass die Zuwendung dem Vermögen
+zugeführt werden soll (**§ 62 Abs. 3 Nr. 2 AO**). Die Spende unterliegt damit
+nicht der zeitnahen Mittelverwendung, wird dauerhaft angelegt und finanziert
+die Einrichtung über ihre Erträge.
+
+Buchung: Verrechnungskonto → Anteilskauf im Topf der Einrichtung
+beziehungsweise im Soli-Fonds. Wie bisher.
+
+#### Verwendungsart B — Direktausschüttung
+
+Die Spende wird **nicht** angelegt, sondern zeitnah an die Einrichtung
+ausgezahlt. Sie ist zeitnah zu verwendendes Mittel nach § 55 Abs. 1 Nr. 5 AO;
+die Frist wird durch die Auszahlung selbst erfüllt.
+
+**Nur wählbar, wenn die Einrichtung KYC-verifiziert ist.** Ohne verifizierten
+Zugang gibt es kein Konto, auf das ausgezahlt werden könnte — und die
+Leitbild-Regel „niedrige Hürde zum Geben, hohe Hürde zum Nehmen" verlangt die
+Prüfung vor jedem Abfluss. Für nicht verifizierte Einrichtungen steht daher
+ausschließlich Verwendungsart A zur Verfügung.
+
+**Für den Solidaritätsfonds gibt es keine Direktausschüttung.** Eine
+Soli-Spende hat keinen benannten Empfänger; ohne Empfänger ist die Widmung
+gegenstandslos. Soli-Spenden sind immer Verwendungsart A.
+
+#### Buchungstechnische Folge: durchlaufende Mittel
+
+Geld der Verwendungsart B darf **niemals Anteile kaufen** und **nicht in den
+Poolwert eingehen**. Sonst bricht die Invariante aus Abschnitt 2:
+
+```
+Σ Topf_€ (alle Einrichtungen) == Poolwert
+```
+
+Direktausschüttungen sind **durchlaufende Posten**: Sie liegen als
+Verbindlichkeit gegenüber der Einrichtung auf dem Verrechnungskonto und
+werden von dort ausgezahlt. Der Sweep (Abschnitt 3.2) muss sie deshalb vom
+investierbaren Cash abziehen:
+
+```
+investierbar = Verrechnungskonto − offene Direktausschüttungen
+```
+
+Wird das übersehen, investiert der Sweep fremdes Geld und die Auszahlung
+scheitert an fehlender Liquidität.
+
+#### Auszahlungsrhythmus
+
+Direktausschüttungen werden **gesammelt und monatlich** ausgezahlt, nicht
+einzeln. Einzelüberweisungen bei Kleinspenden würden von Transaktionskosten
+aufgefressen — dieselbe Logik wie beim Sweep. Die Zwei-Jahres-Frist des § 55
+Abs. 1 Nr. 5 AO ist dabei mit großem Abstand eingehalten.
+
+#### Dokumentation der Widmung
+
+Damit § 62 Abs. 3 Nr. 2 AO trägt, muss die Widmung **von der spendenden
+Person** erklärt und nachweisbar sein. Zu jeder Spende der Verwendungsart A
+sind daher zu speichern:
+
+- der Zeitpunkt der Erklärung (muss zum Zahlungszeitpunkt vorliegen, nicht später),
+- der **Wortlaut**, der der Person angezeigt wurde, versioniert — ändert sich
+  die Formulierung, bleibt die alte Fassung den alten Spenden zugeordnet,
+- die getroffene Auswahl.
+
+**Die Widmung gehört nicht auf die Zuwendungsbestätigung.** Die amtlichen
+Muster sind verbindlich (§ 50 Abs. 1 EStDV, BMF v. 07.11.2013); das
+Vermögensstock-Ankreuzfeld existiert nur in den Stiftungs-Mustern. Für die
+spendende Person ist der Abzug in beiden Fällen identisch (§ 10b Abs. 1 EStG)
+— die Wahl hat für sie **keine steuerliche Auswirkung**, nur eine inhaltliche.
+
+#### Voreinstellung
+
+Vorausgewählt ist **Verwendungsart A**. Das Kapitalaufbau-Modell ist der Kern
+des Vorhabens; die Direktausschüttung ist die bewusste Abweichung. Die
+Voreinstellung darf nicht versteckt sein — beide Optionen stehen sichtbar
+nebeneinander, mit einem Satz, der die Folge erklärt.
+
+#### Warum die Direktspende überhaupt existiert
+
+Nicht als Zugeständnis, sondern wegen der **Zuwendungsbestätigung**: Die
+Spende geht an den Verein, also stellt der Verein die Bestätigung aus. Eine
+Tagesmutter oder eine kleine Kita — häufig gar nicht selbst gemeinnützig —
+muss sich nie mit Spendenquittungen befassen. Genau daran scheitern
+Direktspenden an Kleinsteinrichtungen sonst.
+
+Das ist zugleich ein Argument gegenüber Einrichtungen: Wer sich verifiziert,
+kann Spenden entgegennehmen, ohne eigene steuerliche Infrastruktur aufzubauen.
+
+Im [Leitbild](../leitbild.md) ist die Direktspende seit dem 2026-07-19
+ausdrücklich Teil der Mission — der frühere Widerspruch zum Satz „Spenden
+werden nicht verbraucht, sondern angelegt" ist damit aufgelöst.
+
+> ⚠️ **Ungeklärt: Empfängerfähigkeit der Einrichtungen.** Betrifft **beide**
+> Verwendungsarten, nicht nur die Direktspende — siehe Frage S9 im
+> [Vereinsgründungs-Spec](superpowers/specs/2026-07-19-vereinsgruendung-design.md).
+> Eine Tagesmutter ist in der Regel ein privatwirtschaftliches
+> Einzelunternehmen und damit weder steuerbegünstigte Körperschaft noch
+> juristische Person des öffentlichen Rechts. Die Mittelweitergabe nach
+> § 58 Nr. 1 AO setzt aber genau das voraus. Vor dem ersten realen Abfluss zu
+> klären.
 
 ### 3.2 Sweep ins Depot
 
@@ -277,12 +394,16 @@ Um Transaktionsgebühren zu vermeiden, wird Cash nicht bei jeder Spende
 investiert, sondern erst ab einer Schwelle:
 
 ```
-Ziel     = 1,0 % des Poolwerts
-Schwelle = 1,2 % des Poolwerts
+investierbar = Verrechnungskonto − offene Direktausschüttungen
+Ziel         = 1,0 % des Poolwerts
+Schwelle     = 1,2 % des Poolwerts
 
-WENN Verrechnungskonto > Schwelle:
-    kaufe ETF für (Verrechnungskonto − Ziel)
+WENN investierbar > Schwelle:
+    kaufe ETF für (investierbar − Ziel)
 ```
+
+Der Abzug der offenen Direktausschüttungen ist zwingend — dieses Geld gehört
+bereits den Einrichtungen (Abschnitt 3.1).
 
 Es wird also **auf das 1-%-Ziel abgeschöpft**, nicht um feste 0,2 %. Die
 Formulierung „bei 1,2 % werden die 0,2 % eingezahlt" beschreibt nur den
@@ -340,6 +461,125 @@ die anderen.** Das ist gewollt und braucht keinen zusätzlichen Mechanismus.
 Holt die Einrichtung ihren Zugang später ab, nimmt sie ab dem nächsten
 Stichtag regulär teil. Nichts geht verloren; der angesammelte Topf steht in
 voller Höhe bereit.
+
+### 3.5 Abfluss: zwei Pfade, abhängig vom Rechtsträger
+
+> **Status: Lösungsvorschlag zu Frage S9, steuerlich nicht verifiziert.**
+> Vor dem ersten realen Abfluss mit einer Steuerberater:in zu klären.
+
+#### Einrichtung ist nicht gleich Rechtsträger
+
+Eine Kita ist keine Rechtsperson, sondern die **Einrichtung eines Trägers**.
+Eine gGmbH kann zwanzig Kitas betreiben. Der Topf gehört der einzelnen
+Einrichtung, das Geld fließt aber an den Träger, und der Verwendungsnachweis
+muss belegen, dass es bei *dieser* Einrichtung gelandet ist.
+
+Das Datenmodell braucht deshalb eine **eigene Träger-Entität**:
+
+```
+Traeger  1 ──── n  Einrichtung  1 ──── 1  Topf
+```
+
+Am Träger hängen Rechtsform, Gemeinnützigkeitsstatus und Bankverbindung; an
+der Einrichtung Kinderzahl, Standort und Topf. Der Status wird beim KYC
+festgestellt und ist **die Weiche für den Auszahlungspfad**.
+
+#### Warum der Status über den Pfad entscheidet
+
+Gemeinnützigkeit ist ein Status für **Körperschaften** — § 51 Abs. 1 Satz 2 AO
+verweist auf das Körperschaftsteuergesetz. Eine **natürliche Person kann ihn
+nicht erlangen**, unabhängig davon, wie förderungswürdig ihre Arbeit ist. Eine
+selbständige Kindertagespflegeperson ist typischerweise Einzelunternehmerin,
+also natürliche Person, und damit strukturell ausgeschlossen.
+
+Kita-Träger sind dagegen meist Körperschaften: e.V., gGmbH, Stiftung,
+kirchliche Körperschaft oder die Kommune. Sie *können* den Status halten
+(§ 52 Abs. 2 Satz 1 Nr. 4 Jugendhilfe, Nr. 7 Erziehung und Bildung). Es gibt
+aber auch rein gewerbliche Kita-Betreiber und Betriebskitas — „Kita" bedeutet
+also nicht automatisch „gemeinnützig".
+
+| Rechtsträger | Pfad | Aufwand |
+|---|---|---|
+| Steuerbegünstigte Körperschaft (e.V., gGmbH, Stiftung, kirchliche Körperschaft) | **Pfad 1** — Mittelweitergabe nach § 58 Nr. 1 AO | Überweisung gegen einfachen Verwendungsnachweis |
+| Juristische Person des öffentlichen Rechts (Kommune) | **Pfad 1** — ebenso | dito |
+| Natürliche Person (Kindertagespflege) oder gewerblicher Träger | **Pfad 2** — Förderguthaben, § 57 AO | Erstattung gegen Beleg oder Direktbeschaffung |
+
+**Pfad 2 ist der Fallback, nicht der Normalfall.** Für einen großen Teil der
+Kitas genügt die Überweisung. Der aufwendige Weg greift dort, wo der Träger
+keinen privilegierten Status hat — und das ist ausgerechnet die Zielgruppe
+der Phase 1.
+
+#### Pfad 1 — Mittelweitergabe (§ 58 Nr. 1 AO)
+
+Der Verein überweist an den Träger, zweckgebunden für die benannte
+Einrichtung. § 2 Abs. 2 der [Vereinssatzung](../docx/Vereinssatzung.md) nennt
+die „Beschaffung und Weiterleitung von Mitteln" ausdrücklich als
+Zweckverwirklichung — die satzungsmäßige Grundlage ist damit gelegt.
+
+Erforderlich sind der Nachweis der Steuerbegünstigung des Trägers
+(Freistellungsbescheid oder Bescheid nach § 60a AO, mit Gültigkeitsdatum und
+Wiedervorlage) und ein Verwendungsnachweis, der die Zuordnung zur
+Einrichtung belegt.
+
+#### Pfad 2 — Förderguthaben (§ 57 AO)
+
+**Das Problem.** § 58 Nr. 1 AO erlaubt Mittelweitergabe nur an
+steuerbegünstigte Körperschaften oder juristische Personen des öffentlichen
+Rechts. Eine Kindertagespflegestelle ist keines von beidem. Eine schlichte
+Überweisung „Hier sind 500 €" ist damit kein gangbarer Weg.
+
+**Der Ansatz.** Statt Mittel weiterzugeben, verwirklicht der Verein seinen
+Zweck **unmittelbar** (§ 57 AO): Er finanziert konkrete Sachmittel für die
+Betreuung der Kinder. Die Einrichtung ist dabei ausführende Stelle, nicht
+Empfängerin einer Zuwendung. Der Beleg ist der Nachweis, dass das Geld im
+Satzungszweck gelandet ist.
+
+**Das Förderguthaben** ist kein Konto, sondern die Anzeige des ohnehin
+vorhandenen Topfes (Abschnitt 2) in der Rolle „das steht dir zur Verfügung".
+Kein neues Datenmodell, nur eine Sicht darauf.
+
+##### Zwei Abflusswege innerhalb von Pfad 2
+
+| | **A — Erstattung** | **B — Direktbeschaffung** |
+|---|---|---|
+| Ablauf | Einrichtung kauft selbst, reicht Beleg ein, bekommt erstattet | Einrichtung wählt aus, **der Verein bestellt und bezahlt** |
+| Vorfinanzierung | durch die Einrichtung | keine |
+| Geldfluss zur Einrichtung | ja | **nein** — der Verein zahlt den Lieferanten |
+| § 57 AO | tragfähig, aber erklärungsbedürftig | am saubersten |
+
+**Weg B ist nicht optional.** „Erst auslegen, dann erstattet bekommen" trifft
+genau die Einrichtungen am härtesten, die am wenigsten Polster haben — also
+die, die der Solidaritätsmechanismus bevorzugen soll. Ohne Direktbeschaffung
+kippt die Umverteilung auf der Auszahlungsseite wieder ins Gegenteil.
+
+##### Erstattungskatalog
+
+Der Katalog ist die eigentliche Sollbruchstelle. Erstattungsfähig sind nur
+Aufwendungen, die **den betreuten Kindern unmittelbar zugutekommen**:
+Spiel- und Lernmaterial, Bücher, Bewegungs- und Außenausstattung,
+Verbrauchsmaterial für Bildungsangebote, Fortbildung mit pädagogischem Bezug,
+Ausflüge und Projekte.
+
+**Nicht erstattungsfähig** ist alles, was ohnehin Betriebsaufwand wäre: Miete,
+Nebenkosten, Versicherungen, Fahrzeug, Verpflegung im Regelbetrieb, und in
+jedem Fall Entnahmen oder Einkommen der betreuenden Person. Andernfalls
+subventioniert der Verein einen Gewerbebetrieb — das ist weder vom
+Satzungszweck gedeckt noch für die Einrichtung steuerfrei.
+
+Der Katalog gehört in die Förderrichtlinie nach § 5 Abs. 5 der
+[Vereinssatzung](../docx/Vereinssatzung.md), damit er ohne Satzungsänderung
+angepasst werden kann.
+
+#### Offene Punkte beider Pfade
+
+| # | Frage | Betrifft |
+|---|---|---|
+| 1 | **Statusprüfung und Wiedervorlage.** Ein Freistellungsbescheid gilt befristet. Verliert ein Träger die Gemeinnützigkeit, muss die Einrichtung automatisch auf Pfad 2 fallen — nicht erst bei der nächsten manuellen Prüfung | Pfad 1 |
+| 2 | **Trägerwechsel.** Übernimmt ein anderer Träger eine Einrichtung, wechselt womöglich der Pfad. Der Topf bleibt bei der Einrichtung, die Bankverbindung ändert sich | beide |
+| 3 | **Eigentum.** Wem gehört ein vom Verein bezahltes Spielgerät? Ab welchem Wert braucht es Inventarisierung und eine Regel für den Schließungsfall? | Pfad 2 |
+| 4 | **Steuerfolge bei der Einrichtung.** Eine Erstattung (Weg A) dürfte Betriebseinnahme sein, der die Ausgabe als Betriebsausgabe gegenübersteht — im Ergebnis neutral, aber buchungspflichtig. Das widerspricht teilweise dem Versprechen „kein Steuerstress". Weg B vermeidet das vollständig | Pfad 2 |
+| 5 | **Prüfaufwand.** Belegprüfung skaliert schlecht. Nötig sind Bagatellgrenzen, Stichproben oder automatisierte Plausibilisierung — sonst frisst die Verwaltung das gedeckelte Management-Konto (Abschnitt 8) | Pfad 2 |
+| 6 | **Verhältnis zur Direktspende.** Fließt eine Direktspende (Abschnitt 3.1, Verwendungsart B) über denselben Pfad wie die Ertragsausschüttung? Nach der Logik oben **ja** — die Empfängerfähigkeit hängt am Träger, nicht daran, woher das Geld kommt | beide |
 
 ---
 

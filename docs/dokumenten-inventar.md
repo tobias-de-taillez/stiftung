@@ -53,7 +53,7 @@ wiederholen.
 | Datei | Z. | Status | Anmerkung |
 |---|---|---|---|
 | [`docx/Vereinssatzung.md`](../docx/Vereinssatzung.md) | 158 | ✅ maßgeblich | Satzungsentwurf Phase 1. Entwurf, kein Rechtsrat |
-| [Vereinsgründungs-Spec](superpowers/specs/2026-07-19-vereinsgruendung-design.md) | 246 | ✅ maßgeblich | Herleitung und die Fragen S1–S8 an die Steuerberatung |
+| [Vereinsgründungs-Spec](superpowers/specs/2026-07-19-vereinsgruendung-design.md) | 250 | ✅ maßgeblich | Herleitung und die Fragen S1–S10 an die Steuerberatung |
 | [`docx/Stiftungssatzung.md`](../docx/Stiftungssatzung.md) | 369 | 🕰️ Phase-3-Ziel | Nicht anzuwenden. **Text stellenweise beschädigt** — bei der Konvertierung sind Aufzählungsinhalte verlorengegangen. Vor Phase 3 zu rekonstruieren |
 | [`docx/Zusatzdokument zur Mittelverwendung.md`](../docx/Zusatzdokument%20zur%20Mittelverwendung.md) | 86 | 🕰️ Phase-3-Ziel | Auf Überblick und Zielsetzung gekürzt; die abgelöste Quartilsmechanik wurde entfernt |
 
