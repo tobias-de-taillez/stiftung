@@ -18,7 +18,7 @@ npm run test     # Vitest (einmalig)
 - Leitbild: `leitbild.md` (Werte und Phasenplan — steht über allem)
 - Rechtsform (maßgeblich): `docx/Vereinssatzung.md` — Träger ist in Phase 1 ein **gemeinnütziger Verein**, keine Stiftung. `docx/Stiftungssatzung.md` ist das Phase-3-Ziel und **nicht anzuwenden**. Herleitung und offene Steuerfragen: `docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`.
 - Dokumenten-Übersicht: `docs/dokumenten-inventar.md` — welche Dokumente gelten, welche überholt sind. **Vor dem Zitieren eines `docx/`-Dokuments dort nachsehen.**
-- Anlage-/Projektionsannahme (kanonisch): **7 % Brutto-Rendite, 1 % Ausschüttung, 6 % Netto-Wachstum; `Kapital = Jahresbetrag / 0.01`.** Das ist die **Prognosegrundlage** für Spendenrechner und Wirkungsaussagen — **nicht** die Buchungsregel. Gebucht wird ertragsblind auf dem Stichtagswert (`docs/verrechnungsmodell.md`, Schritt 2). Definiert in `docs/verrechnungsmodell.md`, Geltungsbereich.
+- Anlage-/Projektionsannahme: **nicht hier definiert.** Kanonische Quelle ist `docs/verrechnungsmodell.md`, Abschnitt „Kanonische Projektionsannahme" — dort nachsehen, bevor eine Zahl verwendet oder in Copy geschrieben wird. Merksatz ohne Zahlen: Es ist eine **Prognosegrundlage**, keine Buchungsregel; gebucht wird ertragsblind auf dem Stichtagswert.
 - ⚠️ Das 6 %-Netto-Wachstum steht unter **Prämisse P1** (thesaurierender ETF erzeugt keinen Mittelzufluss nach § 55 Abs. 1 Nr. 5 AO). Ungeprüft. Trägt sie nicht, sinkt das Wachstum auf grob 2,3 %. Siehe `docs/verrechnungsmodell.md`, Abschnitt „Gemeinnützigkeitsrechtliche Einordnung".
 
 ## Konventionen
@@ -33,7 +33,7 @@ npm run test     # Vitest (einmalig)
 
 ## Hinweise
 
-- `project-rules.md` ist als Ganzes überholt (Stand Januar 2025) und Löschkandidat — der gültige Inhalt steht hier. Insbesondere Rule #2 (Auto-Push nach jedem Commit): niemals ohne expliziten Auftrag pushen.
+- Niemals ohne expliziten Auftrag pushen. (`project-rules.md` mit der gegenteiligen Auto-Push-Regel wurde am 2026-07-19 gelöscht.)
 - `projekt-status.md` wird beim Branch-Abschluss aktualisiert, nicht pro Commit.
 
 ## Loops

@@ -88,9 +88,9 @@ Er wurde in drei Punkten abgelöst:
 
 Als **Anlage- und Prognosegrundlage** (Spendenrechner, Wirkungsaussagen) gilt
 stattdessen die kanonische Annahme aus
-[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md),
-Geltungsbereich: **7 % Brutto-Rendite, 1 % Ausschüttung, 6 % Netto-Wachstum,
-`Kapital = Jahresbetrag / 0,01`.** Das ist eine Prognose, keine Buchungsregel.
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md), Abschnitt
+„Kanonische Projektionsannahme" — dort und nur dort stehen die Zahlen. Sie sind
+eine Prognose, keine Buchungsregel.
 
 ## Solidaritätsmechanismus
 
@@ -375,188 +375,12 @@ Mit diesem umfassenden Konzept wird sichergestellt, dass alle Daten sicher und t
 
 
 
-# Software-Architekturkonzept für die Deutsche Bildungsstiftung
-
-Das Ziel der Software-Architektur ist es, den Betrieb der Stiftung weitgehend zu automatisieren, Transparenz zu gewährleisten und den Aufwand für das Personal zu minimieren. Hier ist ein umfassendes Konzept:
-
-## Architekturübersicht
-
-Die Architektur basiert auf einer modularen, cloudbasierten Lösung. Sie nutzt Microservices, um verschiedene Aufgabenbereiche zu kapseln, und Serverless Computing, um Skalierbarkeit und Effizienz zu gewährleisten. Ein zentrales Datenbanksystem verwaltet alle Finanztransaktionen, Spenden und Berichte.
-
-### Hauptkomponenten:
-
-* : Benutzeroberfläche für Spender, Schulen und Administratoren.
-
-* : Logik zur Verwaltung von Spenden, Fonds und Berichten.
-
-* : Regelbasierte Automatisierung für Finanztransaktionen und Berichterstellung.
-
-* : Externe Schnittstellen für Banken, Finanzdienstleister und Audits.
-
-## Technologien
-
-* :
-
-* Frameworks: React, Angular oder Vue.js.
-
-* Funktionen: Dashboard für Spender und Schulen, Echtzeit-Transparenz von Fonds, Spendenportal.
-
-* :
-
-* Sprache: Python (Django/Flask) oder Node.js.
-
-* Frameworks: Serverless Framework für AWS Lambda oder ähnliche Cloud-Plattformen.
-
-* :
-
-* Hauptdatenbank: PostgreSQL für relationale Daten (z. B. Finanztransaktionen).
-
-* Dokumentenspeicherung: MongoDB oder Firebase für Protokolle und Berichte.
-
-* :
-
-* Anbieter: AWS, Google Cloud Platform oder Microsoft Azure.
-
-* Serverless-Komponenten: Lambda, Cloud Functions, S3-Buckets für Datei- und Datenablage.
-
-* :
-
-* RESTful APIs für externe Integrationen.
-
-* Webhooks zur Synchronisierung mit Banken und Finanzdienstleistern.
-
-## 3. Systemmodule
-
-### Benutzerverwaltung
-
-* Nutzergruppen: Spender, Schulen, Administratoren.
-
-* Funktionen:
-
-* Registrierung und Authentifizierung (OAuth2, SSO).
-
-* Zugriffskontrollen für verschiedene Rollen.
-
-### Finanzmanagement
-
-* :
-
-* Integration mit Zahlungsdienstleistern wie PayPal, Stripe, und Überweisungen.
-
-* Echtzeit-Zuweisung der Spenden an spezifische Schulfonds.
-
-* :
-
-* Automatisierte Jahres-Kaskade nach [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) — Direktförderung, Solidaritätsabgabe, Management-Konto, Umverteilung. (Der frühere 85/10/5-Schlüssel pro Spende ist ersetzt: Spenden gehen ungeteilt in den Einrichtungstopf, verrechnet wird einmal jährlich am Stichtag.)
-
-* Simulation und Prognosen für Renditen auf Basis von ESG-Investments.
-
-* :
-
-* Regelmäßige Verteilung auf alle Schulen basierend auf transparenten Algorithmen.
-
-### Berichtswesen und Transparenz
-
-* :
-
-* Generierung von Finanzberichten (monatlich/jährlich).
-
-* Dashboard für Echtzeit-Einsicht in Fondsentwicklung und Ausgaben.
-
-* :
-
-* Blockchain-basierte Protokollierung für unveränderliche Transaktionsverläufe.
-
-### Kommunikation
-
-* :
-
-* Automatische E-Mails und SMS für Spendenbestätigungen und Updates.
-
-* Schul-spezifische Newsletter.
-
-### Skalierbarkeit und Wartung
-
-* Skalierbarkeit:
-
-* Microservices-Architektur ermöglicht unabhängiges Skalieren von Modulen.
-
-* Automatisierte Wartung:
-
-* CI/CD-Pipeline (z. B. GitHub Actions) für reibungslose Updates.
-
-* Monitoring mit Tools wie Prometheus und Grafana.
-
-## Workflows und Automatisierung
-
-* :
-
-* Eingehende Spenden werden automatisch den jeweiligen Schulfonds zugeordnet — ungeteilt und in voller Höhe.
-
-* Die Verrechnung (Direktförderung, Abgabe, Umverteilung) läuft **nicht** beim Spendeneingang, sondern einmal jährlich als Kaskade am Stichtag. Siehe [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).
-
-* :
-
-* Erträge aus Fonds werden basierend auf vordefinierten Regeln reinvestiert oder verteilt.
-
-* Monatsberichte werden automatisch erstellt und an Schulen und Spender gesendet.
-
-* :
-
-* Der Solidaritätsbeitrag wird zentral gesammelt und in Echtzeit aufgeteilt.
-
-* Transparente Darstellung im Dashboard.
-
-* :
-
-* Jede Transaktion wird in einer Blockchain protokolliert.
-
-* Automatisierte Audits prüfen auf Regelkonformität.
-
-## Sicherheitsmaßnahmen
-
-* :
-
-* DSGVO-konforme Speicherung und Verarbeitung aller Daten.
-
-* :
-
-* Verschlüsselung aller Datenübertragungen (SSL/TLS).
-
-* Zwei-Faktor-Authentifizierung (2FA) für alle Benutzer.
-
-* :
-
-* Role-Based Access Control (RBAC).
-
-## Minimierung des Personalaufwands
-
-* :
-
-* Kein manueller Eingriff bei Spendenzuweisungen, Fondsberechnungen und Berichterstellung erforderlich.
-
-* :
-
-* Schulen und Spender können alle Informationen selbstständig abrufen.
-
-* :
-
-* Reduziert den Kommunikationsaufwand mit Spendern und Partnern.
-
-* :
-
-* Keine manuelle Wartung der Server erforderlich.
-
-## Zukunftserweiterungen
-
-* KI-gestützte Analysen:
-
-* Optimierung der Fondsperformance.
-
-* Vorhersagen über Spendenentwicklungen.
-
-* Erweiterte Integrationen:
-
-* Kooperation mit weiteren Finanzdienstleistern oder Bildungsorganisationen.
-
-Mit diesem Softwarekonzept kann die Stiftung effizient und kostengünstig arbeiten, während gleichzeitig Transparenz und Nachhaltigkeit gewährleistet werden.
+---
+
+*Der frühere Abschnitt „Software-Architekturkonzept" (Blockchain, Microservices,
+AWS Serverless) wurde am 2026-07-19 entfernt. Er beschrieb ein Wunschbild, das
+dem realen Stack widersprach und dadurch irreführend war. Der tatsächliche
+Architekturstand steht in [`projekt-status.md`](../projekt-status.md) und
+[`stiftung-web/README.md`](../stiftung-web/README.md); die Buchungslogik in
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md). Der alte Text
+bleibt über die Git-Historie zugänglich.*

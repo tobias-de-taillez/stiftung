@@ -82,19 +82,13 @@ nicht im Zufluss auf.
 
 ### Abstand zum Zielmodell
 
-Gegenüber [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) fehlt:
+Der Code implementiert das Modell aus
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) nicht.
 
-| Zielmodell | Hier |
-|---|---|
-| Töpfe als **Pool-Anteile** (Kursbewegung = 0 Schreibvorgänge) | `aktuellesKapital: Float` in Euro |
-| Einrichtungs-Depot + Verrechnungskonto + Soli-Depot + Soli-Verrechnungskonto + Management-Konto | Kein Konten-/Depot-Split |
-| **Solidaritätsabgabe** (`p × 1 %`) der besser ausgestatteten Einrichtungen | Fehlt — Fonds speist sich nur aus freien Spenden |
-| Verteilung nach **relativer** Position, P5/P95-winsorisiert | Verteilung nach **absolutem** Abstand zum Ziel-Kapital (`bedarfProKind`) |
-| Nur 1 % des Fonds wird verteilt | Kompletter Bestand wird verteilt, danach 0 |
-| Direktförderung 1 % an die Einrichtung | Nicht modelliert |
-| Ertragsblinde Buchung auf Stichtagswert | Deterministische 6 %-Simulation |
+**Die Liste der offenen Punkte steht in
+[`projekt-status.md`](../projekt-status.md), Abschnitt „Abstand zum
+Zielmodell" — und nur dort.** Sie stand früher zusätzlich hier und lief
+auseinander.
 
-Die 6 %-Jahressimulation bleibt als **Projektion** sinnvoll — sie ist nur
-keine Buchungsregel. Prognose ist erlaubt, Zusage nicht.
-
-Nächste Schritte: siehe Leitbild (`../leitbild.md`) und die Spec.
+Nächste Schritte: siehe [`leitbild.md`](../leitbild.md) und
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).
