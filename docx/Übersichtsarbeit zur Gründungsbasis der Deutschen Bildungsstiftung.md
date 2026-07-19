@@ -1,5 +1,18 @@
 Übersichtsarbeit zur Gründungsbasis der Deutschen Bildungsstiftung
 
+> **⚠️ Statushinweis (2026-07-19).**
+>
+> Die **wissenschaftlichen Befunde und Thesen dieses Dokuments gelten
+> unverändert** — die Forschungslage zum ROI frühkindlicher Bildung ist von der
+> Rechtsformfrage unberührt.
+>
+> Überholt sind ausschließlich die **Rechtsform-Bezüge**: Alle Verweise auf
+> „Stiftungssatzung, 2023" zeigen auf einen Entwurfsstand, der nicht mehr der
+> maßgebliche ist. Träger ist in Phase 1 ein **gemeinnütziger Verein**;
+> maßgeblich ist [`Vereinssatzung.md`](Vereinssatzung.md). Die zitierten Inhalte
+> (Präambel, Zweck, Zwei-Säulen-Modell) sind dort sinngemäß in §§ 2 und 5
+> übernommen.
+
 
 # 1. Einleitung und Zielsetzung
 

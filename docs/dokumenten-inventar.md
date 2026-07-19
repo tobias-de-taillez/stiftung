@@ -33,14 +33,14 @@ Loop-Pässe 25–36) und der Code unter `stiftung-web/`.
 | Datei | Z. | Status | Zweck / Anmerkung |
 |---|---|---|---|
 | [`docx/Vereinssatzung.md`](../docx/Vereinssatzung.md) | ~160 | ✅ maßgeblich | Satzungsentwurf Phase 1. Entwurf, kein Rechtsrat |
-| [`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](superpowers/specs/2026-07-19-vereinsgruendung-design.md) | ~230 | ✅ maßgeblich | Steuerrechtliche Herleitung (§§ 55, 62, 63 AO), Prämisse P1, Fragen S1–S7 an die Steuerberatung |
+| [`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](superpowers/specs/2026-07-19-vereinsgruendung-design.md) | 240 | ✅ maßgeblich | Steuerrechtliche Herleitung (§§ 55, 62, 63 AO), Prämisse P1, Fragen **S1–S8** an die Steuerberatung |
 | [`docx/Stiftungssatzung.md`](../docx/Stiftungssatzung.md) | 369 | 🕰️ Phase-3-Ziel | Nicht anzuwenden, solange der Verein besteht. **Text ist stellenweise beschädigt** — bei der Konvertierung sind Aufzählungsinhalte verloren gegangen (z. B. Z. 54, 65, 71–73, 89, 95–99). Vor Phase 3 zu rekonstruieren |
 
 ## Finanzmodell
 
 | Datei | Z. | Status | Zweck / Anmerkung |
 |---|---|---|---|
-| [`docs/verrechnungsmodell.md`](verrechnungsmodell.md) | 737 | ✅ maßgeblich | Kontenmodell, Datenmodell, Jahres-Kaskade. **Kanonische Quelle** der Annahme 7 % / 1 % / 6 % / `Jahresbetrag ÷ 0,01`. Noch nicht implementiert |
+| [`docs/verrechnungsmodell.md`](verrechnungsmodell.md) | 850 | ✅ maßgeblich | Kontenmodell, Datenmodell, Jahres-Kaskade. **Kanonische Quelle** der Annahme 7 % / 1 % / 6 % / `Jahresbetrag ÷ 0,01`. Noch nicht implementiert. Das Zwei-Depot-Modell hängt an Steuerfrage **S8** |
 | [`zeitersparnis.md`](../zeitersparnis.md) | 160 | 📘 aktuell | Spendenrechner-Modell und Formeln. Parameter zitieren das Verrechnungsmodell |
 | [`docx/Edge Cases.md`](../docx/Edge%20Cases.md) | 115 | 📘 aktuell | Katalog offener Sonderfälle, gepflegt |
 | [`docx/Zusatzdokument zur Mittelverwendung.md`](../docx/Zusatzdokument%20zur%20Mittelverwendung.md) | 190 | 🗑️ Obsoleszenz-Kandidat | Mechanik **vollständig ersetzt** durch das Verrechnungsmodell: ordinale Quartilsstaffelung, `×2`-Faktor, Kosten direkt aus dem Soli-Fonds, Stichtag 1. Januar. Banner vorhanden, aber ~130 Zeilen gegenstandsloser Text |

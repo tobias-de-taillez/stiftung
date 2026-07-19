@@ -1,3 +1,29 @@
+> ⚠️ **Status: Phase-3-Artefakt, in der Mechanik überholt.**
+>
+> Dieses Dokument ist als Anlage zur **Stiftungssatzung** verfasst und gilt für
+> die spätere Stiftungsphase (siehe [`leitbild.md`](../leitbild.md),
+> Phasenplan). Bis dahin arbeitet das Projekt als gemeinnütziger Verein.
+>
+> **Die Verrechnungsmechanik ist ersetzt durch
+> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).** Bei
+> Widerspruch gilt jene Spezifikation. Konkret abgelöst sind:
+>
+> | Hier beschrieben | Ersetzt durch |
+> |---|---|
+> | Quartilsstaffelung nach ordinalem Rang (Abschnitt 2.2, 3.2) | Wertbasierte Interpolation mit P5/P95-Winsorisierung |
+> | `Max-Satz = (Summe / Anzahl) × 2` (Abschnitt 3.2) | Proportionale Allokation `(1−p)/Σ(1−p) × S` — der ×2-Faktor ist nur bei ordinalem Rang exakt |
+> | Stiftungskosten direkt aus dem Soli-Fonds (Abschnitt 3.1) | Gedeckeltes Management-Konto |
+> | Stichtag „z. B. 1. Januar" (Abschnitt 4) | Ein einheitlicher Stichtag, noch festzulegen |
+>
+> Unverändert gültig: 1 % Direktspende, max. 1 % Abgabe, Bemessung nach
+> „Fondsvolumen pro Kind", Reihenfolge Kosten vor Umverteilung, sowie die
+> Zielsetzung in Abschnitt 5.
+>
+> Der nachfolgende Text bleibt als Entwurfsfassung erhalten und wird beim
+> Übergang in die Stiftungsphase überarbeitet.
+
+---
+
 **Zusatzdokument zur Mittelverwendung: Detaillierte Ausgestaltung des Zwei-Säulen-Modells**
 
 Dieses Zusatzdokument konkretisiert die Mittelverwendung im Rahmen der Deutschen Bildungsstiftung gemäß dem in der Satzung definierten Zwei-Säulen-Modell. Es ergänzt die dort beschriebenen Grundsätze und regelt insbesondere die jährlichen Zahlungsströme zwischen den individuellen Fonds der Einrichtungen einerseits und dem Solidaritätsfonds („Soli-Fonds“) andererseits.

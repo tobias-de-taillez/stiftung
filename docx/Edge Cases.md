@@ -1,3 +1,15 @@
+> **Teilweise beantwortet.** Mehrere Punkte dieser Liste sind inzwischen in
+> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) geregelt:
+>
+> | Punkt | Status |
+> |---|---|
+> | Kursschwankungen verzerren Abgaben/Ausschüttungen | **Entschärft.** Alle Einrichtungsfonds liegen im selben Depot, eine uniforme Marktbewegung kürzt sich in der Rangformel vollständig heraus — die Sätze sind crash-invariant, nur die Absolutbeträge schrumpfen. |
+> | Rundungsdifferenzen in der Quartilsberechnung | **Gegenstandslos.** Das ordinale Quartilsverfahren ist durch wertbasierte P5/P95-Interpolation ersetzt. |
+> | Sonderzuwendungen / Großspenden verzerren das Ranking | **Abgemildert** durch die P5/P95-Winsorisierung — greift allerdings erst ab 21 Einrichtungen. |
+> | Mindestpolster in Verlustjahren | **Entschieden: nein.** Entnommen wird 1 % des Stichtagswerts, auch im Minusjahr. |
+> | Einrichtungsschließung | **Weiterhin offen** — siehe unten, zwei sich ausschließende Varianten. |
+> | Gleitender Mittelwert / mehrjähriger Durchschnitt | **Weiterhin offen**, in der Spec als offener Punkt geführt. |
+
 Bei einem komplexen Verteilungsmodell wie dem Zwei-Säulen-Modell der Deutschen Bildungsstiftung kann es neben den bereits genannten Sonderfällen (z. B. Neugründung/Schließung einer Einrichtung) noch eine Reihe weiterer „Edge-Cases“ geben, die bei der praktischen Umsetzung bedacht werden sollten. Im Folgenden eine (nicht abschließende) Liste von Situationen, die zusätzliche Regeln oder Vorgehensweisen erfordern können:
 
 **Dramatische Veränderungen in der Kinderzahl einer Einrichtung**
@@ -34,7 +46,19 @@ Erhält eine Einrichtung innerhalb kürzester Zeit einen sehr hohen einmaligen S
 
 Es wäre zu prüfen, ob ein Korrekturmechanismus (z. B. ein gleitender Mittelwert) die Berechnung gegen solche Einmaleffekte absichern soll.
 
-**Rundungsdifferenzen in der Quartilsberechnung**
+**Rundungsdifferenzen in der Quartilsberechnung** — *gegenstandslos*
+
+> Das ordinale Quartilsverfahren ist ersetzt. Die Rangposition wird jetzt
+> wertbasiert zwischen P5 und P95 interpoliert und auf `[0, 1]` geklemmt; die
+> Ausschüttung wird proportional über die tatsächliche Gewichtssumme
+> normalisiert und ist dadurch für jede Verteilung und jede Einrichtungszahl
+> exakt. Ein Gleichstands-Sonderfall entfällt.
+>
+> Offen bleibt nur die **Geldrundung**: kaufmännisch auf Cent, mit definierter
+> Zuweisung des Restbetrags, damit die Invariante `Σ Topf_€ == Poolwert` exakt
+> hält. Siehe [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).
+
+Ursprüngliche Notiz:
 
 Die Quartile und Ränge werden i. d. R. anhand statistischer Verfahren berechnet (Medians, Interpolationen). Je nach Anzahl der Einrichtungen kann es zu Rundungsdiskussionen kommen (z. B. bei sehr kleiner oder sehr großer Einrichtungszahl).
 
@@ -76,12 +100,16 @@ Naturkatastrophen, Epidemien oder politische Krisen können dazu führen, dass e
 
 Hier kann eine Sonderklausel die Möglichkeit schaffen, Mittel im Notfall anders zu verteilen, ohne das reguläre System zu sehr zu destabilisieren.
 
-* Einrichtungsschließung/Eröffnung
+**Einrichtungsschließung/Eröffnung** — *entschieden (2026-07-19)*
 
-* Was passiert mit dem Fondsvolumen einer Einrichtung, wenn diese final den Betrieb einstellt?
+Was passiert mit dem Fondsvolumen einer Einrichtung, wenn diese final den Betrieb einstellt?
 
-* Idee: Das Fondsvolumen geht vollständig in den Soli Fonds über
+**Das Fondsvolumen geht vollständig in den Soli-Fonds über.**
 
-* Idee: Das Fondsvolumen geht in einen „Gründungspool“ über, in dem pro Jahr alle schließenden Einrichtungen gesammelt werden. Aus diesem Pool erhalten am 1. Januar alle neu gegründeten Einrichtungen Geld. Der gesamte Pool wird durch die Anzahl der Kinder aller neu gegründeter Einrichtungen geteilt und der Pro-Kind-Betrag dann an die Einrichtungs-Fonds verteilt, wo es dann einen ersten FondsGrundstock bildet.
+Umgekehrt werden neu angelegte Einrichtungen aus dem Soli-Fonds erstbefüllt.
+Der Soli-Fonds ist damit Ein- und Ausgang des Einrichtungs-Lebenszyklus — ein
+separater Sammeltopf ist dafür nicht nötig. Siehe
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md), Abschnitte 3.0
+und 3.3.
 
 
