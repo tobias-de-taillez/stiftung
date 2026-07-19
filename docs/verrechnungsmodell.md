@@ -450,6 +450,68 @@ Holt die Einrichtung ihren Zugang später ab, nimmt sie ab dem nächsten
 Stichtag regulär teil. Nichts geht verloren; der angesammelte Topf steht in
 voller Höhe bereit.
 
+### 3.5 Abfluss: Förderguthaben statt Überweisung
+
+> **Status: Lösungsvorschlag zu Frage S9, steuerlich nicht verifiziert.**
+> Vor dem ersten realen Abfluss mit einer Steuerberater:in zu klären.
+
+**Das Problem.** § 58 Nr. 1 AO erlaubt Mittelweitergabe nur an
+steuerbegünstigte Körperschaften oder juristische Personen des öffentlichen
+Rechts. Eine Kindertagespflegestelle ist regelmäßig ein privatwirtschaftliches
+Einzelunternehmen — also weder das eine noch das andere. Eine schlichte
+Überweisung „Hier sind 500 €" ist damit kein gangbarer Weg.
+
+**Der Ansatz.** Statt Mittel weiterzugeben, verwirklicht der Verein seinen
+Zweck **unmittelbar** (§ 57 AO): Er finanziert konkrete Sachmittel für die
+Betreuung der Kinder. Die Einrichtung ist dabei ausführende Stelle, nicht
+Empfängerin einer Zuwendung. Der Beleg ist der Nachweis, dass das Geld im
+Satzungszweck gelandet ist.
+
+**Das Förderguthaben** ist kein Konto, sondern die Anzeige des ohnehin
+vorhandenen Topfes (Abschnitt 2) in der Rolle „das steht dir dieses Jahr zur
+Verfügung". Kein neues Datenmodell, nur eine Sicht darauf.
+
+#### Zwei Abflusswege
+
+| | **A — Erstattung** | **B — Direktbeschaffung** |
+|---|---|---|
+| Ablauf | Einrichtung kauft selbst, reicht Beleg ein, bekommt erstattet | Einrichtung wählt aus, **der Verein bestellt und bezahlt** |
+| Vorfinanzierung | durch die Einrichtung | keine |
+| Geldfluss zur Einrichtung | ja | **nein** — der Verein zahlt den Lieferanten |
+| § 57 AO | tragfähig, aber erklärungsbedürftig | am saubersten |
+
+**Weg B ist nicht optional.** „Erst auslegen, dann erstattet bekommen" trifft
+genau die Einrichtungen am härtesten, die am wenigsten Polster haben — also
+die, die der Solidaritätsmechanismus bevorzugen soll. Ohne Direktbeschaffung
+kippt die Umverteilung auf der Auszahlungsseite wieder ins Gegenteil.
+
+#### Erstattungskatalog
+
+Der Katalog ist die eigentliche Sollbruchstelle. Erstattungsfähig sind nur
+Aufwendungen, die **den betreuten Kindern unmittelbar zugutekommen**:
+Spiel- und Lernmaterial, Bücher, Bewegungs- und Außenausstattung,
+Verbrauchsmaterial für Bildungsangebote, Fortbildung mit pädagogischem Bezug,
+Ausflüge und Projekte.
+
+**Nicht erstattungsfähig** ist alles, was ohnehin Betriebsaufwand wäre: Miete,
+Nebenkosten, Versicherungen, Fahrzeug, Verpflegung im Regelbetrieb, und in
+jedem Fall Entnahmen oder Einkommen der betreuenden Person. Andernfalls
+subventioniert der Verein einen Gewerbebetrieb — das ist weder vom
+Satzungszweck gedeckt noch für die Einrichtung steuerfrei.
+
+Der Katalog gehört in die Förderrichtlinie nach § 5 Abs. 5 der
+[Vereinssatzung](../docx/Vereinssatzung.md), damit er ohne Satzungsänderung
+angepasst werden kann.
+
+#### Offene Punkte dieses Ansatzes
+
+| # | Frage |
+|---|---|
+| 1 | **Eigentum.** Wem gehört ein vom Verein bezahltes Spielgerät? Ab welchem Wert braucht es eine Inventarisierung und eine Regel für den Fall, dass die Einrichtung schließt? |
+| 2 | **Steuerfolge bei der Einrichtung.** Eine Erstattung (Weg A) dürfte Betriebseinnahme sein, der die Ausgabe als Betriebsausgabe gegenübersteht — im Ergebnis neutral, aber buchungspflichtig. Das widerspricht teilweise dem Versprechen „kein Steuerstress". Weg B vermeidet das vollständig |
+| 3 | **Prüfaufwand.** Belegprüfung skaliert schlecht. Nötig sind Bagatellgrenzen, Stichproben oder automatisierte Plausibilisierung — sonst frisst die Verwaltung das gedeckelte Management-Konto (Abschnitt 8) |
+| 4 | **Verhältnis zur Direktspende.** Fließt eine Direktspende (Abschnitt 3.1, Verwendungsart B) über denselben Erstattungsweg, oder darf sie direkt ausgezahlt werden? Nach der Logik oben: **derselbe Weg** — die Empfängerfähigkeit hängt nicht daran, woher das Geld kommt |
+
 ---
 
 ## 4. Jahres-Kaskade
