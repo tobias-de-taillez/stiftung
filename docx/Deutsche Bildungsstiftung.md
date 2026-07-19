@@ -1,5 +1,25 @@
 # Stiftungssatzung
 
+> **⚠️ Statushinweis (2026-07-19) — teilweise überholt.**
+>
+> **Rechtsform.** Dieses Dokument spricht durchgehend von einer Stiftung. Träger
+> ist in Phase 1 ein **gemeinnütziger Verein**; maßgeblich ist
+> [`Vereinssatzung.md`](Vereinssatzung.md). Alle Aussagen zu Stiftungsrat,
+> Stiftungsleitung und Grundstockvermögen beziehen sich auf das Phase-3-Ziel,
+> nicht auf den heutigen Stand. Siehe [`leitbild.md`](../leitbild.md).
+>
+> **Verteilungsmechanik.** Der Verteilungsprozess in diesem Dokument ist durch
+> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) abgelöst. Bei
+> Widerspruch gilt das Verrechnungsmodell.
+>
+> **Software-Architektur (unterer Teil des Dokuments).** Der Abschnitt zur
+> technischen Architektur nennt Blockchain, Microservices und AWS. Das ist ein
+> Wunschbild aus der Frühphase und beschreibt **nicht** den realen Code. Der
+> Ist-Stand ist Next.js 14 mit Prisma/SQLite, lokal — siehe
+> [`projekt-status.md`](../projekt-status.md).
+>
+> Präambel und Datenschutzteil sind inhaltlich weiterhin brauchbar.
+
 ## Präambel zur Stiftungssatzung der Deutschen Bildungsstiftung
 
 Bildung ist der Schlüssel zu einer gerechten, nachhaltigen und zukunftsfähigen Gesellschaft. Sie bildet die Grundlage für persönliche Entfaltung, gesellschaftlichen Fortschritt und wirtschaftliche Stabilität. In einer Welt, die zunehmend von technologischen, sozialen und ökologischen Herausforderungen geprägt ist, ist der Zugang zu qualitativ hochwertiger Bildung für alle Menschen eine unverzichtbare Voraussetzung.
@@ -46,38 +66,31 @@ Die Stiftung bietet Spendern zwei Möglichkeiten, ihre Unterstützung einzubring
 
 * Diese Mittel kommen nicht einer spezifischen Schule zugute, sondern fließen in den Solidaritätsfonds, der Schulen mit geringem Finanzierungsvolumen überproportional unterstützt.
 
-## Ertragsverwendung und Dividenden
+## Mittelverwendung
 
-Die in Fonds investierten Mittel generieren jährliche.
+> **Ersetzt.** Die Mechanik der Mittelverwendung ist vollständig in
+> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) geregelt.
+> Bei Widerspruch gilt jene Spezifikation.
 
-Im Langjahresmittel beträgt diese Rendite circa 6% beim MSCI-World. Geht man von dieser Rendite aus, kann eine Entnahme aus dem Fondsvolumen bis zu 6% erfolgen, ohne das Gesamtvolumen langfristig zu reduzieren. Um die Kaufkraft zu erhalten, wird die Inflation berücksichtigt (3%). Folglich können maximal 3% pro Jahr aus dem Fondsvolumen entnommen werden, im Folgenden „Erträge“ genannt.
+Der ursprünglich hier beschriebene Ansatz (rund 6 % Rendite abzüglich 3 %
+Inflation ergibt bis zu 3 % entnehmbare „Erträge", verteilt zu zwei
+getrennten Stichtagen am 30. Januar und 30. März) ist **nicht mehr gültig**.
+Er wurde in drei Punkten abgelöst:
 
+1. **Volumenbasiert statt ertragsbasiert.** Bemessungsgrundlage ist der
+   Fondsstand am Stichtag, nicht ein Ertrag. Es wird keine Rendite
+   berechnet — auch in einem Verlustjahr wird der feste Satz entnommen.
+2. **1 % statt 3 %.** Jede Einrichtung erhält 1 % ihres Fondsvolumens als
+   Direktförderung, dazu kommt eine Solidaritätsabgabe von 0 – 1 % je nach
+   relativer Ausstattung.
+3. **Ein Stichtag statt zwei.** Einrichtungsfonds und Solidaritätsfonds
+   werden in einer durchgehenden Kaskade abgerechnet.
 
- Diese Erträge werden abhängig vom Fonds in unterschiedlicher Weise zu zwei Stichtagen verwendet:
-
-### Schulfonds für spezifische Schulen
-
-Stichtag: 30. Januar 
-
-Die Erträge aus dem individuellen Schulfonds einer Schule werden wie folgt aufgeteilt:
-
-*  Sie werden also nicht entnommen.
-
-* : Direkte Ausschüttung an die Schule zur sofortigen Verwendung, z. B. für Materialien, Projekte oder Instandhaltungen.
-
-* : Solidaritätsabgabe an den Solidaritätsfonds.
-
-### Solidaritätsfonds
-
-Stichtag: 30. März
-
-Die Erträge des Solidaritätsfonds werden aufgeteilt, um langfristige Stabilität und direkte Förderung sicherzustellen:
-
-* : Reinvestition in den Fonds, um dessen zukünftige Ertragskraft zu sichern.
-
-* : Ausschüttung über die Chancengleichheitsumverteilungsmechanismen.
-
-*  (Siehe .
+Als **Anlage- und Prognosegrundlage** (Spendenrechner, Wirkungsaussagen) gilt
+stattdessen die kanonische Annahme aus
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md),
+Geltungsbereich: **7 % Brutto-Rendite, 1 % Ausschüttung, 6 % Netto-Wachstum,
+`Kapital = Jahresbetrag / 0,01`.** Das ist eine Prognose, keine Buchungsregel.
 
 ## Solidaritätsmechanismus
 
@@ -434,7 +447,7 @@ Die Architektur basiert auf einer modularen, cloudbasierten Lösung. Sie nutzt M
 
 * :
 
-* Automatisierte Berechnung von 85 % Vermögensaufbau, 10 % Solidaritätsbeitrag und 5 % Betriebsmittel.
+* Automatisierte Jahres-Kaskade nach [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) — Direktförderung, Solidaritätsabgabe, Management-Konto, Umverteilung. (Der frühere 85/10/5-Schlüssel pro Spende ist ersetzt: Spenden gehen ungeteilt in den Einrichtungstopf, verrechnet wird einmal jährlich am Stichtag.)
 
 * Simulation und Prognosen für Renditen auf Basis von ESG-Investments.
 
@@ -478,9 +491,9 @@ Die Architektur basiert auf einer modularen, cloudbasierten Lösung. Sie nutzt M
 
 * :
 
-* Eingehende Spenden werden automatisch den jeweiligen Schulfonds zugeordnet.
+* Eingehende Spenden werden automatisch den jeweiligen Schulfonds zugeordnet — ungeteilt und in voller Höhe.
 
-* System berechnet die Verteilung (85/10/5) und aktualisiert alle Konten.
+* Die Verrechnung (Direktförderung, Abgabe, Umverteilung) läuft **nicht** beim Spendeneingang, sondern einmal jährlich als Kaskade am Stichtag. Siehe [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).
 
 * :
 

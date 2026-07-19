@@ -124,8 +124,25 @@ Neues Dokument, gleiche Ablage wie die bestehenden Rechtsdokumente. Struktur:
 | 10 | Vorstand | Zusammensetzung, Vertretungsregelung nach § 26 BGB, Amtszeit, Beschlussfassung |
 | 11 | Transparenz und Rechnungslegung | Jahresrechnung, Kassenprüfung, Veröffentlichung der Mittelverwendung — setzt den Leitbild-Kernwert „Transparenz vor Vertrauensvorschuss" um |
 | 12 | Satzungsänderung | Qualifizierte Mehrheit; Änderungen, die Zweck oder Gemeinnützigkeit berühren, bedürfen der vorherigen Abstimmung mit dem Finanzamt |
-| **13** | **Überführung in eine Stiftung** | Benennt die Überführung als satzungsmäßiges Ziel. Auslösung durch Beschluss der Mitgliederversammlung mit qualifizierter Mehrheit — **bewusst ohne Zahl in der Satzung**, damit die Schwelle ohne Satzungsänderung angepasst werden kann. Die Stiftung muss denselben gemeinnützigen Zweck verfolgen. ⚠️ **Der Umwandlungspfad ist gemeinnützigkeitsrechtlich ungesichert** — siehe offener Punkt 5 |
+| **13** | **Überführung in eine Stiftung** | **Harte Schwelle mit Verschiebungsmechanismus** — siehe eigenen Abschnitt unten. ⚠️ Der Umwandlungspfad ist gemeinnützigkeitsrechtlich ungesichert (offener Punkt 5) |
 | 14 | Auflösung, Vermögensanfall | Bei Auflösung oder Wegfall steuerbegünstigter Zwecke fällt das Vermögen an eine gemeinnützige Stiftung gleichen Zwecks (§ 55 Abs. 1 Nr. 4 AO), ersatzweise an eine andere steuerbegünstigte Körperschaft zur Verwendung für Erziehung und Bildung |
+
+### § 13 im Detail — Überführungspflicht mit Verschiebungsmechanismus
+
+**Entscheidung vom 2026-07-19.** Diese ersetzt die frühere Festlegung, die Schwelle bewusst *nicht* zu beziffern. Begründung der Umkehr: Eine reine Zielaussage ohne Auslöser lässt sich unbegrenzt aufschieben. Die jetzt gewählte Konstruktion erzeugt Verbindlichkeit, ohne starr zu sein — der Aufschub ist möglich, aber er kostet jedes Mal einen begründeten Beschluss und wird dadurch sichtbar.
+
+Regelungsgehalt:
+
+1. **Auslöser.** Erreicht der Solidaritätsfonds einen Bestand von **1.000.000 Euro**, ist der Vorstand verpflichtet, die Überführung in eine Stiftung zu betreiben.
+2. **Frist.** Die Überführung ist innerhalb von **zwei Jahren** nach Ablauf des Geschäftsjahres zu vollziehen, in dem die Schwelle erstmals erreicht wurde.
+3. **Verschiebung.** Die Frist kann durch Beschluss der Mitgliederversammlung um **jeweils ein Jahr** verlängert werden. Mehrfache Verlängerung ist zulässig, jede erfordert einen eigenen Beschluss.
+4. **Begründungspflicht.** Ein Verlängerungsbeschluss setzt voraus, dass der Vorstand der Mitgliederversammlung eine **schriftliche Begründung** vorlegt, die mit der Einladung zu versenden ist. Sie muss darlegen, warum die Überführung noch nicht sachgerecht ist, und benennen, welche Schritte bis wann unternommen werden. Ohne fristgerecht vorgelegte Begründung ist ein Verlängerungsbeschluss unwirksam.
+5. **Transparenz.** Jeder Verlängerungsbeschluss samt Begründung wird im Rahmen der Rechenschaftslegung nach § 11 veröffentlicht.
+
+**Zwei Punkte, die bei der Ausformulierung zu entscheiden sind:**
+
+- **Bezugsgröße.** Die Schwelle knüpft nach der Entscheidung an den **Solidaritätsfonds** an, nicht an das Gesamtvermögen. Da die zweckgebundenen Einrichtungs-Kapitale nicht mitzählen, kann das Gesamtvermögen die Millionengrenze deutlich überschreiten, ohne den Auslöser zu berühren. Das ist bewusst so gewählt und in der Satzung eindeutig zu formulieren, damit es später nicht als Redaktionsversehen gelesen wird.
+- **Mehrheitserfordernis für die Verlängerung.** Nicht festgelegt. Empfehlung: einfache Mehrheit, weil die Begründungs- und Veröffentlichungspflicht die eigentliche Hürde bildet und eine qualifizierte Mehrheit den Aufschub faktisch zum Normalfall machen könnte, sobald die Versammlung schlecht besucht ist.
 
 **Kopfzeile des Dokuments** (verbindlich, nicht optional): Entwurf ohne Rechtsberatungscharakter. Vor Gründungsversammlung und Registeranmeldung durch eine Rechtsanwältin/einen Rechtsanwalt oder Notar:in prüfen und beim Finanzamt zur Vorabprüfung nach § 60a AO einreichen. Die Mustersatzung der Anlage 1 zu § 60 AO ist einzuhalten, sonst entfällt die Steuerbegünstigung.
 
@@ -149,7 +166,7 @@ Es gibt keinen mechanischen Test für Prosa. Die Abnahme ist eine Checkliste:
 - [ ] § 4 nennt § 62 Abs. 3 AO explizit und benennt alle vier Zuführungstatbestände.
 - [ ] § 4 behandelt Nr. 2 (Widmung) und Nr. 3 (Spendenaufruf) als gleichrangige Hauptkanäle.
 - [ ] § 4 enthält den Grundsatz, dass Kapital in thesaurierenden Anlagen gehalten und nur in Höhe des Ausschüttungsbedarfs veräußert wird (Prämisse P1).
-- [ ] § 13 enthält **keine** konkrete Schwellenzahl.
+- [ ] § 13 nennt die Schwelle von 1.000.000 EUR **im Solidaritätsfonds** (nicht Gesamtvermögen), die Zwei-Jahres-Frist, die Verlängerung um jeweils ein Jahr und die Begründungspflicht des Vorstands.
 - [ ] § 14 regelt den Vermögensanfall an eine gemeinnützige Stiftung gleichen Zwecks.
 - [ ] Der Rechtsberatungs-Disclaimer steht im Kopf des Dokuments.
 - [ ] `docx/Stiftungssatzung.md` ist unverändert (`git diff` leer).
@@ -163,7 +180,7 @@ Es gibt keinen mechanischen Test für Prosa. Die Abnahme ist eine Checkliste:
 ## Offene Punkte (bewusst nicht in diesem Spec entschieden)
 
 1. **Name.** „Deutsche Bildungsstiftung" für einen e.V. ist sprachlich und potenziell firmenrechtlich problematisch. Entscheidung vertagt; die Satzung nutzt einen Platzhalter. Solange der Name offen ist, bleibt das Website-Branding unverändert.
-2. **Schwellensumme für die Überführung.** Bewusst nicht in der Satzung. Sollte separat im Leitbild oder Finanzmodell begründet werden.
+2. **Herleitung der 1-Mio-Schwelle.** Die Zahl ist gesetzt, nicht hergeleitet. Zu begründen wäre, warum gerade dieser Bestand den Wechsel rechtfertigt — plausibel über den Punkt, ab dem der erweiterte Spendenabzug nach § 10b Abs. 1a EStG und der Verwaltungsaufwand einer Stiftung sich rechnen. Gehört ins Leitbild oder Finanzmodell, nicht in die Satzung.
 3. **Widmungs-Element im Spendenflow.** Technische Voraussetzung dafür, dass § 62 Abs. 3 Nr. 2/3 AO greift. Eigener Task.
 4. **Gründungsmitglieder und Vorstandsbesetzung.** Ein e.V. braucht mindestens sieben Mitglieder zur Eintragung (§ 56 BGB). Nicht Gegenstand der Satzung, aber Voraussetzung der Gründung.
 5. **Umwandlungspfad Verein → Stiftung.** Ungesichert. Die Annahme, § 55 Abs. 1 Nr. 4 AO trage die Übertragung des Kapitalstocks auf eine neu errichtete Stiftung, wurde in der Recherche 0-3 widerlegt. Zu prüfen sind die Alternativen: Auflösung mit Vermögensanfall, § 58 Nr. 1 AO (Mittelweitergabe), Anwachsung. Berührt § 13 und § 14 der Satzung.

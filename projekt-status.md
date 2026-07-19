@@ -1,5 +1,36 @@
 # Projekt-Status: Deutsche Bildungsstiftung
 
+> **Dieses Dokument beschreibt den IST-Zustand des Codes**, nicht das
+> Zielmodell. Maßgeblich für Verrechnung und Umverteilung ist
+> [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md). Der Code weicht
+> davon derzeit erheblich ab — siehe [Abstand zum Zielmodell](#abstand-zum-zielmodell).
+>
+> **Rund 72 % dieser Datei sind Historie** (ab „Historie" weiter unten):
+> Vanilla-Stack, Vercel-Demo, Roadmap 2025. Diese Abschnitte werden bewusst
+> nicht nachgeführt. Aktuell ist ausschließlich der Abschnitt unmittelbar
+> hierunter.
+
+## Rechtsform (Stand 2026-07-19)
+
+Träger ist in Phase 1 ein **gemeinnütziger Verein**, keine Stiftung — trotz des
+Projektnamens. Maßgebliches Dokument ist
+[`docx/Vereinssatzung.md`](docx/Vereinssatzung.md);
+[`docx/Stiftungssatzung.md`](docx/Stiftungssatzung.md) ist das Phase-3-Ziel und
+nicht anzuwenden.
+
+Erreicht der Solidaritätsfonds **eine Million Euro**, ist die Überführung in
+eine Stiftung binnen zwei Jahren zu vollziehen; die Frist ist durch begründeten
+Beschluss der Mitgliederversammlung um jeweils ein Jahr verlängerbar
+(§ 13 Vereinssatzung).
+
+**Offen und relevant für den Code:** Der Kapitalaufbau stützt sich auf
+Vermögenszuführungen nach § 62 Abs. 3 AO. Damit die greifen, muss der
+Spendenflow eine **Widmungserklärung** der Spender:innen erfassen und
+dokumentieren — heute nicht implementiert. Ebenfalls ungeprüft ist Prämisse P1
+(thesaurierender ETF erzeugt keinen Mittelzufluss), an der das 6 %-Netto-Wachstum
+hängt. Herleitung und offene Fragen:
+[`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md).
+
 ## Aktueller Stand 2026-07-16
 
 **Status:** ✅ Lokale Website neu aufgebaut, echtes getestetes Backend, Solidaritätsfonds aktiv
@@ -34,10 +65,28 @@ Code-Stand wurde entfernt (`78b98d2`), die lokale Version in 21 Tasks
 - Kein echtes Payment (Stripe/PayPal) — reine Spielgeld-Buchung.
 - Kein Login/KYC — Spenden sind anonym.
 - Keine Auszahlung an Einrichtungen (nur Zufluss modelliert).
-- Kein Arbeits-Konto/Fonds-Konto-Split.
 - Deployment/Hosting noch nicht adressiert.
 
 Details: [`stiftung-web/README.md`](stiftung-web/README.md).
+
+### Abstand zum Zielmodell
+
+Der Code implementiert das Modell aus
+[`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md) **nicht**. Die
+Umsetzung ist ein Umbau, kein Patch. Offene Punkte:
+
+| Zielmodell | Ist-Zustand |
+|---|---|
+| Töpfe als **Pool-Anteile** | `aktuellesKapital: Float` in Euro |
+| Fünf Kontenebenen (2 Depots, 2 Verrechnungskonten, Management-Konto) | Kein Konten-/Depot-Split |
+| **Solidaritätsabgabe** der besser ausgestatteten Einrichtungen | Fehlt vollständig — Fonds speist sich nur aus freien Spenden |
+| Verteilung nach **relativer** Position (P5/P95-winsorisiert) | Verteilung nach **absolutem** Abstand zum Ziel-Kapital |
+| Nur 1 % des Soli-Fonds wird verteilt, Rest bleibt liegen | Kompletter Fonds-Bestand wird verteilt, danach auf 0 gesetzt |
+| Direktförderung 1 % an die Einrichtung | Keine Auszahlung modelliert |
+| Ertragsblinde Buchung auf Stichtagswert | Deterministische 6 %-Simulation |
+
+Die 6 %-Jahressimulation ist als **Projektion** weiterhin sinnvoll; sie ist
+nur keine Buchungsregel (siehe Geltungsbereich der Spec).
 
 ---
 
