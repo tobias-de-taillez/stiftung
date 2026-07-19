@@ -769,16 +769,15 @@ Mitglieder (Abschnitt 8).
 
 `docx/Stiftungssatzung.md` und `docx/Zusatzdokument zur Mittelverwendung.md`
 unterstellen dagegen eine **Stiftung** (Stiftungsrat, Stiftungsleitung,
-NStiftG). Das ist **kein Widerspruch**, sondern der im
-[Leitbild](../leitbild.md) beschriebene Phasenplan:
+NStiftG). Das ist kein Widerspruch, sondern der Phasenplan — sie sind
+**Phase-3-Artefakte** und werden nicht auf Vereinssprache umgeschrieben.
 
-> Phase 1 — Verein, MVP bei der Tagespflege · Phase 2 — Ausbau über Kitas zu
-> Schulen · **Phase 3 — Umwandlung in eine Stiftung.** Die Rechtsform folgt
-> dem Kapital, nicht umgekehrt.
-
-Die Satzungsdokumente sind damit **Phase-3-Artefakte**. Sie werden nicht auf
-Vereinssprache umgeschrieben — bei Erreichen des Schwellenwerts werden sie das
-geltende Recht.
+Phasenplan und Begründung stehen im [Leitbild](../leitbild.md), die
+rechtsverbindliche Regel in § 13 der
+[Vereinssatzung](../docx/Vereinssatzung.md), die steuerliche Herleitung im
+[Vereinsgründungs-Spec](superpowers/specs/2026-07-19-vereinsgruendung-design.md).
+**Hier wird nur die Kapitalwirkung geregelt** — alles andere ist dort
+nachzulesen, nicht hier zu wiederholen.
 
 ### Schwellenwert und Übergang
 

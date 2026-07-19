@@ -746,3 +746,11 @@ Für **höhere Altersstufen** (Grundschule, Sekundarschule) existiert ebenfalls 
 
 
 
+
+---
+
+## Weiterführende Quellen (nicht wissenschaftlich begutachtet)
+
+- ZEIT Online (2024-07): Entwicklung von Kindern, Kita und Erziehung —
+  <https://www.zeit.de/gesundheit/2024-07/entwicklung-kinder-kita-erziehung-eltern>
+  *(übernommen aus der am 2026-07-19 gelöschten Datei `Betreuung von Kindern in Deutschland.md`)*

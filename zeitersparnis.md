@@ -20,16 +20,21 @@ Wirkungsaussage der Website, weil sie eine kleine Spende in etwas Konkretes
 
 ## Parameter
 
-| Symbol | Bedeutung | Wert |
+> **`r`, `a` und `g` werden hier nicht festgelegt.** Kanonische Quelle ist
+> [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md), Abschnitt
+> „Kanonische Projektionsannahme". Ändert sich dort ein Wert, gilt er hier
+> automatisch mit — diese Datei führt keine Zweitfassung.
+
+| Symbol | Bedeutung | Herkunft |
 |---|---|---|
-| `r` | Brutto-Rendite ETF (Langfristannahme) | 7 % |
-| `a` | Ausschüttungssatz (Direktförderung) | 1 % |
-| `s` | Solidaritätsabgabe der Einrichtung | 0 – 1 % |
-| `g` | **Netto-Wachstum** = `r − a − s` | **5 – 6 %** |
-| `V` | Aktuelles Fondsvolumen der Einrichtung | z. B. 2.500 € |
-| `P` | Spendenbetrag | z. B. 10 € |
-| `k` | Anzahl Kinder | z. B. 430 |
-| `z` | Ziel-Ausschüttung pro Kind und Jahr | z. B. 1 € |
+| `r` | Brutto-Rendite ETF (Langfristannahme) | Verrechnungsmodell |
+| `a` | Ausschüttungssatz (Direktförderung) | Verrechnungsmodell |
+| `s` | Solidaritätsabgabe der Einrichtung | Verrechnungsmodell, 0 bis Höchstsatz |
+| `g` | **Netto-Wachstum** = `r − a − s` | abgeleitet |
+| `V` | Aktuelles Fondsvolumen der Einrichtung | Eingabe, z. B. 2.500 € |
+| `P` | Spendenbetrag | Eingabe, z. B. 10 € |
+| `k` | Anzahl Kinder | Eingabe, z. B. 430 |
+| `z` | Ziel-Ausschüttung pro Kind und Jahr | Eingabe, z. B. 1 € |
 
 ### Zielkapital
 
