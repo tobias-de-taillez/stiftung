@@ -18,10 +18,13 @@ Projektnamens. Maßgebliches Dokument ist
 [`docx/Stiftungssatzung.md`](docx/Stiftungssatzung.md) ist das Phase-3-Ziel und
 nicht anzuwenden.
 
-Erreicht der Solidaritätsfonds **eine Million Euro**, ist die Überführung in
+Erreicht der Solidaritätsfonds **zwei Millionen Euro**, ist die Überführung in
 eine Stiftung binnen zwei Jahren zu vollziehen; die Frist ist durch begründeten
 Beschluss der Mitgliederversammlung um jeweils ein Jahr verlängerbar
-(§ 13 Vereinssatzung).
+(§ 13 Vereinssatzung). Bei der Überführung wird eine Million als
+Grundstockvermögen der Stiftung festgeschrieben, der Rest bleibt
+Solidaritätsfonds — das erfordert später eine dritte Topf-Ebene im
+Datenmodell, siehe [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md).
 
 **Offen und relevant für den Code:** Der Kapitalaufbau stützt sich auf
 Vermögenszuführungen nach § 62 Abs. 3 AO. Damit die greifen, muss der

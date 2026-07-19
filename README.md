@@ -16,12 +16,16 @@ braucht deutlich weniger Startkapital und darf ausdrücklich gewidmete
 Zuwendungen nach § 62 Abs. 3 AO unbegrenzt seinem Vermögen zuführen — der
 Kapitalaufbau funktioniert also auch ohne Stiftung.
 
-Erreicht der **Solidaritätsfonds eine Million Euro**, ist die Überführung in
+Erreicht der **Solidaritätsfonds zwei Millionen Euro**, ist die Überführung in
 eine Stiftung innerhalb von zwei Jahren zu vollziehen. Die Frist ist durch
 begründeten Beschluss der Mitgliederversammlung um jeweils ein Jahr
-verlängerbar. Der eigentliche Grund für die spätere Stiftung ist nicht der
-Kapitalaufbau, sondern der erweiterte Spendenabzug nach § 10b Abs. 1a EStG,
-der Stiftungen vorbehalten ist.
+verlängerbar. Bei der Überführung wird eine Million als Grundstockvermögen der
+Stiftung festgeschrieben; der Rest bleibt Solidaritätsfonds und verteilt weiter
+— deshalb liegt die Schwelle bei zwei und nicht bei einer Million.
+
+Der eigentliche Grund für die spätere Stiftung ist nicht der Kapitalaufbau —
+den darf auch ein Verein — sondern der erweiterte Spendenabzug nach
+§ 10b Abs. 1a EStG, der Stiftungen vorbehalten ist.
 
 > Der Projektname trägt weiterhin „Stiftung". Die Namensentscheidung steht aus;
 > bis dahin bleibt das Website-Branding unverändert.

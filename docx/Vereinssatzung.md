@@ -66,7 +66,7 @@ Der Verein ist als erste Stufe angelegt. Sobald der Solidaritätsfonds die in §
 ## § 5 Zwei-Säulen-Modell der Förderung
 
 1. **Zweckgebundene Zuwendungen.** Zuwendende können eine bestimmte Bildungs- oder Betreuungseinrichtung benennen, der ihre Zuwendung zugutekommen soll. Solche Zuwendungen werden dem Kapitalbestand dieser Einrichtung zugeordnet.
-2. **Solidaritätsfonds.** Nicht zweckgebundene Zuwendungen werden einem Solidaritätsfonds zugeführt.
+2. **Solidaritätsfonds.** Nicht zweckgebundene Zuwendungen werden einem Solidaritätsfonds zugeführt. Dessen Substanz wird nicht verbraucht; verteilt werden seine Erträge. Zur Aufteilung des Solidaritätsfonds bei der Überführung in eine Stiftung siehe § 13 Abs. 3.
 3. **Verteilung aus dem Solidaritätsfonds.** Die Verteilung erfolgt so, dass Einrichtungen mit geringem Kapitalbestand je Kind überproportional gefördert werden. Maßgeblich ist der Abstand des Kapitalbestands je Kind zu einem vom Vorstand festgelegten und nach § 11 veröffentlichten Zielwert.
 4. **Keine Verfallklausel.** Nicht abgerufene Mittel verfallen nicht. Sie verbleiben im Solidaritätsfonds und werden in die folgende Verteilung einbezogen.
 5. Die Einzelheiten regelt eine Förderrichtlinie, die die Mitgliederversammlung beschließt.
@@ -124,7 +124,7 @@ Organe des Vereins sind die Mitgliederversammlung und der Vorstand.
    2. den Bestand des Vermögens und des Solidaritätsfonds;
    3. die Höhe und Verteilung der Ausschüttungen an die geförderten Einrichtungen;
    4. die Verwaltungskosten;
-   5. Beschlüsse nach § 13 Abs. 3 samt der zugrunde liegenden Begründung.
+   5. Beschlüsse nach § 13 Abs. 4 samt der zugrunde liegenden Begründung.
 4. Der Verein legt offen, nach welchen Regeln der Solidaritätsfonds verteilt wird, und macht die Berechnung nachvollziehbar.
 
 ## § 12 Satzungsänderungen
@@ -136,11 +136,16 @@ Organe des Vereins sind die Mitgliederversammlung und der Vorstand.
 ## § 13 Überführung in eine Stiftung
 
 1. **Ziel.** Der Verein ist als erste Stufe angelegt. Er strebt an, seine Zwecke bei hinreichendem Kapitalbestand durch eine Stiftung fortzuführen, die dieselben gemeinnützigen Zwecke verfolgt.
-2. **Auslöser und Frist.** Erreicht oder überschreitet der Bestand des Solidaritätsfonds nach § 5 Abs. 2 zum Ende eines Geschäftsjahres erstmals **eine Million Euro**, so hat der Vorstand die Überführung in eine Stiftung zu betreiben. Sie ist innerhalb von **zwei Jahren** nach Ablauf dieses Geschäftsjahres zu vollziehen. Maßgeblich ist allein der Bestand des Solidaritätsfonds; die den einzelnen Einrichtungen nach § 5 Abs. 1 zugeordneten Kapitalbestände bleiben außer Betracht.
-3. **Verschiebung.** Die Mitgliederversammlung kann die Frist nach Absatz 2 durch Beschluss um jeweils ein Jahr verlängern. Mehrfache Verlängerung ist zulässig; jede bedarf eines eigenen Beschlusses.
-4. **Begründungspflicht.** Ein Beschluss nach Absatz 3 setzt voraus, dass der Vorstand eine schriftliche Begründung vorlegt und diese mit der Einladung zur Mitgliederversammlung versendet. Die Begründung muss darlegen, weshalb die Überführung noch nicht sachgerecht ist, und benennen, welche Schritte bis zu welchem Zeitpunkt unternommen werden. Wird die Begründung nicht fristgerecht vorgelegt, ist ein Verlängerungsbeschluss unwirksam.
-5. **Veröffentlichung.** Beschlüsse nach Absatz 3 und die zugehörigen Begründungen werden nach § 11 Abs. 3 Nr. 5 veröffentlicht.
-6. **Durchführung.** Über die Rechtsform der Überführung und die Übertragung des Vermögens beschließt die Mitgliederversammlung mit der Mehrheit nach § 12 Abs. 1. Die Überführung darf nur in einer Weise erfolgen, die die Steuerbegünstigung nicht gefährdet; sie ist vorher mit dem zuständigen Finanzamt abzustimmen.
+2. **Auslöser und Frist.** Erreicht oder überschreitet der Bestand des Solidaritätsfonds nach § 5 Abs. 2 zum Ende eines Geschäftsjahres erstmals **zwei Millionen Euro**, so hat der Vorstand die Überführung in eine Stiftung zu betreiben. Sie ist innerhalb von **zwei Jahren** nach Ablauf dieses Geschäftsjahres zu vollziehen. Maßgeblich ist allein der Bestand des Solidaritätsfonds; die den einzelnen Einrichtungen nach § 5 Abs. 1 zugeordneten Kapitalbestände bleiben außer Betracht.
+3. **Aufteilung des Solidaritätsfonds bei der Überführung.** Mit dem Vollzug der Überführung wird der Solidaritätsfonds geteilt:
+   1. **Eine Million Euro** wird als Grundstockvermögen der Stiftung festgeschrieben. Dieser Betrag dient dem dauerhaften Bestand der Stiftung; seine Substanz wird nicht angetastet, seine Erträge decken den Erhalt und die Verwaltung der Stiftung.
+   2. Der **darüber hinausgehende Bestand** verbleibt als Solidaritätsfonds und wird weiterhin nach § 5 Abs. 3 an Einrichtungen mit geringem Kapitalbestand je Kind verteilt.
+
+   Die Aufteilung ändert nichts an den nach § 5 Abs. 1 den einzelnen Einrichtungen zugeordneten Kapitalbeständen.
+4. **Verschiebung.** Die Mitgliederversammlung kann die Frist nach Absatz 2 durch Beschluss um jeweils ein Jahr verlängern. Mehrfache Verlängerung ist zulässig; jede bedarf eines eigenen Beschlusses.
+5. **Begründungspflicht.** Ein Beschluss nach Absatz 4 setzt voraus, dass der Vorstand eine schriftliche Begründung vorlegt und diese mit der Einladung zur Mitgliederversammlung versendet. Die Begründung muss darlegen, weshalb die Überführung noch nicht sachgerecht ist, und benennen, welche Schritte bis zu welchem Zeitpunkt unternommen werden. Wird die Begründung nicht fristgerecht vorgelegt, ist ein Verlängerungsbeschluss unwirksam.
+6. **Veröffentlichung.** Beschlüsse nach Absatz 4 und die zugehörigen Begründungen werden nach § 11 Abs. 3 Nr. 5 veröffentlicht.
+7. **Durchführung.** Über die Rechtsform der Überführung und die Übertragung des Vermögens beschließt die Mitgliederversammlung mit der Mehrheit nach § 12 Abs. 1. Die Überführung darf nur in einer Weise erfolgen, die die Steuerbegünstigung nicht gefährdet; sie ist vorher mit dem zuständigen Finanzamt abzustimmen.
 
 ## § 14 Auflösung, Vermögensanfall
 

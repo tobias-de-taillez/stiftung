@@ -133,16 +133,21 @@ Neues Dokument, gleiche Ablage wie die bestehenden Rechtsdokumente. Struktur:
 
 Regelungsgehalt:
 
-1. **Auslöser.** Erreicht der Solidaritätsfonds einen Bestand von **1.000.000 Euro**, ist der Vorstand verpflichtet, die Überführung in eine Stiftung zu betreiben.
+1. **Auslöser.** Erreicht der Solidaritätsfonds einen Bestand von **2.000.000 Euro**, ist der Vorstand verpflichtet, die Überführung in eine Stiftung zu betreiben.
 2. **Frist.** Die Überführung ist innerhalb von **zwei Jahren** nach Ablauf des Geschäftsjahres zu vollziehen, in dem die Schwelle erstmals erreicht wurde.
-3. **Verschiebung.** Die Frist kann durch Beschluss der Mitgliederversammlung um **jeweils ein Jahr** verlängert werden. Mehrfache Verlängerung ist zulässig, jede erfordert einen eigenen Beschluss.
-4. **Begründungspflicht.** Ein Verlängerungsbeschluss setzt voraus, dass der Vorstand der Mitgliederversammlung eine **schriftliche Begründung** vorlegt, die mit der Einladung zu versenden ist. Sie muss darlegen, warum die Überführung noch nicht sachgerecht ist, und benennen, welche Schritte bis wann unternommen werden. Ohne fristgerecht vorgelegte Begründung ist ein Verlängerungsbeschluss unwirksam.
-5. **Transparenz.** Jeder Verlängerungsbeschluss samt Begründung wird im Rahmen der Rechenschaftslegung nach § 11 veröffentlicht.
+3. **Aufteilung bei der Überführung.** Der Solidaritätsfonds wird geteilt: **1.000.000 Euro** werden als Grundstockvermögen der Stiftung festgeschrieben, unangetastet, mit Erträgen für Bestand und Verwaltung. Der **darüber hinausgehende Bestand** bleibt Solidaritätsfonds und verteilt unverändert weiter.
+4. **Verschiebung.** Die Frist kann durch Beschluss der Mitgliederversammlung um **jeweils ein Jahr** verlängert werden. Mehrfache Verlängerung ist zulässig, jede erfordert einen eigenen Beschluss.
+5. **Begründungspflicht.** Ein Verlängerungsbeschluss setzt voraus, dass der Vorstand der Mitgliederversammlung eine **schriftliche Begründung** vorlegt, die mit der Einladung zu versenden ist. Sie muss darlegen, warum die Überführung noch nicht sachgerecht ist, und benennen, welche Schritte bis wann unternommen werden. Ohne fristgerecht vorgelegte Begründung ist ein Verlängerungsbeschluss unwirksam.
+6. **Transparenz.** Jeder Verlängerungsbeschluss samt Begründung wird im Rahmen der Rechenschaftslegung nach § 11 veröffentlicht.
+
+**Warum 2 Mio und nicht 1 Mio.** Weil eine Million bei der Überführung als Grundstock gebunden wird. Läge die Schwelle bei einer Million, verlöre der Träger mit der Umwandlung sein gesamtes Umverteilungsvolumen und wäre handlungsunfähig. Die zwei Millionen sichern, dass nach der Bindung noch mindestens eine Million als Arbeitsvolumen bleibt.
 
 **Zwei Punkte, die bei der Ausformulierung zu entscheiden sind:**
 
-- **Bezugsgröße.** Die Schwelle knüpft nach der Entscheidung an den **Solidaritätsfonds** an, nicht an das Gesamtvermögen. Da die zweckgebundenen Einrichtungs-Kapitale nicht mitzählen, kann das Gesamtvermögen die Millionengrenze deutlich überschreiten, ohne den Auslöser zu berühren. Das ist bewusst so gewählt und in der Satzung eindeutig zu formulieren, damit es später nicht als Redaktionsversehen gelesen wird.
+- **Bezugsgröße.** Die Schwelle knüpft an den **Solidaritätsfonds** an, nicht an das Gesamtvermögen. Sachgrund: Die den Einrichtungen zugeordneten Kapitalbestände gehören wirtschaftlich den Einrichtungen, nicht dem Träger — sie taugen weder als Grundstock noch als Indikator für die Tragfähigkeit einer Stiftung. In der Satzung eindeutig zu formulieren, damit es später nicht als Redaktionsversehen gelesen wird.
 - **Mehrheitserfordernis für die Verlängerung.** Nicht festgelegt. Empfehlung: einfache Mehrheit, weil die Begründungs- und Veröffentlichungspflicht die eigentliche Hürde bildet und eine qualifizierte Mehrheit den Aufschub faktisch zum Normalfall machen könnte, sobald die Versammlung schlecht besucht ist.
+
+**Folge für das Datenmodell (nicht Teil dieses Specs).** Ab der Überführung existiert eine dritte Topf-Ebene: Grundstock (eigene Entnahmeregel, Erträge ins Management-Konto) neben Einrichtungs-Depot und Soli-Depot. Heute nicht zu bauen, aber beim Entwurf des Kontenmodells mitzudenken.
 
 **Kopfzeile des Dokuments** (verbindlich, nicht optional): Entwurf ohne Rechtsberatungscharakter. Vor Gründungsversammlung und Registeranmeldung durch eine Rechtsanwältin/einen Rechtsanwalt oder Notar:in prüfen und beim Finanzamt zur Vorabprüfung nach § 60a AO einreichen. Die Mustersatzung der Anlage 1 zu § 60 AO ist einzuhalten, sonst entfällt die Steuerbegünstigung.
 
@@ -166,7 +171,8 @@ Es gibt keinen mechanischen Test für Prosa. Die Abnahme ist eine Checkliste:
 - [ ] § 4 nennt § 62 Abs. 3 AO explizit und benennt alle vier Zuführungstatbestände.
 - [ ] § 4 behandelt Nr. 2 (Widmung) und Nr. 3 (Spendenaufruf) als gleichrangige Hauptkanäle.
 - [ ] § 4 enthält den Grundsatz, dass Kapital in thesaurierenden Anlagen gehalten und nur in Höhe des Ausschüttungsbedarfs veräußert wird (Prämisse P1).
-- [ ] § 13 nennt die Schwelle von 1.000.000 EUR **im Solidaritätsfonds** (nicht Gesamtvermögen), die Zwei-Jahres-Frist, die Verlängerung um jeweils ein Jahr und die Begründungspflicht des Vorstands.
+- [ ] § 13 nennt die Schwelle von 2.000.000 EUR **im Solidaritätsfonds** (nicht Gesamtvermögen), die Zwei-Jahres-Frist, die Aufteilung in 1 Mio Grundstock plus Rest-Soli-Fonds, die Verlängerung um jeweils ein Jahr und die Begründungspflicht des Vorstands.
+- [ ] Die Absatz-Nummerierung in § 13 ist lückenlos und die Querverweise (§ 11 Abs. 3 Nr. 5 ↔ § 13 Abs. 4) stimmen.
 - [ ] § 14 regelt den Vermögensanfall an eine gemeinnützige Stiftung gleichen Zwecks.
 - [ ] Der Rechtsberatungs-Disclaimer steht im Kopf des Dokuments.
 - [ ] `docx/Stiftungssatzung.md` ist unverändert (`git diff` leer).
@@ -200,3 +206,41 @@ Diese Punkte konvergieren nicht über Web-Recherche. Die Recherche (19 Quellen, 
 | S5 | Muss die Satzung die Vermögenszuführungen nach § 62 Abs. 3 AO ausdrücklich erlauben, oder folgt die Befugnis unmittelbar aus dem Gesetz? | Vollständig unbeantwortet. Der Spec nimmt vorsorglich die ausdrückliche Satzungsregelung auf |
 | S6 | Wie ist die **tatsächliche Zweckverwirklichung** (§§ 56, 63 Abs. 1 AO) bei einer Ausschüttungsquote von 1 % plausibel zu machen? | Unabhängig von § 62 AO. Ein Verein, der 1 % ausschüttet und den Rest hält, muss belegen, dass er seinen Zweck real verfolgt |
 | S7 | Auf welchem Rechtsweg lässt sich der Kapitalstock später steuerunschädlich auf eine Stiftung übertragen? | Siehe offener Punkt 5 |
+| S8 | Brechen die **umverteilungsbedingten Verkäufe** die Design-Vorgabe „Verkäufe nur in Höhe des Ausschüttungsbedarfs"? | Direkt gekoppelt an S1 — siehe unten |
+
+### S8 im Detail — Verkäufe jenseits des Ausschüttungsbedarfs
+
+Aus P1 folgt die harte Vorgabe: *„Verkäufe nur in Höhe des
+Ausschüttungsbedarfs. Größere Umschichtungen erzeugen Mittelzuflüsse, für die
+die Ausschüttung nicht als zeitnahe Verwendung ausreicht."*
+
+Die Jahres-Kaskade in [`docs/verrechnungsmodell.md`](../../verrechnungsmodell.md)
+verkauft aber an **vier weiteren Stellen**, die kein Ausschüttungsbedarf sind:
+
+| Stelle | Bewegung | Zweck |
+|---|---|---|
+| Schritt 4 — Solidaritätsabgabe | Einrichtungs-Depot → Soli-Depot | Umverteilung zwischen Einrichtungen |
+| Schritt 6 — Umverteilung | Soli-Depot → Einrichtungs-Depot | Umverteilung zwischen Einrichtungen |
+| Abschnitt 3.0 — Erstbefüllung | Soli-Depot → Einrichtungs-Depot | Startkapital neuer Einrichtungen |
+| Abschnitt 3.3 — Schließung | Einrichtungs-Depot → Soli-Depot | Auflösung eines Topfes |
+
+**Zwei entlastende Argumente, beide nicht belastbar:**
+
+1. **Netting.** Abgabe und Umverteilung laufen im selben Lauf gegenläufig; nur
+   der Saldo wird als Cash bewegt (Abschnitt 7 der Spec). Im durchgerechneten
+   Beispiel ergibt sich für das Einrichtungs-Depot netto sogar ein *Kauf*, kein
+   Verkauf. Das ist aber beispielabhängig und nicht garantiert.
+2. **Kein Zufluss an die Körperschaft.** Es wird zwischen zwei Depots
+   *derselben* Körperschaft umgeschichtet — wirtschaftlich verlässt kein Geld
+   das Vereinsvermögen. Ob das den Mittelbegriff des § 55 AO überhaupt berührt,
+   ist genau die offene Frage.
+
+**Falls S8 negativ ausfällt**, gibt es zwei Auswege, die das Modell erhalten:
+
+- **Ein gemeinsames Depot** statt zweier. Abgabe und Umverteilung wären dann
+  reine Umbuchungen in der Tabelle, ganz ohne Verkauf. Kostet die
+  Zweckbindung des Soli-Depots für die Stiftungsumwandlung — die ließe sich
+  aber auch als Buchposition führen.
+- **Abgabe und Umverteilung aus dem Cash-Puffer** bedienen, statt zu
+  verkaufen: den Sweep-Korridor (Abschnitt 3.2) so weit fassen, dass der
+  Netto-Saldo der Kaskade ohne Depot-Verkauf gedeckt ist.
