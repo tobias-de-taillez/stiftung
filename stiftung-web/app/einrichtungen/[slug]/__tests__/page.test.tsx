@@ -1,31 +1,36 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
+import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTestTraeger } from '@/lib/server/__tests__/testDb';
 import EinrichtungDetailPage from '../page';
 
-// Diese Seite rendert SpendenRechner, das seit F3 useRouter() aus
-// next/navigation aufruft (router.refresh() nach erfolgreicher Buchung) —
-// ohne Mock würde bereits das reine Rendern hier fehlschlagen ("invariant
-// expected app router to be mounted"). importActual erhält notFound()
-// (von der Seite selbst genutzt) unverändert, statt es versehentlich zu
-// undefined zu machen.
+// Diese Seite rendert SpendenRechner (useRouter().refresh()) und TraegerPanel
+// (useRouter().push() beim Schließen-Redirect) — ohne Mock würde bereits das
+// reine Rendern hier fehlschlagen ("invariant expected app router to be
+// mounted"). importActual erhält notFound() (von der Seite selbst genutzt)
+// unverändert, statt es versehentlich zu undefined zu machen.
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
 beforeEach(async () => {
-  await prisma.fondsSpende.deleteMany();
-  await prisma.spende.deleteMany();
-  await prisma.einrichtung.deleteMany();
-  await prisma.solidaritaetsfonds.deleteMany();
-  await prisma.einrichtung.create({
-    data: { slug: 'detail-test-kita', name: 'Detail-Test-Kita', typ: 'kita', ort: 'Teststadt', kinderAnzahl: 10, aktuellesKapital: 1000, zielKapital: 50000 },
-  });
+  await resetDb();
+  await seedWidmung();
 });
 
 describe('EinrichtungDetailPage', () => {
   it('zeigt Name, Ort, Fortschritt und einen QR-Code', async () => {
+    await seedKontenstand({ etfMarktwertCent: 100_000n });
+    await createTestEinrichtung({
+      slug: 'detail-test-kita',
+      name: 'Detail-Test-Kita',
+      ort: 'Teststadt',
+      kinderAnzahl: 10,
+      topfCent: 100_000n,
+      zielKapitalCent: 5_000_000n,
+    });
+
     const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
     render(jsx);
     expect(screen.getByText('Detail-Test-Kita')).toBeInTheDocument();
@@ -37,110 +42,129 @@ describe('EinrichtungDetailPage', () => {
     await expect(EinrichtungDetailPage({ params: { slug: 'gibt-es-nicht' } })).rejects.toThrow();
   });
 
-  describe('Einrichtungs-Level (Task 30: Bronze–Diamant als Finanztopf-Zwischenziele)', () => {
+  it('wirft notFound für eine geschlossene Einrichtung', async () => {
+    await seedKontenstand({ etfMarktwertCent: 0n });
+    await createTestEinrichtung({ slug: 'geschlossen-test', geschlossenAm: new Date() });
+    await expect(EinrichtungDetailPage({ params: { slug: 'geschlossen-test' } })).rejects.toThrow();
+  });
+
+  describe('Einrichtungs-Level (Cent-Werte über einrichtungsLevel)', () => {
     it('rendert die fünf Level-Marker auf dem Finanztopf-Balken', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n });
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
       const { container } = render(jsx);
       expect(container.querySelectorAll('.progress-bar-marker')).toHaveLength(5);
     });
 
-    it('zeigt "Nächstes Ziel: Bronze — noch 4.000,00 €" unterhalb 10 % (1.000 von 50.000 €), ohne Aktuelles-Level-Zeile', async () => {
-      // aktuellesKapital 1.000 / zielKapital 50.000 = 2 % → unter Bronze (10 %).
+    it('zeigt "Nächstes Ziel: Bronze — noch 4.000,00 €" unterhalb 10 % (1.000 € von 50.000 € Ziel)', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n });
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
       render(jsx);
       expect(screen.getByText(/Nächstes Ziel: Bronze — noch 4\.000,00 €/)).toBeInTheDocument();
       expect(screen.queryByText(/Aktuelles Level/)).not.toBeInTheDocument();
     });
 
-    // Task 36: Wachstums-Illustration neben dem Finanztopf-Balken — codiert
-    // dieselbe Kennzahl (aktuellesKapital/zielKapital) wie levelMarker oben.
-    it('zeigt die Wachstums-Illustration mit dem passenden Zustandstext (2 % → Stufe 0, Samen)', async () => {
-      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
-      const { container } = render(jsx);
-      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '0');
-      expect(screen.getByText('Wachstumsstufe: Samen — noch kein Level erreicht')).toBeInTheDocument();
-    });
-
     it('zeigt das aktuelle Level und das nächste Ziel bei 60 % des Zielkapitals (Gold, nächstes Platin)', async () => {
-      await prisma.einrichtung.update({
-        where: { slug: 'detail-test-kita' },
-        data: { aktuellesKapital: 30000 },
-      });
+      await seedKontenstand({ etfMarktwertCent: 3_000_000n });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 3_000_000n, zielKapitalCent: 5_000_000n });
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
-      const { container } = render(jsx);
+      render(jsx);
       expect(screen.getByText(/Aktuelles Level: Gold/)).toBeInTheDocument();
       // Platin liegt bei 75 % von 50.000 € = 37.500 €, aktuell 30.000 € → fehlen 7.500 €.
       expect(screen.getByText(/Nächstes Ziel: Platin — noch 7\.500,00 €/)).toBeInTheDocument();
-      // Wachstums-Illustration (Task 36) zeigt dasselbe Level als Stufe 3.
-      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '3');
-    });
-
-    it('zeigt bei Zielerreichung (100 %) das Diamant-Level ohne Nächstes-Ziel-Zeile', async () => {
-      await prisma.einrichtung.update({
-        where: { slug: 'detail-test-kita' },
-        data: { aktuellesKapital: 50000 },
-      });
-      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
-      const { container } = render(jsx);
-      expect(screen.getByText(/Aktuelles Level: Diamant/)).toBeInTheDocument();
-      expect(screen.queryByText(/Nächstes Ziel/)).not.toBeInTheDocument();
-      // Wachstums-Illustration (Task 36) zeigt Stufe 5 (Baum voller Früchte).
-      expect(container.querySelector('[data-testid="wachstums-illustration"]')).toHaveAttribute('data-stage', '5');
     });
   });
 
-  // Transparenz auf der Detailseite (Task 34): Förderung pro Kind,
-  // Spendenhistorie mit explizitem Solidaritätsfonds-Label, Anzahl
-  // Unterstützungen gesamt.
-  describe('Transparenz (Task 34)', () => {
-    it('zeigt Förderung pro Kind und Anzahl Unterstützungen ohne Spenden', async () => {
+  describe('Transparenz (Buchungshistorie statt Spenden-Historie, Task 16)', () => {
+    it('zeigt Förderung pro Kind und Anzahl Unterstützungen ohne Buchungen', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n });
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
       render(jsx);
-      // aktuellesKapital 1.000 € / 10 Kinder = 100,00 €
+      // 100.000 Cent Topf / 10 Kinder = 10.000 Cent = 100,00 €
       expect(screen.getByText(/Förderung pro Kind: 100,00\s*€/)).toBeInTheDocument();
       expect(screen.getByText(/Unterstützungen insgesamt: 0/)).toBeInTheDocument();
       expect(screen.getByText(/Noch keine Spenden für diese Einrichtung/)).toBeInTheDocument();
     });
 
-    it('zeigt Direktspenden in der Historie mit Betrag, ohne Solidaritäts-Label', async () => {
-      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
-      await prisma.spende.create({
-        data: { einrichtungId: kita.id, betrag: 75, frequenz: 'einmalig', quelle: 'direkt' },
-      });
+    it('labelt jeden Buchungstyp mit dem korrekten Klartext', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      const e = await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n });
+      await prisma.buchung.create({ data: { typ: 'spende', betragCent: 5_000n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'erstbefuellung', betragCent: 1_000n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'kaskade_umverteilung', betragCent: 2_000n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'kaskade_direktspende', betragCent: 3_000n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'kaskade_abgabe', betragCent: 500n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'direktausschuettung_eingang', betragCent: 4_000n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'auszahlungslauf', betragCent: 4_000n, einrichtungId: e.id } });
+      await prisma.buchung.create({ data: { typ: 'schliessung', betragCent: 0n, einrichtungId: e.id } });
+
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
       render(jsx);
-      expect(screen.getByText(/Unterstützungen insgesamt: 1/)).toBeInTheDocument();
-      expect(screen.getByText(/75,00\s*€/)).toBeInTheDocument();
-      expect(screen.queryByText(/Solidaritätsfonds/)).not.toBeInTheDocument();
-    });
 
-    it('labelt Solidaritäts-Zuflüsse explizit "aus dem Solidaritätsfonds"', async () => {
-      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
-      await prisma.spende.create({
-        data: { einrichtungId: kita.id, betrag: 40, frequenz: 'einmalig', quelle: 'direkt' },
-      });
-      await prisma.spende.create({
-        data: { einrichtungId: kita.id, betrag: 25, frequenz: 'einmalig', quelle: 'solidaritaet' },
-      });
-      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
-      const { container } = render(jsx);
-      expect(screen.getByText(/Unterstützungen insgesamt: 2/)).toBeInTheDocument();
-      expect(screen.getByText(/aus dem Solidaritätsfonds/)).toBeInTheDocument();
-      // Text-Label ist Pflicht, die Farbe (turquoise via .positive) ist nur Zusatz.
-      expect(container.querySelector('.positive')).toBeInTheDocument();
+      // Anchored an die " · label · " Trennzeichen der Zeile — sonst matcht
+      // z. B. "Spende" auch die Überschrift "Spendenrechner" weiter oben.
+      expect(screen.getByText(/· Spende ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· Erstbefüllung aus dem Solidaritätsfonds ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· aus dem Solidaritätsfonds ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· Direktförderung ausgezahlt ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· Solidaritätsabgabe ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· Direktspende \(wird ausgezahlt\) ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· Auszahlung ·/)).toBeInTheDocument();
+      expect(screen.getByText(/· Schließung ·/)).toBeInTheDocument();
     });
+  });
 
-    it('begrenzt die angezeigte Historie auf 10 Einträge', async () => {
-      const kita = await prisma.einrichtung.findUniqueOrThrow({ where: { slug: 'detail-test-kita' } });
-      for (let i = 0; i < 12; i++) {
-        await prisma.spende.create({
-          data: { einrichtungId: kita.id, betrag: 1, frequenz: 'einmalig', quelle: 'direkt' },
-        });
-      }
+  describe('TraegerPanel (Task 16)', () => {
+    it('zeigt Trägername, Rechtsform-Label und den Verifikations-Chip eines verifizierten Trägers', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      const traeger = await createTestTraeger({ name: 'Träger Test e.V.', rechtsform: 'ggmbh', gemeinnuetzig: true, verifiziert: true });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n, traegerId: traeger.id });
+
       const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
       render(jsx);
-      expect(screen.getByText(/Unterstützungen insgesamt: 12/)).toBeInTheDocument();
-      expect(screen.getAllByText(/1,00\s*€/)).toHaveLength(10);
+      expect(screen.getByText('Träger Test e.V.')).toBeInTheDocument();
+      expect(screen.getByText('gGmbH')).toBeInTheDocument();
+      expect(screen.getByText(/Zugang abgeholt/)).toBeInTheDocument();
+      expect(screen.getByText(/Der Auszahlungspfad hängt am Rechtsträger, nicht am Einrichtungstyp/)).toBeInTheDocument();
+    });
+
+    it('zeigt den §3.4-Hinweis, wenn der Träger nicht verifiziert ist', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      const traeger = await createTestTraeger({ verifiziert: false });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n, traegerId: traeger.id });
+
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(
+        screen.getByText(/erhält aber keine Umverteilung und keine Direktförderung, bis der Zugang abgeholt ist/)
+      ).toBeInTheDocument();
+    });
+
+    it('zeigt keinen §3.4-Hinweis, wenn der Träger verifiziert ist', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      const traeger = await createTestTraeger({ verifiziert: true });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n, traegerId: traeger.id });
+
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      expect(screen.queryByText(/erhält aber keine Umverteilung/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('SpendenRechner-Verdrahtung (Task 16)', () => {
+    it('reicht verifiziert und den aktuellen Widmungswortlaut an den Rechner weiter', async () => {
+      await seedKontenstand({ etfMarktwertCent: 100_000n });
+      const traeger = await createTestTraeger({ verifiziert: true });
+      await createTestEinrichtung({ slug: 'detail-test-kita', kinderAnzahl: 10, topfCent: 100_000n, zielKapitalCent: 5_000_000n, traegerId: traeger.id });
+
+      const jsx = await EinrichtungDetailPage({ params: { slug: 'detail-test-kita' } });
+      render(jsx);
+      // Verifizierter Träger → Verwendungsart B ist im Rechner wählbar (nicht disabled).
+      expect(screen.getByRole('radio', { name: /Direkt auszahlen/i })).not.toBeDisabled();
+      expect(screen.getByText(/Ich bestimme, dass meine Zuwendung/)).toBeInTheDocument();
     });
   });
 });

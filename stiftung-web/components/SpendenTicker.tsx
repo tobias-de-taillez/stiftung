@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Card } from './Card';
-import { formatEuro } from '@/lib/calc/format';
+import { formatEuroFromCent } from '@/lib/calc/format';
 
 export type SpendenTickerEintrag = {
-  betrag: number;
+  betragCent: number;
+  typ: string;
   einrichtungName: string;
-  quelle: string;
   vorMinuten: number;
   zeitpunkt: number;
 };
@@ -16,16 +16,28 @@ export type SpendenTickerEintrag = {
 // Test explizit denselben Wert referenziert statt ihn zu duplizieren.
 export const POLL_INTERVAL_MS = 15000;
 
+// Typ→Label-Mapping (Task 19, ersetzt das quelle==='solidaritaet'-Sonderlabel
+// aus der alten Welt): buchungsTicker() liefert einen von fünf Buchungstypen
+// (siehe TICKER_TYPEN in uebersichtService.ts) — jeder bekommt hier ein
+// sprechendes Label statt des rohen Buchungstyp-Strings.
+const TYP_LABELS: Record<string, string> = {
+  spende: 'Spende',
+  soli_spende: 'Fonds-Spende',
+  erstbefuellung: 'Erstbefüllung',
+  kaskade_umverteilung: 'Solidaritätsfonds-Verteilung',
+  direktausschuettung_eingang: 'Direktspende',
+};
+
 function zeitLabel(vorMinuten: number): string {
   return vorMinuten <= 0 ? 'Gerade eben' : `Vor ${vorMinuten} Min`;
 }
 
 /**
- * Live-Ticker der letzten Spenden (Task 33). Pollt `/api/spenden/letzte`
- * beim Mounten und danach alle 15 s. `quelle: 'solidaritaet'` (Buchungen aus
- * der Solidaritätsfonds-Verteilung, keine Spende von echten Personen) wird
- * hier — nicht im Backend — als "Solidaritätsfonds-Verteilung" gelabelt; die
- * API reicht `quelle` bewusst unverändert durch.
+ * Live-Ticker der letzten Buchungen (Task 33, seit Task 19 auf dem
+ * Buchungsjournal statt der alten Spende-Tabelle). Pollt
+ * `/api/spenden/letzte` beim Mounten und danach alle 15 s. `typ` wird über
+ * TYP_LABELS auf ein sprechendes Label gemappt — die API reicht `typ`
+ * bewusst unverändert durch, das Labeling ist Sache der UI-Komponente.
  */
 export function SpendenTicker() {
   const [eintraege, setEintraege] = useState<SpendenTickerEintrag[]>([]);
@@ -66,10 +78,8 @@ export function SpendenTicker() {
         <ul style={{ display: 'grid', gap: '0.5rem', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
           {eintraege.map((e, i) => (
             <li key={`${e.zeitpunkt}-${i}`} className="spenden-ticker-eintrag">
-              {zeitLabel(e.vorMinuten)}: {formatEuro(e.betrag)} für {e.einrichtungName}
-              {e.quelle === 'solidaritaet' && (
-                <span className="muted"> · Solidaritätsfonds-Verteilung</span>
-              )}
+              {zeitLabel(e.vorMinuten)}: {formatEuroFromCent(e.betragCent)} für {e.einrichtungName}
+              <span className="muted"> · {TYP_LABELS[e.typ] ?? e.typ}</span>
             </li>
           ))}
         </ul>

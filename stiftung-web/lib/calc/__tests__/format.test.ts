@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatEuro, formatDuration, formatMonate } from '../format';
+import { formatEuro, formatEuroFromCent, formatDuration, formatMonate } from '../format';
 
 describe('formatEuro', () => {
   it('formatiert mit deutschem Format und Euro-Zeichen', () => {
@@ -7,6 +7,21 @@ describe('formatEuro', () => {
   });
   it('rundet auf zwei Nachkommastellen', () => {
     expect(formatEuro(40000)).toBe('40.000,00 €');
+  });
+});
+
+describe('formatEuroFromCent', () => {
+  it('formatiert Cent-Beträge wie formatEuro(cent / 100)', () => {
+    expect(formatEuroFromCent(1_395_500)).toBe('13.955,00 €');
+  });
+  it('rundet Cent exakt auf ganze Euro um', () => {
+    expect(formatEuroFromCent(4_000_000)).toBe('40.000,00 €');
+  });
+  it('behandelt 0 Cent', () => {
+    expect(formatEuroFromCent(0)).toBe('0,00 €');
+  });
+  it('stimmt mit formatEuro(cent / 100) überein', () => {
+    expect(formatEuroFromCent(123)).toBe(formatEuro(123 / 100));
   });
 });
 

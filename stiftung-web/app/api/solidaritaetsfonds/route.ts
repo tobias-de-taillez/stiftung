@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getFondsBestand } from '@/lib/server/solidaritaetsfondsService';
+import { kontenLage } from '@/lib/server/kontenService';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json({ bestand: await getFondsBestand() });
+  return NextResponse.json(await kontenLage());
 }

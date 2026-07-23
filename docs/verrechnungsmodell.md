@@ -57,10 +57,10 @@ für Realwert-Aussagen — die frühere Rechnung „6 % − 3 % = 3 % entnehmbar
 Der 1 %-Satz ist der einzige Wert dieser Tabelle, der zugleich Buchungsregel
 ist (Schritt 3). Die übrigen sind reine Prognose.
 
-> **Achtung:** Der aktuelle Code-Stand in `stiftung-web/` implementiert dieses
-> Modell **nicht**. Dort läuft eine einfachere Verteilungslogik ohne
-> Verrechnungskonto, ohne zweites Depot und ohne Management-Konto. Die
-> Umsetzung ist ein Umbau, kein Patch.
+> **Implementierungsstand:** `stiftung-web/` implementiert dieses Modell seit
+> Branch `verrechnungsmodell-umbau` (2026-07); maßgeblicher End-to-End-Beweis
+> ist der goldene §9-Test in `lib/verrechnung/__tests__/kaskade.test.ts` und
+> `lib/server/__tests__/kaskadeService.test.ts`.
 
 ### Gemeinnützigkeitsrechtliche Einordnung
 
@@ -117,8 +117,10 @@ Gemeinnützigkeitsstatus entscheidet über den Auszahlungspfad (Abschnitt 3.5):
 Traeger  1 ──── n  Einrichtung  1 ──── 1  Topf
 ```
 
-*Betrifft den Bestand:* `stiftung-web/` kennt heute nur `Einrichtung` ohne
-Träger. Die Trennung ist Teil des Umbaus.
+*Implementierungsstand:* `stiftung-web/` bildet die Trennung seit dem
+Verrechnungsmodell-Umbau ab — `Traeger` und `Einrichtung` sind eigene
+Prisma-Modelle, `Einrichtung.traegerId` referenziert den Träger (Schema:
+`prisma/schema.prisma`).
 
 Das Soli-Depot ist bewusst getrennt: Erreicht es **zwei Millionen Euro**, löst
 das die Pflicht zur Umwandlung des Vereins in eine Stiftung aus (§ 13 der
@@ -178,8 +180,9 @@ Umverteilungen summieren sich Fließkomma-Fehler sonst auf, und die Invariante
 oben würde nur noch näherungsweise gelten — genau das, was sie ausschließen
 soll.
 
-*Betrifft den Bestand:* `stiftung-web/` speichert heute `aktuellesKapital` als
-`Float`. Die Migration ist Teil des Umbaus.
+*Implementierungsstand:* `stiftung-web/` bucht seit dem Verrechnungsmodell-Umbau
+durchgängig ganzzahlig in Cent (`BigInt`/`Cent`-Typ, `lib/verrechnung/geld.ts`);
+die frühere `Float`-Spalte `aktuellesKapital` ist entfernt (Task 20).
 
 **Anteile sind kein Geld** und brauchen einen eigenen Typ. Sie werden als
 Integer in einer festen Feinheit geführt (Vorschlag: 10⁻⁸ Anteilseinheiten),

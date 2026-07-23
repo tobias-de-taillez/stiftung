@@ -125,6 +125,18 @@ a:hover .card {
 .forecast { color: var(--sun); }
 .muted { color: var(--muted); }
 
+.kaskade-meilenstein-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--sun);
+}
+
 .container {
   max-width: 1080px;
   margin: 0 auto;
