@@ -235,6 +235,51 @@ describe('berechneKaskade — Randfälle (Spec §6)', () => {
     expect(e.endVerrechnungskontoCent).toBe(2_000n); // fremdes Geld bleibt liegen
     geldErhaltung(input, e);
   });
+
+  it('Gewichtssumme 0: einzige verifizierte Einrichtung ist die reichste — S bleibt im Soli', () => {
+    const input: KaskadeInput = {
+      einrichtungen: [
+        { id: 'u1', anteile: A(100_000n), kinder: 10, verifiziert: false },
+        { id: 'u2', anteile: A(200_000n), kinder: 10, verifiziert: false },
+        { id: 'v', anteile: A(400_000n), kinder: 10, verifiziert: true },
+      ],
+      etfMarktwertCent: 700_000n,
+      verrechnungskontoCent: 0n,
+      offeneDirektausschuettungenCent: 0n,
+      soliFondsCent: 100_000n,
+      managementKontoCent: 0n,
+      managementCapCent: 0n,
+    };
+    const e = berechneKaskade(input);
+    // v ist als einzige Empfängerin auf p = 1 geklemmt → Gewichtssumme 0:
+    // die Umverteilung entfällt, das 1 % verlässt den Soli-Fonds nicht.
+    expect(e.umverteilung).toEqual([]);
+    expect(e.endSoliFondsCent).toBe(104_667n); // 100.000 + Abgaben u2 667 + v 4.000
+    geldErhaltung(input, e);
+  });
+
+  it('Gleichheit nur am Snapshot: Direktspende bricht sie, Umverteilung läuft — Grund wird NICHT gemeldet', () => {
+    const input: KaskadeInput = {
+      einrichtungen: [
+        { id: 'u1', anteile: A(100_000n), kinder: 10, verifiziert: false },
+        { id: 'u2', anteile: A(100_000n), kinder: 10, verifiziert: false },
+        { id: 'v', anteile: A(100_000n), kinder: 10, verifiziert: true },
+      ],
+      etfMarktwertCent: 300_000n,
+      verrechnungskontoCent: 0n,
+      offeneDirektausschuettungenCent: 0n,
+      soliFondsCent: 100_000n,
+      managementKontoCent: 0n,
+      managementCapCent: 0n,
+    };
+    const e = berechneKaskade(input);
+    // Snapshot: alle 100 €/Kind gleich → keine Abgabe. Die Direktspende der
+    // verifizierten Einrichtung bricht die Gleichheit, Schritt 6 verteilt real.
+    expect(e.abgaben).toEqual([]);
+    expect(e.umverteilung).toEqual([{ id: 'v', cent: 1_000n }]);
+    expect(e.keineVerteilungGrund).toBeNull();
+    geldErhaltung(input, e);
+  });
 });
 
 describe('berechneKaskade — Geld-Erhaltung unter zufälligen Lagen (seeded)', () => {

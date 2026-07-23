@@ -157,8 +157,12 @@ export function berechneKaskade(input: KaskadeInput): KaskadeErgebnis {
     }
   }
 
-  // Wenn EINER der beiden Rang-Läufe keine Verteilung erlaubte, ist das der Grund.
-  const keineVerteilungGrund = rangSnapshot.grund ?? rangAktuell.grund;
+  // Grund nur melden, wenn tatsächlich weder Abgabe noch Umverteilung
+  // stattfand (beide Rang-Läufe ohne Verteilung) — sonst stünde das Feld
+  // neben einer realen Verteilung und ein "Verteilungsgleichheit"-Banner
+  // würde lügen.
+  const keineVerteilungGrund =
+    rangSnapshot.grund !== null && rangAktuell.grund !== null ? rangSnapshot.grund : null;
 
   return {
     snapshot: { poolwertCent, soliFondsCent: input.soliFondsCent, topfCent: snapshotTopf },
