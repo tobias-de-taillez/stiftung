@@ -170,6 +170,34 @@ export async function spendeAnSoli(betragCent: bigint): Promise<{ zuwendungId: s
   });
 }
 
+export async function spendeDirekt(
+  slug: string,
+  betragCent: bigint
+): Promise<{ zuwendungId: string; offeneDirektausschuettungenCent: number }> {
+  pruefeBetrag(betragCent);
+  return prisma.$transaction(async (tx) => {
+    const einrichtung = await ladeOffeneEinrichtung(tx, slug);
+    if (!einrichtung.traeger?.verifiziert) {
+      // Spec §3.1: ohne verifizierten Zugang kein Konto, auf das ausgezahlt
+      // werden könnte — für unverifizierte gibt es nur Verwendungsart A.
+      throw new DirektNichtVerfuegbarError(`Träger von ${slug} ist nicht verifiziert`);
+    }
+    const k = await ensureKontenstand(tx);
+    await tx.kontenstand.update({
+      where: { id: 'main' },
+      data: { verrechnungskontoCent: k.verrechnungskontoCent + betragCent },
+    });
+    const zuwendung = await tx.zuwendung.create({
+      data: { einrichtungId: einrichtung.id, betragCent, verwendungsart: 'direkt' },
+    });
+    await buche(tx, { typ: 'direktausschuettung_eingang', betragCent, einrichtungId: einrichtung.id });
+    return serialisiere({
+      zuwendungId: zuwendung.id,
+      offeneDirektausschuettungenCent: await offeneDirektausschuettungenCent(tx),
+    });
+  });
+}
+
 export async function aktuelleWidmung(): Promise<{ version: number; wortlaut: string }> {
   return prisma.$transaction(async (tx) => {
     const w = await ladeAktuelleWidmung(tx);
