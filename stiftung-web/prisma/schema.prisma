@@ -9,52 +9,19 @@ datasource db {
 }
 
 model Einrichtung {
-  id               String      @id @default(cuid())
-  slug             String      @unique
-  name             String
-  typ              String
-  ort              String
-  kinderAnzahl     Int
-  aktuellesKapital Float // ÜBERGANG: Legacy, fällt in Task 20
-  zielKapital      Float // ÜBERGANG: Legacy, fällt in Task 20
-  anteile          BigInt      @default(0) // Pool-Anteile, 10^-8-Einheiten (Spec §2)
-  zielKapitalCent  BigInt      @default(0) // Produktebene (Level/Fortschritt), kein Buchungswert
-  traegerId        String? // Services erzwingen einen Träger; nullable nur für Legacy-Zeilen
-  traeger          Traeger?    @relation(fields: [traegerId], references: [id], onDelete: SetNull)
-  geschlossenAm    DateTime? // Spec §3.3: geschlossen == raus aus Ranking und Listen
-  spenden          Spende[]
-  zuwendungen      Zuwendung[]
-  buchungen        Buchung[]
-}
-
-model Spende {
-  id            String      @id @default(cuid())
-  einrichtungId String
-  einrichtung   Einrichtung @relation(fields: [einrichtungId], references: [id])
-  betrag        Float
-  frequenz      String
-  quelle        String      @default("direkt")
-  createdAt     DateTime    @default(now())
-}
-
-model Solidaritaetsfonds {
-  id      String @id @default("main")
-  bestand Float  @default(0)
-}
-
-model FondsSpende {
-  id        String   @id @default(cuid())
-  betrag    Float
-  createdAt DateTime @default(now())
-}
-
-model Jahresabschluss {
-  id             String   @id @default(cuid())
-  nummer         Int
-  fondsErtrag    Float
-  kapitalErtrag  Float
-  verteiltGesamt Float
-  createdAt      DateTime @default(now())
+  id              String      @id @default(cuid())
+  slug            String      @unique
+  name            String
+  typ             String
+  ort             String
+  kinderAnzahl    Int
+  anteile         BigInt      @default(0) // Pool-Anteile, 10^-8-Einheiten (Spec §2)
+  zielKapitalCent BigInt      @default(0) // Produktebene (Level/Fortschritt), kein Buchungswert
+  traegerId       String? // Services erzwingen einen Träger; nullable nur für Legacy-Zeilen
+  traeger         Traeger?    @relation(fields: [traegerId], references: [id], onDelete: SetNull)
+  geschlossenAm   DateTime? // Spec §3.3: geschlossen == raus aus Ranking und Listen
+  zuwendungen     Zuwendung[]
+  buchungen       Buchung[]
 }
 
 // Rechtsträger (Spec §1, §3.5): Träger 1 ── n Einrichtung. Am Träger hängen
@@ -90,7 +57,7 @@ model WidmungsText {
   gueltigAb DateTime @default(now())
 }
 
-// Zuwendung von außen (ersetzt Spende + FondsSpende ab Task 20).
+// Zuwendung von außen (ersetzt die frühere Alt-Welt Spende + FondsSpende).
 // einrichtungId null == Empfänger Solidaritätsfonds (Spec §3.1: zwei Merkmale,
 // Empfänger × Verwendungsart; Soli immer Verwendungsart A).
 model Zuwendung {
@@ -129,7 +96,7 @@ model Buchung {
   createdAt      DateTime      @default(now())
 }
 
-// Protokoll eines Jahres-Kaskadenlaufs (Spec §4). Ersetzt Jahresabschluss ab Task 20.
+// Protokoll eines Jahres-Kaskadenlaufs (Spec §4). Ersetzt die frühere Alt-Welt Jahresabschluss.
 model Kaskadenlauf {
   id                     String    @id @default(cuid())
   nummer                 Int

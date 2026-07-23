@@ -30,7 +30,7 @@ wiederholen.
 | Steuerliche Herleitung (§§ 55, 62, 63 AO), Prämisse P1 | [Vereinsgründungs-Spec](superpowers/specs/2026-07-19-vereinsgruendung-design.md) |
 | Kanonische Projektionsannahme (Rendite, Ausschüttung, Wachstum, Kapitalformel) | [`docs/verrechnungsmodell.md`](verrechnungsmodell.md) |
 | Kontenmodell, Datenmodell, Jahres-Kaskade, Verteilungsformeln | [`docs/verrechnungsmodell.md`](verrechnungsmodell.md) |
-| Abstand zwischen Code und Zielmodell | [`projekt-status.md`](../projekt-status.md) |
+| IST-Zustand des Codes ggü. dem Zielmodell (seit Task 20: Ist == Soll) | [`projekt-status.md`](../projekt-status.md) |
 | Spendenrechner-Formeln (Zeitersparnis) | [`zeitersparnis.md`](../zeitersparnis.md) |
 | Arbeitskonventionen für Agenten | [`CLAUDE.md`](../CLAUDE.md) |
 
@@ -45,8 +45,8 @@ wiederholen.
 | [`leitbild.md`](../leitbild.md) | 92 | ✅ maßgeblich | Steht über Satzung, Roadmap und Feature-Liste |
 | [`README.md`](../README.md) | 56 | ✅ maßgeblich | Einstieg und Wegweiser |
 | [`CLAUDE.md`](../CLAUDE.md) | 44 | ✅ maßgeblich | Projektkontext für Agenten. Enthält bewusst **keine** Finanzzahlen mehr, nur den Verweis |
-| [`projekt-status.md`](../projekt-status.md) | 99 | ✅ maßgeblich | IST-Zustand des Codes und Abstand zum Zielmodell |
-| [`docs/historie.md`](historie.md) | 185 | 🕰️ Protokoll | Am 2026-07-19 aus `projekt-status.md` ausgelagert |
+| [`projekt-status.md`](../projekt-status.md) | 105 | ✅ maßgeblich | IST-Zustand des Codes; seit Task 20 „Zielmodell umgesetzt" |
+| [`docs/historie.md`](historie.md) | 241 | 🕰️ Protokoll | Am 2026-07-19 aus `projekt-status.md` ausgelagert; seit Task 20 zusätzlich der 2026-07-16-Stand |
 
 ### Rechtsform
 
@@ -61,7 +61,7 @@ wiederholen.
 
 | Datei | Z. | Status | Anmerkung |
 |---|---|---|---|
-| [`docs/verrechnungsmodell.md`](verrechnungsmodell.md) | 870 | ✅ maßgeblich | Buchungs-Spec. Noch nicht implementiert. Hängt an Prämisse P1 |
+| [`docs/verrechnungsmodell.md`](verrechnungsmodell.md) | 1113 | ✅ maßgeblich | Buchungs-Spec. Seit Task 20 vollständig implementiert (`stiftung-web/`). Prämisse P1 weiterhin ungeprüft |
 | [`zeitersparnis.md`](../zeitersparnis.md) | 165 | ✅ maßgeblich | Nur für die Zeitersparnis-Formeln; die Parameter bezieht es aus dem Verrechnungsmodell |
 | [`docx/Edge Cases.md`](../docx/Edge%20Cases.md) | 115 | 📘 aktuell | Sonderfälle mit Statusübersicht |
 
@@ -78,11 +78,12 @@ wiederholen.
 
 | Datei | Z. | Status | Anmerkung |
 |---|---|---|---|
-| [Build-Plan](superpowers/plans/2026-07-15-website-rebuild-lokal.md) | 3712 | 🕰️ Protokoll | Tasks 1–36, eingefroren |
+| [Build-Plan](superpowers/plans/2026-07-15-website-rebuild-lokal.md) | 3712 | 🕰️ Protokoll | Tasks 1–36, eingefroren. Finanzteil (Simulations-/Solidaritätsfonds-Logik) durch die Umsetzung des [Verrechnungsmodell-Umbau-Plans](superpowers/plans/2026-07-23-verrechnungsmodell-umbau.md) (Task 20) historisch — abgelöst, nicht mehr im Code |
+| [Verrechnungsmodell-Umbau-Plan](superpowers/plans/2026-07-23-verrechnungsmodell-umbau.md) | 4114 | 🕰️ Protokoll | Tasks 1–20, abgeschlossen. Ersetzt den Finanzteil des Build-Plans vollständig |
 | [`docs/loops/STATE.md`](loops/STATE.md) | 35 | 🕰️ Protokoll | Ledger, meldet „ALL TASKS DONE" |
 | [`docs/loops/plan-executor.md`](loops/plan-executor.md) | 61 | ⚠️ teilweise überholt | Beschreibt den Loop als laufend, obwohl abgeschlossen |
 | `docs/loops/runs/*.md` (25 Dateien) | 1391 | 🕰️ Protokoll | **Nie rückwirkend ändern** |
-| [`stiftung-web/README.md`](../stiftung-web/README.md) | 94 | 📘 aktuell | Setup und Struktur. Verweist für den Zielmodell-Abstand auf `projekt-status.md` |
+| [`stiftung-web/README.md`](../stiftung-web/README.md) | 90 | 📘 aktuell | Setup und Struktur. Verweist für den Ist/Soll-Abgleich auf `projekt-status.md` |
 
 ---
 

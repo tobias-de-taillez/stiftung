@@ -3,7 +3,10 @@
 Lokale Demo-Version (Next.js + SQLite/Prisma). Kein echtes Payment, kein
 echtes Geld — aber ein echtes, laufendes Backend: Spenden werden real in
 einer lokalen SQLite-Datenbank gebucht ("Spielgeld"), inklusive eines aktiv
-wirkenden Solidaritäts-Umverteilungsmechanismus.
+wirkenden Solidaritäts-Umverteilungsmechanismus. Der Code implementiert das
+Verrechnungsmodell aus [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md)
+seit Task 20 vollständig (siehe [`projekt-status.md`](../projekt-status.md),
+Abschnitt „Zielmodell umgesetzt").
 
 ## Lokal starten
 
@@ -29,66 +32,59 @@ npm run test
 Die Tests laufen gegen eine echte SQLite-Datei (`prisma/test.db`, via
 `DATABASE_URL` in `vitest.config.ts`) — keine gemockte Datenbank. Das
 `pretest`-Skript synchronisiert nur das Schema; die Isolation kommt daher,
-dass jede Test-Suite in ihrem `beforeEach` alle vier Tabellen leert
-(FK-sichere Reihenfolge) und `fileParallelism: false` die Testdateien
-sequenziell ausführt. Neue DB-Test-Suiten müssen dieses beforeEach-Muster
-übernehmen. Aktueller Stand: 23 Testdateien, 94 Tests, alle PASS.
+dass jede DB-Test-Suite in ihrem `beforeEach` den zentralen Helper
+`resetDb()` aus `lib/server/__tests__/testDb.ts` aufruft (leert alle Tabellen
+in FK-sicherer Reihenfolge) und `fileParallelism: false` die Testdateien
+sequenziell ausführt. Neue DB-Test-Suiten rufen `resetDb()` statt eigener
+`deleteMany()`-Aufrufe. Aktueller Stand: 45 Testdateien, 407 Tests, alle PASS.
 
 ## Struktur
 
 - `app/` — Seiten (Landing, Einrichtungen, Statistik, Solidaritätsfonds) + `app/api/**` (Backend-HTTP-Schnittstelle)
 - `components/` — UI-Bausteine (Design-Tokens aus `app/globals.css`)
-- `lib/calc/` — clientseitige Spendenrechner-Simulation + Solidaritäts-Verteilungsformel (beide pure Funktionen, DB-unabhängig)
-- `lib/server/` — Backend-Service-Layer (Prisma-Zugriff, Buchungslogik, Fonds-Verteilung, Statistik)
+- `lib/calc/` — clientseitige Spendenrechner-Simulation (pure Funktion, DB-unabhängig)
+- `lib/verrechnung/` — Buchungskern aus `docs/verrechnungsmodell.md`, pure Funktionen: Anteile (`anteile.ts`), Kaskade (`kaskade.ts`), Rangposition (`rang.ts`), Sweep/Erstbefüllung/Träger, Geld-/Cent-Arithmetik (`geld.ts`)
+- `lib/server/` — Backend-Service-Layer (Prisma-Zugriff, Konten-, Spenden-, Kaskaden- und Marktservice, Statistik)
 - `prisma/` — DB-Schema und Seed-Daten (8 Einrichtungen, Tagespflege-Schwerpunkt nach Leitbild Phase 1)
 
-## Solidaritätsfonds
+## Datenmodell
 
-> **Ist-Zustand.** Das Zielmodell steht in
-> [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) und ist hier
-> noch nicht umgesetzt — Abweichungen unten unter
-> [Was hier bewusst fehlt](#was-hier-bewusst-fehlt-lokale-version).
+Einrichtungen halten keine Euro-Beträge, sondern **Anteile** am gemeinsamen
+Einrichtungs-Depot (`Einrichtung.anteile`, Pool-Anteile in 10⁻⁸-Einheiten,
+Spec §2). Der Topfwert einer Einrichtung ergibt sich jederzeit aus
+`Anteil × Poolwert / Anteile gesamt` (`topfwertCent()`,
+`lib/verrechnung/anteile.ts`) — nie aus einer gespeicherten Kapitalspalte.
 
-Nicht zweckgebundene Spenden sammeln sich im Fonds. Eine Verteilung berechnet
-pro Einrichtung den Pro-Kind-Abstand zum Ziel (`bedarfProKind`) und teilt den
-Fonds-Bestand proportional dazu auf — Einrichtungen mit dem größten Rückstand
-bekommen am meisten. Besteht nirgends Bedarf, bleibt der Fonds bewusst
-unangetastet statt sinnlos verteilt zu werden.
+Der **Kontenstand** (`Kontenstand`, Singleton-Zeile `id: 'main'`) führt fünf
+Ebenen: Einrichtungs-Depot (ETF), Verrechnungskonto (Cash-Puffer),
+Soli-Depot, Soli-Verrechnungskonto, Management-Konto — siehe
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md), Abschnitt
+„Kontenmodell".
 
-## Jahres-Simulation
+Ein Jahreslauf ist zweigeteilt: das **Marktjahr** (`app/api/simulation/marktjahr`)
+stellt nur den neuen ETF-Kurs, ohne zu buchen. Die **Kaskade**
+(`app/api/simulation/jahresabschluss`, `lib/verrechnung/kaskade.ts`,
+`lib/server/kaskadeService.ts`) bucht anschließend ertragsblind auf dem
+Stichtagswert: Solidaritätsabgabe der besser gestellten Einrichtungen,
+P5/P95-winsorisierte Rangposition, 1-%-Umverteilung an die bedürftigsten
+Einrichtungen, Management-Cap-Abschöpfung. Kurz: **Marktjahr stellt den
+Kurs, die Kaskade bucht ertragsblind.**
 
-Auf der Solidaritätsfonds-Seite bucht der Button „Jahr simulieren (+6 %)"
-einen kompletten Jahresabschluss: Er schreibt 6 % Netto-Wachstum
-(`NET_GROWTH_RATE`) sowohl auf den Fonds-Bestand als auch auf das
-`aktuellesKapital` jeder einzelnen Einrichtung, verteilt den Fonds
-anschließend wie gewohnt bedarfsproportional und protokolliert das Ergebnis
-als `Jahresabschluss`-Zeile (fortlaufende `nummer`, `fondsErtrag`,
-`kapitalErtrag`, `verteiltGesamt`). Der Button ist bewusst nicht an
-`bestand > 0` gekoppelt — die Simulation ist auch bei leerem Fonds sinnvoll,
-weil das Einrichtungskapital unabhängig vom Fonds wächst. Wichtig: `fondsErtrag`
-und `kapitalErtrag` sind Kapitalwachstum, kein Spenden-Zufluss — dafür
-entstehen keine neuen `Spende`/`FondsSpende`-Datensätze, und sie verändern
-nicht die Spendenstatistik (`zuflussLetztesJahr`), nur die Kapitalstände. Der
-anschließende Verteilungsschritt bucht wie bei „Jetzt verteilen" weiterhin
-`Spende`-Zeilen mit `quelle: 'solidaritaet'` pro begünstigter Einrichtung —
-diese werden in der Statistik separat herausgefiltert, tauchen also ebenfalls
-nicht im Zufluss auf.
+Jede Kapitalbewegung erzeugt eine Zeile im **Buchungsjournal** (`Buchung`,
+Spec §7) — brutto, pro Einrichtung einzeln, mit Bezug auf den auslösenden
+`Kaskadenlauf` sofern zutreffend. Das Journal ist der Nachweis, nicht die
+Kontenstände allein.
 
 ## Was hier bewusst fehlt (lokale Version)
 
 - Kein echtes Payment (Stripe/PayPal) — Buchung ist real in der DB, aber ohne echtes Zahlungsmittel ("Spielgeld").
-- Kein Login/KYC — Spenden sind anonym.
-- Keine Auszahlung an Einrichtungen (nur Zufluss modelliert, kein Abfluss aus der Stiftung heraus).
+- Kein Login/KYC — Träger-Verifikation ist ein Boolean-Feld, kein echter Prozess.
+- Prämisse P1 (thesaurierender ETF erzeugt keinen Mittelzufluss nach § 55 Abs. 1 Nr. 5 AO) ist ungeprüft.
+- Kein Grundstock-Topf — erst zur Stiftungsumwandlung in Phase 3 fällig.
 
-### Abstand zum Zielmodell
-
-Der Code implementiert das Modell aus
-[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) nicht.
-
-**Die Liste der offenen Punkte steht in
-[`projekt-status.md`](../projekt-status.md), Abschnitt „Abstand zum
-Zielmodell" — und nur dort.** Sie stand früher zusätzlich hier und lief
-auseinander.
+**Die vollständige Liste offener Punkte und der Ist/Soll-Abgleich mit dem
+Zielmodell stehen in [`projekt-status.md`](../projekt-status.md), Abschnitt
+„Zielmodell umgesetzt" — und nur dort.**
 
 Nächste Schritte: siehe [`leitbild.md`](../leitbild.md) und
 [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md).

@@ -28,7 +28,7 @@ npm run test     # Vitest (einmalig)
 - Eine Schriftfamilie: `Inter, ui-rounded, "SF Pro Rounded", system-ui, sans-serif`.
 - Charts immer mit beschrifteten Achsen.
 - Jede Daten-Ansicht: Loading/Empty/Populated/Error; DB-Seiten mit `loading.tsx` + `error.tsx`.
-- Backend-Tests gegen echte SQLite-Datei (`prisma/test.db`), kein DB-Mocking.
+- Backend-Tests gegen echte SQLite-Datei (`prisma/test.db`), kein DB-Mocking. Jede DB-Suite nutzt `resetDb()` aus `lib/server/__tests__/testDb.ts`.
 - Anrede in User-Copy: Du-Form (nicht Sie) — konsistent über alle Seiten.
 
 ## Hinweise

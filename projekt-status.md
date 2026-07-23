@@ -2,8 +2,9 @@
 
 > **Dieses Dokument beschreibt den IST-Zustand des Codes**, nicht das
 > Zielmodell. Maßgeblich für Verrechnung und Umverteilung ist
-> [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md). Der Code weicht
-> davon derzeit erheblich ab — siehe [Abstand zum Zielmodell](#abstand-zum-zielmodell).
+> [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md). Der Code
+> implementiert es seit Task 20 vollständig — siehe
+> [Zielmodell umgesetzt](#zielmodell-umgesetzt).
 >
 > Dies ist die **einzige** Stelle, an der der Abstand zwischen Code und
 > Zielmodell geführt wird. Frühere Projektstände stehen in
@@ -33,62 +34,67 @@ dokumentieren — heute nicht implementiert. Ebenfalls ungeprüft ist Prämisse 
 hängt. Herleitung und offene Fragen:
 [`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md).
 
-## Aktueller Stand 2026-07-16
+## Aktueller Stand 2026-07-23
 
-**Status:** ✅ Lokale Website neu aufgebaut, echtes getestetes Backend, Solidaritätsfonds aktiv
+**Status:** ✅ Verrechnungsmodell vollständig umgesetzt — Pool-Anteile, fünf Kontenebenen, Solidaritätsabgabe, Kaskade
 
-Der Code-Stand liegt jetzt vollständig unter [`stiftung-web/`](stiftung-web/) —
-ein Next.js-14-Projekt (App Router, TypeScript) mit Prisma/SQLite statt des
-früheren Vanilla-Stacks (HTML/CSS/JS, siehe Historie unten). Der alte
-Code-Stand wurde entfernt (`78b98d2`), die lokale Version in 21 Tasks
-(`docs/superpowers/plans/2026-07-15-website-rebuild-lokal.md`) neu gebaut.
+Branch `verrechnungsmodell-umbau`
+([`docs/superpowers/plans/2026-07-23-verrechnungsmodell-umbau.md`](docs/superpowers/plans/2026-07-23-verrechnungsmodell-umbau.md),
+20 Tasks) hat den kompletten Finanzteil von `stiftung-web/` gegen die Spec in
+[`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md) getauscht. Task 20
+hat die Alt-Welt-Mechanismen aus dem vorigen Stand (2026-07-16, siehe
+[`docs/historie.md`](docs/historie.md)) — Float-Kapital, deterministische
+6-%-Jahressimulation, absoluter Soli-Fonds-Bedarf — endgültig aus dem Code
+entfernt; das Verrechnungsmodell ist jetzt der einzige Buchungspfad.
 
-**Was jetzt real ist (kein Mock mehr):**
-- **Echtes Backend:** Spenden werden per API-Route über Prisma real in einer
-  lokalen SQLite-Datenbank gebucht und persistieren über Reloads hinweg —
-  "Spielgeld", aber keine gemockte Datenschicht. Service-Layer und
-  API-Routes sind gegen eine echte Test-SQLite-Datei integrationsgetestet.
-- **Aktiver Solidaritätsfonds:** Nicht zweckgebundene Spenden sammeln sich im
-  Fonds; eine Verteilung berechnet pro Einrichtung den Pro-Kind-Abstand zum
-  Ziel-Kapital und teilt den Fonds-Bestand proportional dazu auf — die
-  bedürftigste Einrichtung bekommt nachweislich am meisten (End-to-End
-  verifiziert). Das ist der Kernmechanismus aus dem Leitbild, nicht nur eine
-  informative Rangliste.
-- **Jahres-Simulation aktiv:** Button „Jahr simulieren (+6 %)" im
-  Fonds-Panel bucht einen kompletten Jahresabschluss — 6 % Netto-Wachstum auf
-  Fonds-Bestand und auf das Kapital jeder Einrichtung, danach automatische
-  Verteilung, protokolliert als `Jahresabschluss`-Datensatz. Kein
-  Spenden-Zufluss, reines Kapitalwachstum.
-- **94 Tests, alle grün:** 23 Testdateien (Vitest), Service-Layer,
-  Berechnungslogik und API-Routes abgedeckt; `npm run build` läuft ohne
-  TypeScript-/ESLint-Fehler durch.
-
-**Was weiterhin offen ist:**
-- Kein echtes Payment (Stripe/PayPal) — reine Spielgeld-Buchung.
-- Kein Login/KYC — Spenden sind anonym.
-- Keine Auszahlung an Einrichtungen (nur Zufluss modelliert).
-- Deployment/Hosting noch nicht adressiert.
+**Was jetzt real ist:**
+- **Pool-Anteile statt Euro-Float:** Jede Einrichtung hält Anteile am
+  gemeinsamen Einrichtungs-Depot; der Topfwert ergibt sich aus Anteil ×
+  Poolwert, ganzzahlig in Cent (`lib/verrechnung/anteile.ts`, `geld.ts`).
+- **Fünf Kontenebenen:** Einrichtungs-Depot, Verrechnungskonto, Soli-Depot,
+  Soli-Verrechnungskonto, Management-Konto als `Kontenstand`-Singleton
+  (`lib/server/kontenService.ts`).
+- **Jahres-Kaskade statt Simulation:** ein Marktjahr stellt den Kurs, die
+  Kaskade (`lib/verrechnung/kaskade.ts`, `lib/server/kaskadeService.ts`)
+  bucht ertragsblind auf dem Stichtagswert — Abgabe, P5/P95-Rang,
+  1-%-Umverteilung, Management-Cap, Buchungsjournal.
+- **Träger + Spendenwidmung:** Einrichtungen hängen an einem Rechtsträger;
+  Zuwendungen tragen eine Widmung (Vermögen A / Direktförderung B,
+  § 62/§ 55 AO).
+- **407 Tests, alle grün** (45 Testdateien, Vitest); `npm run verify`
+  (tsc + Tests + Build) läuft ohne Fehler durch.
 
 Details: [`stiftung-web/README.md`](stiftung-web/README.md).
 
-### Abstand zum Zielmodell
+### Zielmodell umgesetzt
 
 Der Code implementiert das Modell aus
-[`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md) **nicht**. Die
-Umsetzung ist ein Umbau, kein Patch. Offene Punkte:
+[`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md) seit Task 20
+vollständig — Ist == Soll:
 
 | Zielmodell | Ist-Zustand |
 |---|---|
-| Töpfe als **Pool-Anteile** | `aktuellesKapital: Float` in Euro |
-| Fünf Kontenebenen (2 Depots, 2 Verrechnungskonten, Management-Konto) | Kein Konten-/Depot-Split |
-| **Solidaritätsabgabe** der besser ausgestatteten Einrichtungen | Fehlt vollständig — Fonds speist sich nur aus freien Spenden |
-| Verteilung nach **relativer** Position (P5/P95-winsorisiert) | Verteilung nach **absolutem** Abstand zum Ziel-Kapital |
-| Nur 1 % des Soli-Fonds wird verteilt, Rest bleibt liegen | Kompletter Fonds-Bestand wird verteilt, danach auf 0 gesetzt |
-| Direktförderung 1 % an die Einrichtung | Keine Auszahlung modelliert |
-| Ertragsblinde Buchung auf Stichtagswert | Deterministische 6 %-Simulation |
+| Töpfe als Pool-Anteile | ✓ |
+| Fünf Kontenebenen (2 Depots, 2 Verrechnungskonten, Management-Konto) | ✓ |
+| Solidaritätsabgabe der besser ausgestatteten Einrichtungen | ✓ |
+| Verteilung nach relativer Position (P5/P95-winsorisiert) | ✓ |
+| Nur 1 % Umverteilung, Rest bleibt liegen | ✓ |
+| Rechtsträger (Träger 1 — n Einrichtung) | ✓ |
+| Spendenwidmung (Vermögen A / Direktförderung B) | ✓ |
+| Erstbefüllung neuer Einrichtungen | ✓ |
+| Sweep (Verrechnungskonto auf 1-%-Ziel) | ✓ |
+| Buchungsjournal (Spec §7, brutto pro Einrichtung) | ✓ |
 
-Die 6 %-Jahressimulation ist als **Projektion** weiterhin sinnvoll; sie ist
-nur keine Buchungsregel (siehe Geltungsbereich der Spec).
+**Weiterhin offen** (bewusst nicht Teil dieses Umbaus):
+- Kein echtes Payment/KYC — Spielgeld-Buchung, anonyme Spenden.
+- Prämisse P1 (thesaurierender ETF erzeugt keinen Mittelzufluss nach
+  § 55 Abs. 1 Nr. 5 AO) — ungeprüft, vor Gründung mit Steuerberater:in zu
+  klären.
+- S8 (Verkäufe nur in Ausschüttungshöhe) und S9 (Empfängerfähigkeit
+  Tagespflege) — offene Fragen an die Spec, siehe
+  [Vereinsgründungs-Spec](docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md).
+- Kein Grundstock-Topf — erst zur Stiftungsumwandlung in Phase 3 fällig; das
+  Kontenmodell ist dafür vorbereitet (siehe Verrechnungsmodell § 10).
 
 ---
 ## Historie
