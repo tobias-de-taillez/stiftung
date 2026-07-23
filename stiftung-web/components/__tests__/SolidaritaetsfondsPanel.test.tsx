@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
+import { verwerfeTransienteErgebnisse } from '@/lib/hooks/useTransientesErgebnis';
 import type { KontenLage } from '@/lib/server/kontenService';
 
 // Aktionen rufen nach Erfolg router.refresh() auf (Kontenlage lebt server-
@@ -33,6 +34,9 @@ function stubReducedMotion() {
 
 beforeEach(() => {
   stubReducedMotion();
+  // Der Remount-Restore-Speicher lebt im Modul-Scope des Hooks und überlebt
+  // damit Testgrenzen — ohne Reset restaurierte ein früherer Test spätere.
+  verwerfeTransienteErgebnisse();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -157,32 +161,33 @@ describe('SolidaritaetsfondsPanel — Marktjahr', () => {
   });
 });
 
-describe('SolidaritaetsfondsPanel — Jahresabschluss (Kaskade)', () => {
-  // Goldene §9-Zahlen (siehe lib/verrechnung/__tests__/kaskade.test.ts).
-  const goldeneKaskade = {
-    nummer: 1,
-    poolwertCent: 41_500,
-    soliFondsCent: 30_000,
-    direktspenden: [
-      { slug: 'a', name: 'Einrichtung A', cent: 140 },
-      { slug: 'b', name: 'Einrichtung B', cent: 150 },
-      { slug: 'c', name: 'Einrichtung C', cent: 125 },
-    ],
-    abgaben: [
-      { slug: 'a', name: 'Einrichtung A', cent: 34, pPromille: 240 },
-      { slug: 'b', name: 'Einrichtung B', cent: 150, pPromille: 1000 },
-    ],
-    managementBewegungCent: 302,
-    umverteilung: [
-      { slug: 'a', name: 'Einrichtung A', cent: 129 },
-      { slug: 'c', name: 'Einrichtung C', cent: 170 },
-    ],
-    keineVerteilungGrund: null,
-    endSoliFondsCent: 29_583,
-    endManagementKontoCent: 100_302,
-    meilensteine: [],
-  };
+// Goldene §9-Zahlen (siehe lib/verrechnung/__tests__/kaskade.test.ts) —
+// Modul-Scope, weil auch die Refresh-Remount-Tests unten sie brauchen.
+const goldeneKaskade = {
+  nummer: 1,
+  poolwertCent: 41_500,
+  soliFondsCent: 30_000,
+  direktspenden: [
+    { slug: 'a', name: 'Einrichtung A', cent: 140 },
+    { slug: 'b', name: 'Einrichtung B', cent: 150 },
+    { slug: 'c', name: 'Einrichtung C', cent: 125 },
+  ],
+  abgaben: [
+    { slug: 'a', name: 'Einrichtung A', cent: 34, pPromille: 240 },
+    { slug: 'b', name: 'Einrichtung B', cent: 150, pPromille: 1000 },
+  ],
+  managementBewegungCent: 302,
+  umverteilung: [
+    { slug: 'a', name: 'Einrichtung A', cent: 129 },
+    { slug: 'c', name: 'Einrichtung C', cent: 170 },
+  ],
+  keineVerteilungGrund: null,
+  endSoliFondsCent: 29_583,
+  endManagementKontoCent: 100_302,
+  meilensteine: [],
+};
 
+describe('SolidaritaetsfondsPanel — Jahresabschluss (Kaskade)', () => {
   it('postet auf /api/simulation/jahresabschluss und rendert KaskadenErgebnis mit Brutto-Positionen', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => goldeneKaskade });
     vi.stubGlobal('fetch', fetchMock);
@@ -285,5 +290,69 @@ describe('SolidaritaetsfondsPanel — Management-Cap Inline-Edit', () => {
     await user.type(input, '1500');
     await user.click(screen.getByRole('button', { name: /Cap speichern/i }));
     expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+});
+
+describe('SolidaritaetsfondsPanel — Ergebnisse überstehen den Refresh-Remount (Next 14: erster router.refresh() nach Hydration remountet den Client-Subtree)', () => {
+  // Im echten Browser remountet Next 14 den Client-Subtree beim ERSTEN
+  // router.refresh() nach der Hydration — alle useState-Stände fielen auf
+  // ihre Initialwerte zurück und das gerade gezeigte Aktions-Ergebnis
+  // verschwand ~20 ms nach dem Erscheinen. RTL kann den echten Router-Remount
+  // nicht auslösen (refresh ist hier ein No-op-Mock), aber sein Effekt ist
+  // identisch mit unmount() + neuem render(): alle useState-Initializer
+  // laufen erneut. Genau dagegen sichert der Modul-Scope-Snapshot in
+  // lib/hooks/useTransientesErgebnis.ts ab, den diese Tests prüfen.
+  it('stellt die Marktjahr-Kurs-Zeile nach Unmount + Remount wieder her', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          einrichtungsDepotDeltaCent: 35_000,
+          soliDepotDeltaCent: 1_400,
+          poolwertCent: 545_000,
+          soliFondsCent: 26_400,
+        }),
+      })
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Marktjahr simulieren/i }));
+    expect(await screen.findByText(/Kurs: Einrichtungs-Depot \+350,00\s*€/)).toBeInTheDocument();
+
+    unmount();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    expect(screen.getByText(/Kurs: Einrichtungs-Depot \+350,00\s*€/)).toBeInTheDocument();
+  });
+
+  it('stellt das Kaskaden-Ergebnis nach Unmount + Remount wieder her', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => goldeneKaskade }));
+    const user = userEvent.setup();
+    const { unmount } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Jahresabschluss ausführen/i }));
+    expect(await screen.findByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+
+    unmount();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    expect(screen.getByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+    expect(screen.getByText(/Einrichtung A zahlt 0,24\s*%/)).toBeInTheDocument();
+  });
+
+  it('stellt die Auszahlungslauf-Zeile nach Unmount + Remount wieder her', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ laufId: 'lauf1', summeCent: 4_500, anzahl: 3 }) })
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Auszahlungslauf/i }));
+    expect(await screen.findByText(/45,00\s*€ in 3 Auszahlungen überwiesen\./)).toBeInTheDocument();
+
+    unmount();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    expect(screen.getByText(/45,00\s*€ in 3 Auszahlungen überwiesen\./)).toBeInTheDocument();
   });
 });

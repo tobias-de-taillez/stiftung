@@ -17,6 +17,7 @@ import { impactBeispiel } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
 import { ProgressBar } from './ProgressBar';
 import { SpendenBestaetigung } from './SpendenBestaetigung';
+import { useTransientesErgebnis } from '@/lib/hooks/useTransientesErgebnis';
 
 interface EinrichtungFuerRechner {
   slug: string;
@@ -65,14 +66,23 @@ export function SpendenRechner({
   const [betrag, setBetrag] = useState(50);
   const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
   const [verwendungsart, setVerwendungsart] = useState<'vermoegen' | 'direkt'>('vermoegen');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   // Snapshot der zuletzt GEBUCHTEN Spende (Fix 4027022 beibehalten): Die
   // Bestätigung/Quittung/Share-Text zeigt diesen eingefrorenen Stand, nicht
   // die Live-States, die der Regler nach der Buchung beliebig weiterändert.
   // altes/neuesTopfwertCent kommen für Verwendungsart A direkt vom Server
   // (topfwertVorherCent/topfwertNachherCent) — kein clientseitiges Tracken
   // eines "Vorher"-Werts mehr nötig.
-  const [ergebnis, setErgebnis] = useState<SpendenErgebnis | null>(null);
+  // useTransientesErgebnis statt useState: Der erste router.refresh() nach
+  // der Hydration remountet diesen Subtree (Next 14 + loading.tsx, siehe
+  // lib/hooks/useTransientesErgebnis.ts) — plain useState ließ die gerade
+  // gezeigte Bestätigung ~20 ms nach dem Erscheinen wieder verschwinden.
+  // Der Slug im Key verhindert, dass die Bestätigung einer anderen
+  // Einrichtung restauriert wird.
+  const [ergebnis, setErgebnis] = useTransientesErgebnis<SpendenErgebnis>(`spende.${einrichtung.slug}`);
+  // Nach dem Refresh-Remount mit restauriertem Ergebnis direkt im
+  // done-Zustand starten, sonst bliebe die restaurierte Bestätigung
+  // unsichtbar (Render-Bedingung: status === 'done' && ergebnis).
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(ergebnis ? 'done' : 'idle');
 
   async function handleSpenden() {
     setStatus('loading');

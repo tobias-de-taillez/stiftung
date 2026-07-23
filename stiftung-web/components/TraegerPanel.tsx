@@ -53,8 +53,13 @@ export function TraegerPanel({
       setStatus('idle');
       // Verifikationsstatus/Rechtsform/Auszahlungspfad stehen server-seitig
       // auf dieser Seite (Spendenrechner-Verwendungsart-B, dieses Panel
-      // selbst) — router.refresh() holt sie neu, ohne die Panel-States
-      // (z. B. eine offene Schließen-Bestätigung) zu verlieren.
+      // selbst) — router.refresh() holt sie neu. Achtung: Der ERSTE refresh()
+      // nach der Hydration remountet den Client-Subtree (Next 14 +
+      // loading.tsx, siehe lib/hooks/useTransientesErgebnis.ts) — die
+      // Panel-Flags (z. B. eine offene Schließen-Bestätigung) fallen dabei
+      // auf ihre Defaults zurück. Bewusst OHNE Remount-Snapshot: die Defaults
+      // sind hier die natürlichen Ausgangszustände, es geht kein gerade
+      // gezeigtes Aktions-Ergebnis verloren.
       router.refresh();
     } catch {
       setStatus('error');

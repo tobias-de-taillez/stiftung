@@ -6,6 +6,7 @@ import { Card } from './Card';
 import { StatusChip } from './StatusChip';
 import { KaskadenErgebnis } from './KaskadenErgebnis';
 import { formatEuroFromCent } from '@/lib/calc/format';
+import { useTransientesErgebnis } from '@/lib/hooks/useTransientesErgebnis';
 import type { KontenLage } from '@/lib/server/kontenService';
 import type { KaskadenlaufErgebnis } from '@/lib/server/kaskadeService';
 
@@ -35,9 +36,13 @@ export function SolidaritaetsfondsPanel({ lage }: { lage: KontenLage }) {
   const [spendeBetrag, setSpendeBetrag] = useState(50);
   const [capBetrag, setCapBetrag] = useState(lage.managementCapCent / 100);
 
-  const [marktjahrErgebnis, setMarktjahrErgebnis] = useState<MarktjahrErgebnis | null>(null);
-  const [kaskadeErgebnis, setKaskadeErgebnis] = useState<KaskadenlaufErgebnis | null>(null);
-  const [auszahlungErgebnis, setAuszahlungErgebnis] = useState<AuszahlungErgebnis | null>(null);
+  // useTransientesErgebnis statt useState: Der erste router.refresh() nach
+  // der Hydration remountet diesen Subtree (Next 14 + loading.tsx, siehe
+  // lib/hooks/useTransientesErgebnis.ts) — plain useState verlor das gerade
+  // gezeigte Ergebnis ~20 ms nach dem Erscheinen.
+  const [marktjahrErgebnis, setMarktjahrErgebnis] = useTransientesErgebnis<MarktjahrErgebnis>('fonds.marktjahr');
+  const [kaskadeErgebnis, setKaskadeErgebnis] = useTransientesErgebnis<KaskadenlaufErgebnis>('fonds.kaskade');
+  const [auszahlungErgebnis, setAuszahlungErgebnis] = useTransientesErgebnis<AuszahlungErgebnis>('fonds.auszahlung');
 
   async function handleSpenden() {
     setStatus('loading');
