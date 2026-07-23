@@ -219,6 +219,45 @@ describe('POST /api/traeger/[id]/verifikation', () => {
     );
     expect(res.status).toBe(400);
   });
+
+  // Review-Finding aus Task 14 (jetzt in Task 16 nachgezogen): unbekannte
+  // traegerId ließ Prisma mit P2025 unbehandelt durchknallen → 500.
+  it('gibt 404 bei unbekannter traegerId statt eines unbehandelten 500ers', async () => {
+    const res = await postVerifikation(
+      new Request('http://localhost', {
+        method: 'POST',
+        body: JSON.stringify({ verifiziert: true }),
+      }),
+      { params: { id: 'gibt-es-nicht' } }
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('not_found');
+  });
+
+  // Review-Finding aus Task 14: Boolean(body.verifiziert) coerced ein
+  // fehlendes/falsch typisiertes Feld stillschweigend zu false statt zu validieren.
+  it('gibt 400 bei nicht-boolschem verifiziert', async () => {
+    const t = await createTestTraeger();
+    const res = await postVerifikation(
+      new Request('http://localhost', {
+        method: 'POST',
+        body: JSON.stringify({ verifiziert: 'ja' }),
+      }),
+      { params: { id: t.id } }
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_verifiziert');
+  });
+
+  it('gibt 400 bei fehlendem verifiziert-Feld', async () => {
+    const t = await createTestTraeger();
+    const res = await postVerifikation(
+      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ rechtsform: 'ggmbh' }) }),
+      { params: { id: t.id } }
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_verifiziert');
+  });
 });
 
 describe('POST-ohne-Body-Wrapper (Spec §4/§6): Marktjahr, Jahresabschluss, Auszahlungslauf', () => {
