@@ -31,23 +31,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Cent-Fixtures bewusst so gewählt, dass sie die alten Euro-Fixtures
+// (3000/3050/25000 → 12,0 %/12,2 %) exakt reproduzieren.
 const props = {
-  betrag: 50,
+  betragCent: 5_000,
   frequenz: 'jaehrlich' as const,
+  verwendungsart: 'vermoegen' as const,
   einrichtungName: 'Tagespflege Wirbelwind',
-  altesKapital: 3000,
-  neuesKapital: 3050,
-  zielKapital: 25000,
-  spendeId: 'spende-123',
+  altesTopfwertCent: 300_000,
+  neuesTopfwertCent: 305_000,
+  zielKapitalCent: 2_500_000,
+  zuwendungId: 'zuwendung-123',
+  widmungWortlaut: null as string | null,
 };
 
 describe('SpendenBestaetigung', () => {
-  it('zeigt Betrag, Frequenz, neuen Kapitalstand und einen Spielgeld-Hinweis', () => {
+  it('zeigt Betrag, Frequenz, neuen Topfwert und einen Spielgeld-Hinweis', () => {
     render(<SpendenBestaetigung {...props} />);
-    // Anchored: formatEuro(3050) = "3.050,00 €" taucht sowohl im
-    // Vorher→Nachher-Text ("3.000,00 € → 3.050,00 €") als auch im
-    // Kapitalstand-<strong> auf — nur die volle Anker-Regex trifft eindeutig
-    // das <strong> (getNodeText fasst nur direkte Text-Kindknoten zusammen).
     expect(screen.getByText(/^50,00 €/)).toBeInTheDocument();
     expect(screen.getByText(/jährlich/i)).toBeInTheDocument();
     expect(screen.getByText(/^3\.050,00 €$/)).toBeInTheDocument();
@@ -60,8 +60,6 @@ describe('SpendenBestaetigung', () => {
     const href = link.getAttribute('href') ?? '';
     expect(href).toContain('wa.me');
     const decodedText = decodeURIComponent(href);
-    // altesKapital 3000 / zielKapital 25000 = 12,0 %; neuesKapital 3050 / 25000 = 12,2 %
-    // — dieselben Werte wie im Ziel-Fortschritt-Text unter dem Balken.
     expect(decodedText).toMatch(/12,0 %/);
     expect(decodedText).toMatch(/12,2 %/);
     expect(decodedText).toMatch(/Ziel/);
@@ -80,7 +78,7 @@ describe('SpendenBestaetigung', () => {
     const user = userEvent.setup();
     render(<SpendenBestaetigung {...props} />);
     await user.click(screen.getByText(/Spendenquittung anzeigen/i));
-    expect(screen.getByText(/spende-123/)).toBeInTheDocument();
+    expect(screen.getByText(/zuwendung-123/)).toBeInTheDocument();
     expect(screen.getByText(/Demo-Dokument/i)).toBeInTheDocument();
   });
 
@@ -91,32 +89,25 @@ describe('SpendenBestaetigung', () => {
 
     expect(ghost).toBeInTheDocument();
     expect(fill).toBeInTheDocument();
-    // altesKapital 3000 / zielKapital 25000 = 12 %; neuesKapital 3050 / 25000 = 12,2 %
     expect(ghost.style.width).toBe('12%');
     expect(fill.style.width).toBe('12.2%');
 
     expect(screen.getByText(/3\.000,00 € → 3\.050,00 €/)).toBeInTheDocument();
-    // Ziel-anchorierter Text statt relativem Wachstum: 12,0 % → 12,2 % des Ziels
     expect(screen.getByText('Von 12,0 % auf 12,2 % des Ziels')).toBeInTheDocument();
   });
 
   it('zeigt bei großen Einrichtungen den echten Ziel-Fortschritt statt einer irreführenden Relativ-Prozentzahl (Regressionsschutz)', () => {
-    // Vorher-Bug: (neu-alt)/alt*100 rundet bei großen Kapitalständen auf
-    // "+0,0 %" und widerspricht damit dem sichtbar wachsenden Balken. Der
-    // Ziel-Fortschritt bleibt dagegen immer konsistent mit dem Balken.
-    render(<SpendenBestaetigung {...props} altesKapital={800} neuesKapital={850} zielKapital={20000} />);
+    render(<SpendenBestaetigung {...props} altesTopfwertCent={80_000} neuesTopfwertCent={85_000} zielKapitalCent={2_000_000} />);
     expect(screen.getByText('Von 4,0 % auf 4,3 % des Ziels')).toBeInTheDocument();
     expect(screen.queryByText(/^\+0,0 %$/)).not.toBeInTheDocument();
   });
 
-  // Meilenstein-Feier (Task 31): Banner ÜBER dem Danke, mit Konfetti-Wiederverwendung.
   describe('Meilenstein-Banner', () => {
     it('rendert einen Meilenstein-Banner mit Konfetti, wenn meilensteine übergeben werden', () => {
       const { container } = render(<SpendenBestaetigung {...props} meilensteine={['Silber erreicht']} />);
       const banner = screen.getByTestId('meilenstein-banner');
       expect(banner).toHaveTextContent('Silber erreicht');
       expect(banner).toHaveTextContent('🎉');
-      // Konfetti wird für die Feier wiederverwendet (Task 27), nicht neu gebaut.
       expect(container.querySelectorAll('.konfetti-burst').length).toBeGreaterThanOrEqual(1);
     });
 
@@ -154,7 +145,41 @@ describe('SpendenBestaetigung', () => {
     expect(letztesElement.textContent).toMatch(/Spielgeld/i);
     expect(letztesElement.textContent).toMatch(/kein echtes Geld/i);
     expect(letztesElement.className).toContain('muted');
-    // Kein StatusChip mehr (der rendert eine .status-Span)
     expect(container.querySelector('.status')).toBeNull();
+  });
+
+  describe('Widmung (Verwendungsart A, Spec §3.1)', () => {
+    const widmungWortlaut = 'Ich bestimme, dass meine Zuwendung dem Vermögen dauerhaft zugeführt wird.';
+
+    it('zeigt den Widmungswortlaut als Beleg-Zeile in der aufgeklappten Quittung', async () => {
+      const user = userEvent.setup();
+      render(<SpendenBestaetigung {...props} widmungWortlaut={widmungWortlaut} />);
+      await user.click(screen.getByText(/Spendenquittung anzeigen/i));
+      expect(screen.getByText(new RegExp(widmungWortlaut))).toBeInTheDocument();
+    });
+
+    it('zeigt keine Widmungs-Zeile, wenn widmungWortlaut null ist (Verwendungsart B)', async () => {
+      const user = userEvent.setup();
+      render(<SpendenBestaetigung {...props} verwendungsart="direkt" widmungWortlaut={null} />);
+      await user.click(screen.getByText(/Spendenquittung anzeigen/i));
+      expect(screen.queryByText(/Widmung:/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Verwendungsart B (Direktauszahlung, Spec §3.1)', () => {
+    it('zeigt die Auszahlungs-Copy statt des Kapital-Sprungs', () => {
+      render(<SpendenBestaetigung {...props} verwendungsart="direkt" widmungWortlaut={null} />);
+      expect(
+        screen.getByText(/Deine 50,00 € werden gesammelt und im nächsten Monatslauf an Tagespflege Wirbelwind ausgezahlt\./)
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('vorher-nachher')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('kapitalstand')).not.toBeInTheDocument();
+    });
+
+    it('zeigt trotzdem Danke-Block und Spielgeld-Hinweis', () => {
+      render(<SpendenBestaetigung {...props} verwendungsart="direkt" widmungWortlaut={null} />);
+      expect(screen.getByText('Danke für deine Spende!')).toBeInTheDocument();
+      expect(screen.getByText(/Spielgeld/i)).toBeInTheDocument();
+    });
   });
 });
