@@ -408,6 +408,15 @@ WENN investierbar > Schwelle:
 Der Abzug der offenen Direktausschüttungen ist zwingend — dieses Geld gehört
 bereits den Einrichtungen (Abschnitt 3.1).
 
+> ❓ **Klarstellung erbeten (Spec-Autor entscheidet):** Ist der
+> Schwellenvergleich `investierbar > 1,2 % des Poolwerts` **cent-gerundet**
+> oder als **exakter Bruch** gemeint? Die Implementierung
+> (`lib/verrechnung/sweep.ts` mit `anteilVon`) rundet Schwelle und 1-%-Ziel
+> kaufmännisch auf ganze Cent; im Grenzfall — `investierbar` liegt genau
+> zwischen exaktem Bruch und gerundeter Schwelle — entscheidet damit die
+> Rundung, ob der Sweep feuert und wie viel investiert wird (± 1 Cent).
+> Praktisch irrelevant, aber die Spec sollte es festlegen.
+
 Es wird also **auf das 1-%-Ziel abgeschöpft**, nicht um feste 0,2 %. Die
 Formulierung „bei 1,2 % werden die 0,2 % eingezahlt" beschreibt nur den
 Grenzfall, in dem das Konto exakt auf der Schwelle steht. Liegt es darüber —
