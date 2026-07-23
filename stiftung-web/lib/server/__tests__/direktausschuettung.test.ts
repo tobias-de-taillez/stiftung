@@ -65,6 +65,21 @@ describe('auszahlungslauf (monatlich gesammelt, Spec §3.1)', () => {
     expect(offene).toBe(0);
     const buchungen = await prisma.buchung.findMany({ where: { typ: 'auszahlungslauf' } });
     expect(buchungen).toHaveLength(2); // eine Zeile je Einrichtung (brutto, Spec §7)
+    const jeEinrichtung = new Map(buchungen.map((b) => [b.einrichtungId, b.betragCent]));
+    expect(jeEinrichtung.get(e1.id)).toBe(1_500n); // 1.000 + 500 aggregiert
+    expect(jeEinrichtung.get(e2.id)).toBe(2_000n);
+  });
+
+  it('bricht ab, wenn eine Direkt-Zuwendung keine Einrichtung referenziert (Datenbestand inkonsistent)', async () => {
+    await seedKontenstand();
+    // Der Service erzwingt eine Einrichtung — so eine Zeile kann nur durch
+    // direkte DB-Manipulation entstehen. Der Lauf darf sie nicht stillschweigend
+    // als einrichtungslose Buchung protokollieren.
+    await prisma.zuwendung.create({ data: { einrichtungId: null, betragCent: 1_000n, verwendungsart: 'direkt' } });
+    await expect(auszahlungslauf()).rejects.toThrow(/ohne Einrichtung/);
+    // Transaktion zurückgerollt: nichts ausgezahlt, kein Lauf angelegt.
+    expect(await prisma.auszahlungsLauf.count()).toBe(0);
+    expect(await prisma.zuwendung.count({ where: { ausgezahltAm: null } })).toBe(1);
   });
 
   it('ohne offene Posten passiert nichts', async () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
 import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTestTraeger } from '@/lib/server/__tests__/testDb';
+import { spendeDirekt } from '@/lib/server/spendenService';
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
 import { GET as getEinrichtungDetail } from '../einrichtungen/[slug]/route';
@@ -317,10 +318,19 @@ describe('POST-ohne-Body-Wrapper (Spec §4/§6): Marktjahr, Jahresabschluss, Aus
     expect(json).toHaveProperty('umverteilung');
   });
 
-  it('POST /api/auszahlungen/lauf liefert 201, auch ohne offene Direktausschüttungen', async () => {
+  it('POST /api/auszahlungen/lauf liefert 200 ohne offene Direktausschüttungen (nichts erzeugt)', async () => {
     const res = await postAuszahlungenLauf();
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ laufId: null, summeCent: 0, anzahl: 0 });
+  });
+
+  it('POST /api/auszahlungen/lauf liefert 201, wenn ein Lauf angelegt wurde', async () => {
+    await seedKontenstand();
+    const e = await createTestEinrichtung();
+    await spendeDirekt(e.slug, 1_000n);
+    const res = await postAuszahlungenLauf();
+    expect(res.status).toBe(201);
+    expect((await res.json()).summeCent).toBe(1_000);
   });
 });
