@@ -57,4 +57,11 @@ describe('auszahlungspfad (Spec §3.5)', () => {
     expect(auszahlungspfad({ rechtsform: 'gewerblich', gemeinnuetzig: true })).toBe('foerderguthaben');
     expect(auszahlungspfad({ rechtsform: 'einzelunternehmen', gemeinnuetzig: true })).toBe('foerderguthaben');
   });
+  it('Körperschaft ohne Gemeinnützigkeitsstatus → Pfad 2 (der Status entscheidet, nicht die Rechtsform)', () => {
+    expect(auszahlungspfad({ rechtsform: 'verein', gemeinnuetzig: false })).toBe('foerderguthaben');
+    expect(auszahlungspfad({ rechtsform: 'ggmbh', gemeinnuetzig: false })).toBe('foerderguthaben');
+  });
+  it('unbekannter Träger → Pfad 2', () => {
+    expect(auszahlungspfad({ rechtsform: 'unbekannt', gemeinnuetzig: false })).toBe('foerderguthaben');
+  });
 });
