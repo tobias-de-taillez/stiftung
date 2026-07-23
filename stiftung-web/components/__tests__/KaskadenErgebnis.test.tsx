@@ -51,8 +51,8 @@ const goldeneKaskade: KaskadenErgebnisProps = {
     { slug: 'c', name: 'Einrichtung C', cent: 125 },
   ],
   abgaben: [
-    { slug: 'a', name: 'Einrichtung A', cent: 34, pPromille: 240 },
-    { slug: 'b', name: 'Einrichtung B', cent: 150, pPromille: 1000 },
+    { slug: 'a', name: 'Einrichtung A', cent: 34, pPromille: 240, basisCent: 14_000 },
+    { slug: 'b', name: 'Einrichtung B', cent: 150, pPromille: 1000, basisCent: 15_000 },
   ],
   managementBewegungCent: 302,
   umverteilung: [
@@ -81,11 +81,11 @@ describe('KaskadenErgebnis — goldenes Spec-§9-Beispiel', () => {
 
   it('zeigt die Abgabe je Einrichtung mit dem Abgabesatz p × 1 %', () => {
     render(<KaskadenErgebnis {...goldeneKaskade} />);
-    // A: p = 0,24 (pPromille 240) → Satz 0,24 %, Betrag 34 Cent.
-    expect(screen.getByText(/Einrichtung A zahlt 0,24\s*%/)).toBeInTheDocument();
+    // A: p = 0,24 (pPromille 240) → Satz 0,24 % von 140,00 € (Snapshot-Topf), Betrag 34 Cent.
+    expect(screen.getByText(/Einrichtung A zahlt 0,24\s*% von 140,00\s*€/)).toBeInTheDocument();
     expect(screen.getByText(/0,34\s*€/)).toBeInTheDocument();
-    // B: p = 1 (pPromille 1000) → Satz 1 %, Betrag 1,50 €.
-    expect(screen.getByText(/Einrichtung B zahlt 1\s*%/)).toBeInTheDocument();
+    // B: p = 1 (pPromille 1000) → Satz 1 % von 150,00 € (Snapshot-Topf), Betrag 1,50 €.
+    expect(screen.getByText(/Einrichtung B zahlt 1\s*% von 150,00\s*€/)).toBeInTheDocument();
     // C zahlt keine Abgabe (p = 0) und taucht daher nicht in der Abgaben-Liste auf.
     expect(screen.queryByText(/Einrichtung C zahlt/)).not.toBeInTheDocument();
   });

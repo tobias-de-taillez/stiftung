@@ -56,8 +56,11 @@ describe('berechneKaskade — goldenes Spec-§9-Beispiel', () => {
     ]);
 
     // Abgabe: C 0 · A 0,24 % × 140 € = 33,6 → 34 Cent · B 1 % × 150 € = 150 Cent
+    // Bemessungsbasis ist der Schritt-1-Snapshot-Topf (Spec §4 Schritt 4).
     expect(e.abgaben.find((a) => a.id === 'A')!.cent).toBe(34n);
+    expect(e.abgaben.find((a) => a.id === 'A')!.basisCent).toBe(14_000n);
     expect(e.abgaben.find((a) => a.id === 'B')!.cent).toBe(150n);
+    expect(e.abgaben.find((a) => a.id === 'B')!.basisCent).toBe(15_000n);
     expect(e.abgaben.find((a) => a.id === 'C')).toBeUndefined();
 
     expect(e.managementBewegungCent).toBe(302n); // 1 % × 301,84 € kaufmännisch
