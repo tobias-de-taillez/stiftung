@@ -26,12 +26,15 @@ Grundstockvermögen der Stiftung festgeschrieben, der Rest bleibt
 Solidaritätsfonds — das erfordert später eine dritte Topf-Ebene im
 Datenmodell, siehe [`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md).
 
-**Offen und relevant für den Code:** Der Kapitalaufbau stützt sich auf
-Vermögenszuführungen nach § 62 Abs. 3 AO. Damit die greifen, muss der
-Spendenflow eine **Widmungserklärung** der Spender:innen erfassen und
-dokumentieren — heute nicht implementiert. Ebenfalls ungeprüft ist Prämisse P1
-(thesaurierender ETF erzeugt keinen Mittelzufluss), an der das 6 %-Netto-Wachstum
-hängt. Herleitung und offene Fragen:
+**Erledigt seit Branch `verrechnungsmodell-umbau`:** Der Kapitalaufbau stützt
+sich auf Vermögenszuführungen nach § 62 Abs. 3 AO. Damit die greifen, erfasst
+der Spendenflow seit diesem Branch eine zweigeteilte **Widmungserklärung**:
+Verwendungsart A (Vermögen) trägt einen versionierten Wortlaut, dokumentiert
+über `widmungVersion`/`widmungZeitpunkt` zum Zahlungszeitpunkt; Verwendungsart
+B (Direktförderung) ist nur für verifizierte Träger zugelassen. Details:
+[`docs/verrechnungsmodell.md`](docs/verrechnungsmodell.md). Weiterhin ungeprüft
+ist Prämisse P1 (thesaurierender ETF erzeugt keinen Mittelzufluss), an der das
+6 %-Netto-Wachstum hängt. Herleitung und offene Fragen:
 [`docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md`](docs/superpowers/specs/2026-07-19-vereinsgruendung-design.md).
 
 ## Aktueller Stand 2026-07-23
