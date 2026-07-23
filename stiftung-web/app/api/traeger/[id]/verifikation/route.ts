@@ -3,13 +3,15 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { setzeVerifikation } from '@/lib/server/lebenszyklusService';
 import { RECHTSFORM_LABELS, type Rechtsform } from '@/lib/verrechnung/traeger';
+import { leseJsonBody } from '@/lib/server/leseJsonBody';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const body = await request.json();
+  const body = await leseJsonBody(request);
+  if (!body) return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   if (typeof body.verifiziert !== 'boolean') {
     return NextResponse.json({ error: 'invalid_verifiziert' }, { status: 400 });
   }
-  if (body.rechtsform !== undefined && !Object.hasOwn(RECHTSFORM_LABELS, body.rechtsform)) {
+  if (body.rechtsform !== undefined && !Object.hasOwn(RECHTSFORM_LABELS, String(body.rechtsform))) {
     return NextResponse.json({ error: 'invalid_rechtsform' }, { status: 400 });
   }
   try {

@@ -4,6 +4,8 @@ import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTes
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
 import { GET as getEinrichtungDetail } from '../einrichtungen/[slug]/route';
+import { POST as postSpenden } from '../einrichtungen/[slug]/spenden/route';
+import { POST as postSoliSpenden } from '../solidaritaetsfonds/spenden/route';
 import { POST as postSchliessen } from '../einrichtungen/[slug]/schliessen/route';
 import { GET as getErstbefuellung } from '../erstbefuellung/route';
 import { PUT as putCap } from '../management/cap/route';
@@ -257,6 +259,42 @@ describe('POST /api/traeger/[id]/verifikation', () => {
     );
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('invalid_verifiziert');
+  });
+});
+
+describe('kaputtes JSON → 400 statt 500 (alle Body-Routen über leseJsonBody)', () => {
+  const kaputt = (method: 'POST' | 'PUT' = 'POST') =>
+    new Request('http://localhost', { method, body: '{kein json' });
+
+  it('POST /api/einrichtungen', async () => {
+    const res = await postEinrichtungen(kaputt());
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_json');
+  });
+
+  it('POST /api/einrichtungen/[slug]/spenden', async () => {
+    const res = await postSpenden(kaputt(), { params: { slug: 'egal' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/solidaritaetsfonds/spenden', async () => {
+    const res = await postSoliSpenden(kaputt());
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT /api/management/cap', async () => {
+    const res = await putCap(kaputt('PUT'));
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/traeger/[id]/verifikation', async () => {
+    const res = await postVerifikation(kaputt(), { params: { id: 'egal' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('JSON-Body "null" ist ebenfalls ein 400, kein TypeError-500', async () => {
+    const res = await postSoliSpenden(new Request('http://localhost', { method: 'POST', body: 'null' }));
+    expect(res.status).toBe(400);
   });
 });
 

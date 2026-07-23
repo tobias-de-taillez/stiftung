@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { listEinrichtungenMitTopf } from '@/lib/server/uebersichtService';
 import { spendeMitAnlage, UngueltigeZuwendungError } from '@/lib/server/spendenService';
+import { leseJsonBody } from '@/lib/server/leseJsonBody';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,8 @@ export async function GET() {
 
 // Anlage bei Erstspende (Spec §3.0, Stufe 2): erst die Spende persistiert.
 export async function POST(request: Request) {
-  const body = await request.json();
+  const body = await leseJsonBody(request);
+  if (!body) return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   const betragCent = Number(body.betragCent);
   const kinderAnzahl = Number(body.kinderAnzahl);
   if (!Number.isSafeInteger(betragCent) || betragCent <= 0) {
