@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { spenden, EinrichtungNotFoundError, UngueltigerBetragError } from '@/lib/server/einrichtungenService';
+import { serialisiere } from '@/lib/verrechnung/serialisierung';
 
 export async function POST(request: Request, { params }: { params: { slug: string } }) {
   const body = await request.json();
@@ -8,7 +9,7 @@ export async function POST(request: Request, { params }: { params: { slug: strin
 
   try {
     const result = await spenden(params.slug, betrag, frequenz);
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(serialisiere(result), { status: 201 });
   } catch (err) {
     if (err instanceof EinrichtungNotFoundError) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });

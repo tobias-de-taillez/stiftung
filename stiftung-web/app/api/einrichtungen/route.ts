@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { listEinrichtungen } from '@/lib/server/einrichtungenService';
+import { serialisiere } from '@/lib/verrechnung/serialisierung';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json(await listEinrichtungen());
+  return NextResponse.json(serialisiere(await listEinrichtungen()));
 }
