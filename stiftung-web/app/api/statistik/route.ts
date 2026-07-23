@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { statistik } from '@/lib/server/einrichtungenService';
-import { serialisiere } from '@/lib/verrechnung/serialisierung';
+import { poolStatistik } from '@/lib/server/uebersichtService';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json(serialisiere(await statistik()));
+  // poolStatistik() serialisiert bereits selbst (bigint -> number) — kein
+  // doppeltes serialisiere() nötig.
+  return NextResponse.json(await poolStatistik());
 }
