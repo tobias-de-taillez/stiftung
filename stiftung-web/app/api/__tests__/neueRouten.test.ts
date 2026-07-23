@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
-import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTestTraeger } from '@/lib/server/__tests__/testDb';
+import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTestTraeger, pruefeInvarianten } from '@/lib/server/__tests__/testDb';
 import { spendeDirekt } from '@/lib/server/spendenService';
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
@@ -14,6 +14,9 @@ import { POST as postVerifikation } from '../traeger/[id]/verifikation/route';
 import { POST as postMarktjahr } from '../simulation/marktjahr/route';
 import { POST as postJahresabschluss } from '../simulation/jahresabschluss/route';
 import { POST as postAuszahlungenLauf } from '../auszahlungen/lauf/route';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(async () => {
   await resetDb();

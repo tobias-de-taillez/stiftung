@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '../prismaClient';
-import { resetDb, seedKontenstand, createTestEinrichtung, createTestTraeger } from './testDb';
+import { resetDb, seedKontenstand, createTestEinrichtung, createTestTraeger, pruefeInvarianten } from './testDb';
 import { listEinrichtungenMitTopf, einrichtungDetail, poolStatistik, buchungsTicker } from '../uebersichtService';
 import { buche } from '../kontenService';
 import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(async () => {
   await resetDb();

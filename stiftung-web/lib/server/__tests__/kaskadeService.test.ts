@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '../prismaClient';
-import { resetDb, seedKontenstand, seedWidmung, createTestTraeger, createTestEinrichtung } from './testDb';
+import { resetDb, seedKontenstand, seedWidmung, createTestTraeger, createTestEinrichtung, pruefeInvarianten } from './testDb';
 import { fuehreKaskadeAus, kaskadenlaeufe } from '../kaskadeService';
 import { ANTEILS_EINHEITEN_PRO_CENT } from '@/lib/verrechnung/konstanten';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(async () => {
   await resetDb();

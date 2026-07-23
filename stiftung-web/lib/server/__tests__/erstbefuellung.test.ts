@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '../prismaClient';
-import { resetDb, seedKontenstand, seedWidmung, createTestEinrichtung } from './testDb';
+import { resetDb, seedKontenstand, seedWidmung, createTestEinrichtung, pruefeInvarianten } from './testDb';
 import { spendeMitAnlage, erstbefuellungsZusageCent } from '../spendenService';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(async () => {
   await resetDb();
