@@ -1,7 +1,6 @@
-// Zentraler Reset für DB-Suiten der NEUEN Welt: ALLE Tabellen, FK-sichere
-// Reihenfolge (Kinder vor Eltern). Bestehende Alt-Suiten behalten ihren
-// eigenen 5-Tabellen-Reset — dank onDelete: SetNull der neuen Relationen
-// kollidieren die Welten nicht.
+// Zentraler Reset, den jede DB-Suite verwendet: ALLE Tabellen, FK-sichere
+// Reihenfolge (Kinder vor Eltern). Seit Task 20 der einzige Buchungspfad —
+// keine Alt-Welt-Tabellen mehr, die eine eigene Reset-Logik bräuchten.
 import { prisma } from '../prismaClient';
 import { ANTEILS_EINHEITEN_PRO_CENT } from '@/lib/verrechnung/konstanten';
 
@@ -10,14 +9,10 @@ export async function resetDb() {
   await prisma.zuwendung.deleteMany();
   await prisma.auszahlungsLauf.deleteMany();
   await prisma.kaskadenlauf.deleteMany();
-  await prisma.fondsSpende.deleteMany();
-  await prisma.spende.deleteMany();
   await prisma.einrichtung.deleteMany();
   await prisma.traeger.deleteMany();
   await prisma.widmungsText.deleteMany();
   await prisma.kontenstand.deleteMany();
-  await prisma.solidaritaetsfonds.deleteMany();
-  await prisma.jahresabschluss.deleteMany();
 }
 
 export async function seedWidmung() {
@@ -85,8 +80,6 @@ export async function createTestEinrichtung(
       typ: overrides.typ ?? 'kita',
       ort: overrides.ort ?? 'Teststadt',
       kinderAnzahl: overrides.kinderAnzahl ?? 10,
-      aktuellesKapital: Number(topfCent) / 100, // Legacy-Spalte, fällt in Task 20
-      zielKapital: Number(overrides.zielKapitalCent ?? 1_000_000n) / 100,
       anteile: topfCent * ANTEILS_EINHEITEN_PRO_CENT,
       zielKapitalCent: overrides.zielKapitalCent ?? 1_000_000n,
       traegerId,

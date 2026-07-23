@@ -298,8 +298,6 @@ export async function spendeMitAnlage(
         typ: daten.typ,
         ort: daten.ort.trim(),
         kinderAnzahl: daten.kinderAnzahl,
-        aktuellesKapital: Number(betragCent + e) / 100, // Legacy, fällt in Task 20
-        zielKapital: Number(BigInt(daten.kinderAnzahl) * ZIEL_CENT_PRO_KIND) / 100, // Legacy
         anteile: neueAnteile,
         zielKapitalCent: BigInt(daten.kinderAnzahl) * ZIEL_CENT_PRO_KIND,
         traegerId: traeger.id,

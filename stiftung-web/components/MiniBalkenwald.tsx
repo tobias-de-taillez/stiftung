@@ -1,9 +1,9 @@
-import { formatEuro } from '@/lib/calc/format';
+import { formatEuroFromCent } from '@/lib/calc/format';
 
 export interface BalkenwaldEintrag {
   slug: string;
   name: string;
-  kapital: number;
+  kapital: number; // Cent-Wert seit Task 19 (topfwertCent aus listEinrichtungenMitTopf)
 }
 
 /**
@@ -33,7 +33,7 @@ export function MiniBalkenwald({ einrichtungen }: { einrichtungen: BalkenwaldEin
     >
       {einrichtungen.map((e) => {
         const pct = Math.max(3, Math.round((e.kapital / max) * 100));
-        const beschriftung = `${e.name}: ${formatEuro(e.kapital)}`;
+        const beschriftung = `${e.name}: ${formatEuroFromCent(e.kapital)}`;
         return (
           <div
             key={e.slug}

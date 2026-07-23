@@ -49,8 +49,6 @@ async function main() {
       typ: e.typ,
       ort: e.ort,
       kinderAnzahl: e.kinderAnzahl,
-      aktuellesKapital: Number(e.topfCent) / 100, // Legacy, fällt in Task 20
-      zielKapital: Number(e.zielKapitalCent) / 100, // Legacy, fällt in Task 20
       anteile: e.topfCent * ANTEILE,
       zielKapitalCent: e.zielKapitalCent,
       traegerId: traegerIds.get(e.traeger)!,
@@ -84,13 +82,6 @@ async function main() {
       wortlaut:
         'Ich bestimme, dass meine Zuwendung dem Vermögen des Vereins dauerhaft zugeführt wird (§ 62 Abs. 3 Nr. 2 AO). Gefördert wird die Einrichtung aus den Erträgen.',
     },
-  });
-
-  // Legacy-Fonds-Zeile, bis das alte Panel fällt (Task 20).
-  await prisma.solidaritaetsfonds.upsert({
-    where: { id: 'main' },
-    update: {},
-    create: { id: 'main', bestand: 0 },
   });
 
   console.log(`Seed abgeschlossen: ${TRAEGER.length} Träger, ${EINRICHTUNGEN.length} Einrichtungen, Kontenstand, Widmung v1.`);

@@ -31,8 +31,8 @@ afterEach(() => {
 });
 
 describe('KennzahlHero', () => {
-  it('zeigt unter reduced-motion sofort den formatierten Zielwert (Gesamtkapital)', () => {
-    render(<KennzahlHero gesamtKapital={614800} />);
+  it('zeigt unter reduced-motion sofort den formatierten Zielwert (Gesamtkapital, Cent-Wert)', () => {
+    render(<KennzahlHero gesamtKapital={61480000} />);
     expect(screen.getByText(/614\.800,00\s*€/)).toBeInTheDocument();
   });
 

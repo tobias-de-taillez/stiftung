@@ -93,10 +93,8 @@ export function einrichtungsLevel(aktuell: number, ziel: number): EinrichtungsLe
 // Label statt zweier redundanter Meldungen. Deshalb wird Diamant aus der
 // Level-Schleife ausgenommen und stattdessen einmalig separat behandelt.
 //
-// Wiederverwendet von spenden() (einrichtungenService.ts, pro Spende) und
-// simuliereJahr() (simulationService.ts, pro Einrichtung über Wachstum +
-// Solidaritäts-Verteilung hinweg) — eine einzige Erkennungs-Funktion, kein
-// Duplikat der Schwellenlogik.
+// Wiederverwendet von spendenService.ts (Erstbefüllung neuer Einrichtungen)
+// — eine einzige Erkennungs-Funktion, kein Duplikat der Schwellenlogik.
 const PROZENT_LABELS: Record<number, string> = {
   25: 'Viertel geschafft: 25 % des Ziels',
   50: 'Halbzeit: 50 % des Ziels',

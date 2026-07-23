@@ -36,6 +36,17 @@ describe('schliesseEinrichtung (Spec §3.3)', () => {
     expect(andere.anteile).toBe(bleibt.anteile);
   });
 
+  it('letzte Einrichtung schließen: kein Konto wird negativ, Cash-Anteil kommt vom Verrechnungskonto', async () => {
+    await seedKontenstand({ etfMarktwertCent: 39_600n, verrechnungskontoCent: 400n, soliDepotCent: 0n });
+    const e = await createTestEinrichtung({ topfCent: 40_000n });
+    const ergebnis = await schliesseEinrichtung(e.slug);
+    expect(ergebnis.uebertragCent).toBe(40_000);
+    const k = await prisma.kontenstand.findUniqueOrThrow({ where: { id: 'main' } });
+    expect(k.etfMarktwertCent).toBe(0n);
+    expect(k.verrechnungskontoCent).toBe(0n);
+    expect(k.soliDepotCent).toBe(40_000n);
+  });
+
   it('geschlossene Einrichtungen nehmen keine Spenden mehr an und doppelte Schließung wirft', async () => {
     await seedKontenstand({ etfMarktwertCent: 10_000n });
     const e = await createTestEinrichtung({ topfCent: 10_000n });

@@ -1,13 +1,15 @@
 // Lese-Schicht der neuen Welt: Topfwerte entstehen beim Lesen aus Anteilen
 // (Spec §2). Liefert ausschließlich serialisierte Cent-number-Objekte.
 import { prisma } from './prismaClient';
-import { anteileGesamt, poolwertCent, type Tx } from './kontenService';
+import { anteileGesamt, poolwertCent, soliFondsCentAktuell, type Tx } from './kontenService';
 import { topfwertCent } from '@/lib/verrechnung/anteile';
 import { divRound } from '@/lib/verrechnung/geld';
 import { auszahlungspfad, RECHTSFORM_LABELS, type Rechtsform } from '@/lib/verrechnung/traeger';
 import { serialisiere } from '@/lib/verrechnung/serialisierung';
+import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
 const ZUFLUSS_TYPEN = ['spende', 'erstbefuellung', 'kaskade_umverteilung'];
+const TICKER_TYPEN = ['spende', 'soli_spende', 'erstbefuellung', 'kaskade_umverteilung', 'direktausschuettung_eingang'];
 
 type EinrichtungMitTraeger = Awaited<ReturnType<typeof ladeOffene>>[number];
 
@@ -69,3 +71,69 @@ export async function einrichtungDetail(slug: string) {
   });
 }
 export type EinrichtungDetail = NonNullable<Awaited<ReturnType<typeof einrichtungDetail>>>;
+
+/**
+ * Aggregat-Kennzahlen für Landing + Statistik-Seite (Task 19): ein Read über
+ * dieselbe mitTopf()-Projektion wie listEinrichtungenMitTopf(), plus
+ * Zufluss-/Ertrags-Kennzahlen. simulierterJahresertragCent ist eine
+ * Projektion auf der kanonischen Anlage-Annahme (NET_GROWTH_RATE) — kein
+ * Buchungswert, number-Mathe ist hier bewusst erlaubt (siehe CLAUDE.md).
+ */
+export async function poolStatistik() {
+  return prisma.$transaction(async (tx) => {
+    const [alle, pool, gesamt, soli] = [
+      await ladeOffene(tx),
+      await poolwertCent(tx),
+      await anteileGesamt(tx),
+      await soliFondsCentAktuell(tx),
+    ];
+    const mit = alle.map((e) => mitTopf(e, pool, gesamt));
+    const ranked = [...mit].sort((a, b) => (b.foerderungProKindCent < a.foerderungProKindCent ? -1 : 1));
+    const einJahrVorHeute = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const [zufluss, anzahlZuwendungen] = await Promise.all([
+      tx.zuwendung.aggregate({ _sum: { betragCent: true }, where: { createdAt: { gte: einJahrVorHeute } } }),
+      tx.zuwendung.count(),
+    ]);
+    return serialisiere({
+      anzahlEinrichtungen: alle.length,
+      poolwertCent: pool,
+      soliFondsCent: soli,
+      gesamtZielKapitalCent: alle.reduce((s, e) => s + e.zielKapitalCent, 0n),
+      gesamtKinder: alle.reduce((s, e) => s + e.kinderAnzahl, 0),
+      zuflussLetztesJahrCent: zufluss._sum.betragCent ?? 0n,
+      anzahlZuwendungen,
+      // Projektion (kanonische Annahme), kein Buchungswert: number-Mathe erlaubt.
+      simulierterJahresertragCent: Math.round(Number(pool) * NET_GROWTH_RATE),
+      top5: ranked.slice(0, 5),
+      bottom5: ranked.slice(-5).reverse(),
+    });
+  });
+}
+export type PoolStatistik = Awaited<ReturnType<typeof poolStatistik>>;
+
+/**
+ * Live-Ticker der letzten Buchungen (Task 19, ersetzt letzteSpenden()):
+ * gefiltert auf die für Spender:innen sichtbaren Zufluss-Typen. `zeitpunkt`
+ * bleibt der Epoch-Millisekunden-Wert für stabile React-Keys (bewährtes
+ * Muster aus letzteSpenden()); einrichtungId null (Solidaritätsfonds als
+ * Buchungsempfänger) fällt auf den Fonds-Namen zurück.
+ */
+export async function buchungsTicker(limit = 10) {
+  const buchungen = await prisma.buchung.findMany({
+    where: { typ: { in: TICKER_TYPEN } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit,
+    include: { einrichtung: { select: { name: true } } },
+  });
+  const jetzt = Date.now();
+  return serialisiere(
+    buchungen.map((b) => ({
+      betragCent: b.betragCent,
+      typ: b.typ,
+      einrichtungName: b.einrichtung?.name ?? 'Solidaritätsfonds',
+      vorMinuten: Math.floor((jetzt - b.createdAt.getTime()) / 60000),
+      zeitpunkt: b.createdAt.getTime(), // Epoch-ms als stabiler React-Key (bewährtes Muster)
+    }))
+  );
+}
+export type BuchungsTickerEintrag = Awaited<ReturnType<typeof buchungsTicker>>[number];

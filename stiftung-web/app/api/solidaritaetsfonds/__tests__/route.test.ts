@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { prisma } from '@/lib/server/prismaClient';
 import { GET } from '../route';
 import { POST as postSpenden } from '../spenden/route';
-import { POST as postVerteilen } from '../verteilen/route';
 import { resetDb, seedWidmung } from '@/lib/server/__tests__/testDb';
 
 beforeEach(async () => {
@@ -45,35 +43,5 @@ describe('POST /api/solidaritaetsfonds/spenden (neue Welt: betragCent → spende
     );
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('invalid_betrag');
-  });
-});
-
-// Alt-Welt, unangetastet (Löschung erst Task 20): eigene Legacy-Tabellen,
-// unabhängig vom neuen Kontenstand — Seed direkt über den Legacy-Service.
-describe('POST /api/solidaritaetsfonds/verteilen (Alt-Welt, unangetastet)', () => {
-  it('bucht real in eine Einrichtung ein', async () => {
-    await prisma.einrichtung.create({
-      data: {
-        slug: 'fonds-test-kita',
-        name: 'Fonds-Test-Kita',
-        typ: 'kita',
-        ort: 'Z',
-        kinderAnzahl: 10,
-        aktuellesKapital: 0,
-        zielKapital: 5000,
-      },
-    });
-    await prisma.solidaritaetsfonds.upsert({
-      where: { id: 'main' },
-      update: { bestand: 100 },
-      create: { id: 'main', bestand: 100 },
-    });
-
-    const verteilenRes = await postVerteilen();
-    const verteilenJson = await verteilenRes.json();
-    expect(verteilenJson.verteiltGesamt).toBeGreaterThan(0);
-
-    const e = await prisma.einrichtung.findUnique({ where: { slug: 'fonds-test-kita' } });
-    expect(e?.aktuellesKapital).toBeGreaterThan(0);
   });
 });

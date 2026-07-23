@@ -8,22 +8,23 @@ afterEach(() => {
 });
 
 describe('SpendenTicker', () => {
-  it('zeigt den Empty-State, wenn keine Spenden vorhanden sind', async () => {
+  it('zeigt den Empty-State, wenn keine Buchungen vorhanden sind', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
     render(<SpendenTicker />);
     expect(await screen.findByText(/Sei die erste Spende!/i)).toBeInTheDocument();
   });
 
-  it('zeigt einen Spenden-Eintrag mit Zeit, Betrag und Einrichtung', async () => {
+  it('zeigt einen Buchungs-Eintrag mit Zeit, Betrag, Einrichtung und Typ-Label "Spende"', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ betrag: 50, einrichtungName: 'Kita Regenbogen', quelle: 'direkt', vorMinuten: 2, zeitpunkt: 1720000000000 }],
+        json: async () => [{ betragCent: 5000, typ: 'spende', einrichtungName: 'Kita Regenbogen', vorMinuten: 2, zeitpunkt: 1720000000000 }],
       })
     );
     render(<SpendenTicker />);
     expect(await screen.findByText(/Vor 2 Min:\s*50,00\s*€\s*für Kita Regenbogen/)).toBeInTheDocument();
+    expect(screen.getByText(/Spende/)).toBeInTheDocument();
   });
 
   it('zeigt "Gerade eben" für vorMinuten 0', async () => {
@@ -31,23 +32,28 @@ describe('SpendenTicker', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ betrag: 5, einrichtungName: 'Kita X', quelle: 'direkt', vorMinuten: 0, zeitpunkt: 1720000001000 }],
+        json: async () => [{ betragCent: 500, typ: 'spende', einrichtungName: 'Kita X', vorMinuten: 0, zeitpunkt: 1720000001000 }],
       })
     );
     render(<SpendenTicker />);
     expect(await screen.findByText(/Gerade eben:\s*5,00\s*€/)).toBeInTheDocument();
   });
 
-  it('labelt quelle solidaritaet als "Solidaritätsfonds-Verteilung"', async () => {
+  it.each([
+    ['soli_spende', 'Fonds-Spende'],
+    ['erstbefuellung', 'Erstbefüllung'],
+    ['kaskade_umverteilung', 'Solidaritätsfonds-Verteilung'],
+    ['direktausschuettung_eingang', 'Direktspende'],
+  ])('mappt typ "%s" auf das Label "%s"', async (typ, label) => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [{ betrag: 30, einrichtungName: 'Kita Y', quelle: 'solidaritaet', vorMinuten: 1, zeitpunkt: 1720000002000 }],
+        json: async () => [{ betragCent: 3000, typ, einrichtungName: 'Kita Y', vorMinuten: 1, zeitpunkt: 1720000002000 }],
       })
     );
     render(<SpendenTicker />);
-    expect(await screen.findByText(/Solidaritätsfonds-Verteilung/)).toBeInTheDocument();
+    expect(await screen.findByText(new RegExp(label))).toBeInTheDocument();
   });
 
   it('bleibt beim letzten Stand, wenn der Fetch fehlschlägt', async () => {
@@ -62,7 +68,7 @@ describe('SpendenTicker', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => [{ betrag: 10, einrichtungName: 'Kita Z', quelle: 'direkt', vorMinuten: 0, zeitpunkt: 1720000003000 }],
+        json: async () => [{ betragCent: 1000, typ: 'spende', einrichtungName: 'Kita Z', vorMinuten: 0, zeitpunkt: 1720000003000 }],
       });
     vi.stubGlobal('fetch', fetchMock);
     vi.useFakeTimers();

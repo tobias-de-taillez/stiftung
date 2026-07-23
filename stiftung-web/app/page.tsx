@@ -5,24 +5,24 @@ import { KennzahlHero } from '@/components/KennzahlHero';
 import { MiniBalkenwald } from '@/components/MiniBalkenwald';
 import { WachstumsIllustration } from '@/components/WachstumsIllustration';
 import { capitalForAnnualPayout, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
-import { formatEuro } from '@/lib/calc/format';
-import { statistik, listEinrichtungen } from '@/lib/server/einrichtungenService';
+import { formatEuro, formatEuroFromCent } from '@/lib/calc/format';
+import { poolStatistik, listEinrichtungenMitTopf } from '@/lib/server/uebersichtService';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
   const beispielZiel = capitalForAnnualPayout(20000);
-  const [stats, einrichtungen] = await Promise.all([statistik(), listEinrichtungen()]);
+  const [stats, einrichtungen] = await Promise.all([poolStatistik(), listEinrichtungenMitTopf()]);
   const zielEinrichtung = stats.bottom5[0];
   const zielHref = zielEinrichtung ? `/einrichtungen/${zielEinrichtung.slug}` : '/einrichtungen';
   // Verdopplungszeit aus der bestehenden Konstante NET_GROWTH_RATE abgeleitet
   // (keine zweite Marketing-Zahl): t = ln(2) / ln(1 + r).
   const verdopplungsjahre = Math.round(Math.log(2) / Math.log(1 + NET_GROWTH_RATE));
-  const balkenwaldDaten = einrichtungen.map((e) => ({ slug: e.slug, name: e.name, kapital: e.aktuellesKapital }));
+  const balkenwaldDaten = einrichtungen.map((e) => ({ slug: e.slug, name: e.name, kapital: e.topfwertCent }));
   // Wachstums-Illustration (Task 36) im Hero: Aggregat statt einer einzelnen
-  // Einrichtung — Summe aller Zielkapitale, dieselbe Grundgesamtheit wie
-  // stats.gesamtKapital (beide aus derselben listEinrichtungen()-Abfrage).
-  const gesamtZielKapital = einrichtungen.reduce((sum, e) => sum + e.zielKapital, 0);
+  // Einrichtung — Summe aller Zielkapitale aus poolStatistik() (Task 19,
+  // dieselbe Transaktion/Grundgesamtheit wie stats.poolwertCent).
+  const gesamtZielKapital = stats.gesamtZielKapitalCent;
 
   return (
     <div style={{ padding: '3rem 0', display: 'grid', gap: '2rem' }}>
@@ -46,7 +46,7 @@ export default async function Page() {
           </p>
           <p className="muted">
             {stats.anzahlEinrichtungen} Einrichtungen · {stats.gesamtKinder} Kinder ·{' '}
-            {formatEuro(stats.gesamtKapital)} Bildungskapital · {stats.anzahlSpenden} Spenden bisher
+            {formatEuroFromCent(stats.poolwertCent)} Bildungskapital · {stats.anzahlZuwendungen} Zuwendungen bisher
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
             <Link href={zielHref} className="pill pill-primary">Jetzt spenden</Link>
@@ -67,11 +67,11 @@ export default async function Page() {
             */}
             <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <WachstumsIllustration
-                aktuellesKapital={stats.gesamtKapital}
+                aktuellesKapital={stats.poolwertCent}
                 zielKapital={gesamtZielKapital}
                 groesse="gross"
               />
-              <KennzahlHero gesamtKapital={stats.gesamtKapital} />
+              <KennzahlHero gesamtKapital={stats.poolwertCent} />
             </div>
             {/*
               Bewusst kein <p> (statt eyebrow-typisch): der Live-Zahlen-Absatz
@@ -104,8 +104,9 @@ export default async function Page() {
           Für eine jährliche Ausschüttung von 20.000 € an eine Einrichtung
           braucht der Finanztopf ein Kapital von{' '}
           <strong>{formatEuro(beispielZiel)}</strong> — bei einer
-          Netto-Wachstumsrate von 6 % pro Jahr wächst jede Spende dauerhaft
-          weiter, ohne dass das Kapital verbraucht wird.
+          Netto-Wachstumsrate von {Math.round(NET_GROWTH_RATE * 100)} % pro
+          Jahr wächst jede Spende dauerhaft weiter, ohne dass das Kapital
+          verbraucht wird.
         </p>
       </Card>
     </div>

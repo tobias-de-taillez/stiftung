@@ -8,6 +8,62 @@ ausschließlich der Verlaufsdokumentation und werden **nicht** nachgeführt.
 
 Der aktuelle Stand steht in [`projekt-status.md`](../projekt-status.md).
 
+## Aktueller Stand 2026-07-16 (Alt-Welt, ausgelagert am 2026-07-23)
+
+**Status:** ✅ Lokale Website neu aufgebaut, echtes getestetes Backend, Solidaritätsfonds aktiv
+
+Beschreibt den Next.js/Prisma-Stand direkt nach dem Rebuild
+(`docs/superpowers/plans/2026-07-15-website-rebuild-lokal.md`, 21 Tasks) und
+**vor** dem Verrechnungsmodell-Umbau (Task 20 entfernt die hier beschriebenen
+Mechanismen vollständig — siehe [`projekt-status.md`](../projekt-status.md),
+Abschnitt „Zielmodell umgesetzt"). Nicht mehr aktuell, nur Verlaufsdokumentation.
+
+Der Code-Stand liegt jetzt vollständig unter `stiftung-web/` —
+ein Next.js-14-Projekt (App Router, TypeScript) mit Prisma/SQLite statt des
+früheren Vanilla-Stacks (HTML/CSS/JS, siehe unten). Der alte
+Code-Stand wurde entfernt (`78b98d2`), die lokale Version in 21 Tasks
+neu gebaut.
+
+**Was damals real war (kein Mock mehr):**
+- **Echtes Backend:** Spenden wurden per API-Route über Prisma real in einer
+  lokalen SQLite-Datenbank gebucht und persistierten über Reloads hinweg —
+  "Spielgeld", aber keine gemockte Datenschicht. Service-Layer und
+  API-Routes waren gegen eine echte Test-SQLite-Datei integrationsgetestet.
+- **Aktiver Solidaritätsfonds:** Nicht zweckgebundene Spenden sammelten sich im
+  Fonds; eine Verteilung berechnete pro Einrichtung den Pro-Kind-Abstand zum
+  Ziel-Kapital und teilte den Fonds-Bestand proportional dazu auf.
+- **Jahres-Simulation aktiv:** Button „Jahr simulieren (+6 %)" im
+  Fonds-Panel buchte einen kompletten Jahresabschluss — 6 % Netto-Wachstum auf
+  Fonds-Bestand und auf das Kapital jeder Einrichtung, danach automatische
+  Verteilung, protokolliert als `Jahresabschluss`-Datensatz.
+- **94 Tests, alle grün:** 23 Testdateien (Vitest).
+
+**Was damals weiterhin offen war:**
+- Kein echtes Payment (Stripe/PayPal) — reine Spielgeld-Buchung.
+- Kein Login/KYC — Spenden waren anonym.
+- Keine Auszahlung an Einrichtungen (nur Zufluss modelliert).
+- Deployment/Hosting noch nicht adressiert.
+
+### Abstand zum Zielmodell (Stand 2026-07-16)
+
+Der Code implementierte das Modell aus
+[`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md) **nicht**. Offene
+Punkte damals:
+
+| Zielmodell | Ist-Zustand (2026-07-16) |
+|---|---|
+| Töpfe als **Pool-Anteile** | `aktuellesKapital: Float` in Euro |
+| Fünf Kontenebenen (2 Depots, 2 Verrechnungskonten, Management-Konto) | Kein Konten-/Depot-Split |
+| **Solidaritätsabgabe** der besser ausgestatteten Einrichtungen | Fehlte vollständig — Fonds speiste sich nur aus freien Spenden |
+| Verteilung nach **relativer** Position (P5/P95-winsorisiert) | Verteilung nach **absolutem** Abstand zum Ziel-Kapital |
+| Nur 1 % des Soli-Fonds wird verteilt, Rest bleibt liegen | Kompletter Fonds-Bestand wurde verteilt, danach auf 0 gesetzt |
+| Direktförderung 1 % an die Einrichtung | Keine Auszahlung modelliert |
+| Ertragsblinde Buchung auf Stichtagswert | Deterministische 6 %-Simulation |
+
+Alle Zeilen sind seit Task 20 (Verrechnungsmodell-Umbau) erledigt — siehe
+[`projekt-status.md`](../projekt-status.md), Abschnitt „Zielmodell umgesetzt".
+
+---
 
 Die folgenden Abschnitte beschreiben den **früheren** Projektstand (Vanilla-
 Stack, Vercel-Demo) vor dem Neuaufbau und dienen nur noch als Verlaufs-

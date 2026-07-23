@@ -52,20 +52,6 @@ export function SpendenRechner({
 }) {
   const router = useRouter();
 
-  // lib/calc/spendenrechner.ts ist Euro-basiert (unverändert) — hier EINMAL
-  // am Komponentenkopf von Cent nach Euro ableiten, statt jeden Aufruf
-  // einzeln umzurechnen. topfStandCent ist der LIVE-Stand (wandert nach jeder
-  // erfolgreichen Verwendungsart-A-Spende weiter, damit eine zweite Spende in
-  // derselben Sitzung mit dem tatsächlichen Topf statt dem Seitenlade-
-  // Snapshot rechnet). Verwendungsart B kauft keine Anteile — der Topf ändert
-  // sich dadurch nicht.
-  const [topfStandCent, setTopfStandCent] = useState(einrichtung.topfwertCent);
-  const topfEuro = topfStandCent / 100;
-  const zielEuro = einrichtung.zielKapitalCent / 100;
-
-  const [betrag, setBetrag] = useState(50);
-  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
-  const [verwendungsart, setVerwendungsart] = useState<'vermoegen' | 'direkt'>('vermoegen');
   // Snapshot der zuletzt GEBUCHTEN Spende (Fix 4027022 beibehalten): Die
   // Bestätigung/Quittung/Share-Text zeigt diesen eingefrorenen Stand, nicht
   // die Live-States, die der Regler nach der Buchung beliebig weiterändert.
@@ -77,8 +63,29 @@ export function SpendenRechner({
   // lib/hooks/useTransientesErgebnis.ts) — plain useState ließ die gerade
   // gezeigte Bestätigung ~20 ms nach dem Erscheinen wieder verschwinden.
   // Der Slug im Key verhindert, dass die Bestätigung einer anderen
-  // Einrichtung restauriert wird.
+  // Einrichtung restauriert wird. Alle übrigen States unten restaurieren
+  // sich aus diesem Ergebnis — es friert Betrag/Frequenz/Verwendungsart und
+  // den Nachher-Topfwert der Buchung ein.
   const [ergebnis, setErgebnis] = useTransientesErgebnis<SpendenErgebnis>(`spende.${einrichtung.slug}`);
+
+  // lib/calc/spendenrechner.ts ist Euro-basiert (unverändert) — hier EINMAL
+  // am Komponentenkopf von Cent nach Euro ableiten, statt jeden Aufruf
+  // einzeln umzurechnen. topfStandCent ist der LIVE-Stand (wandert nach jeder
+  // erfolgreichen Verwendungsart-A-Spende weiter, damit eine zweite Spende in
+  // derselben Sitzung mit dem tatsächlichen Topf statt dem Seitenlade-
+  // Snapshot rechnet). Verwendungsart B kauft keine Anteile — der Topf ändert
+  // sich dadurch nicht.
+  const [topfStandCent, setTopfStandCent] = useState(
+    ergebnis?.neuesTopfwertCent ?? einrichtung.topfwertCent
+  );
+  const topfEuro = topfStandCent / 100;
+  const zielEuro = einrichtung.zielKapitalCent / 100;
+
+  const [betrag, setBetrag] = useState(ergebnis ? ergebnis.betragCent / 100 : 50);
+  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>(ergebnis?.frequenz ?? 'einmalig');
+  const [verwendungsart, setVerwendungsart] = useState<'vermoegen' | 'direkt'>(
+    ergebnis?.verwendungsart ?? 'vermoegen'
+  );
   // Nach dem Refresh-Remount mit restauriertem Ergebnis direkt im
   // done-Zustand starten, sonst bliebe die restaurierte Bestätigung
   // unsichtbar (Render-Bedingung: status === 'done' && ergebnis).
@@ -96,30 +103,35 @@ export function SpendenRechner({
       if (!res.ok) throw new Error('request_failed');
       const json = await res.json();
 
-      if (json.verwendungsart === 'direkt') {
-        // spendeDirekt liefert weder Topf- noch Meilenstein-Info — eine
-        // Direktausschüttung kauft keine Anteile, der Topf bleibt unverändert.
-        setErgebnis({
-          betragCent,
-          frequenz,
-          verwendungsart: 'direkt',
-          altesTopfwertCent: topfStandCent,
-          neuesTopfwertCent: topfStandCent,
-          zuwendungId: json.zuwendungId,
-          meilensteine: [],
-        });
-      } else {
-        setTopfStandCent(json.topfwertNachherCent);
-        setErgebnis({
-          betragCent,
-          frequenz,
-          verwendungsart: 'vermoegen',
-          altesTopfwertCent: json.topfwertVorherCent,
-          neuesTopfwertCent: json.topfwertNachherCent,
-          zuwendungId: json.zuwendungId,
-          meilensteine: json.erreichteMeilensteine ?? [],
-        });
-      }
+      const neuesErgebnis: SpendenErgebnis =
+        json.verwendungsart === 'direkt'
+          ? {
+              // spendeDirekt liefert weder Topf- noch Meilenstein-Info — eine
+              // Direktausschüttung kauft keine Anteile, der Topf bleibt
+              // unverändert.
+              betragCent,
+              frequenz,
+              verwendungsart: 'direkt',
+              altesTopfwertCent: topfStandCent,
+              neuesTopfwertCent: topfStandCent,
+              zuwendungId: json.zuwendungId,
+              meilensteine: [],
+            }
+          : {
+              betragCent,
+              frequenz,
+              verwendungsart: 'vermoegen',
+              altesTopfwertCent: json.topfwertVorherCent,
+              neuesTopfwertCent: json.topfwertNachherCent,
+              zuwendungId: json.zuwendungId,
+              meilensteine: json.erreichteMeilensteine ?? [],
+            };
+      // Für 'direkt' ist neuesTopfwertCent === topfStandCent — das Set ist
+      // dort ein No-op, deshalb branchfrei.
+      setTopfStandCent(neuesErgebnis.neuesTopfwertCent);
+      // setErgebnis sichert den Wert zugleich als Remount-Snapshot (siehe
+      // useTransientesErgebnis) — muss deshalb VOR router.refresh() stehen.
+      setErgebnis(neuesErgebnis);
       setStatus('done');
       // Server-Sektionen auf derselben Seite (Finanztopf-Karte, Transparenz-
       // Historie in app/einrichtungen/[slug]/page.tsx) lesen direkt aus der DB
