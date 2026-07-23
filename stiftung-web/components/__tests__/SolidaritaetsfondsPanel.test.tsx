@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
+import { SolidaritaetsfondsPanel, verwerfeLetztesErgebnis } from '../SolidaritaetsfondsPanel';
 import type { KontenLage } from '@/lib/server/kontenService';
 
 // Aktionen rufen nach Erfolg router.refresh() auf (Kontenlage lebt server-
@@ -33,6 +33,10 @@ function stubReducedMotion() {
 
 beforeEach(() => {
   stubReducedMotion();
+  // Der Remount-Restore-Snapshot lebt im Modul-Scope von
+  // SolidaritaetsfondsPanel.tsx und überlebt damit Testgrenzen — ohne Reset
+  // würde ein Ergebnis aus einem früheren Test in späteren Tests restauriert.
+  verwerfeLetztesErgebnis();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -285,5 +289,92 @@ describe('SolidaritaetsfondsPanel — Management-Cap Inline-Edit', () => {
     await user.type(input, '1500');
     await user.click(screen.getByRole('button', { name: /Cap speichern/i }));
     expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+});
+
+describe('SolidaritaetsfondsPanel — Ergebnis übersteht den Refresh-Remount (Next-14: erster router.refresh() nach Hydration remountet den Client-Subtree)', () => {
+  // Im echten Browser remountet Next 14 den Client-Subtree beim ERSTEN
+  // router.refresh() nach der Hydration — die transienten Aktions-Ergebnisse
+  // (Kurs-Zeile, Kaskaden-Ergebnis, Auszahlungslauf-Zeile) fielen auf null
+  // zurück und verschwänden ~20 ms nach dem Erscheinen. RTL kann den echten
+  // Router-Remount nicht auslösen (refresh ist hier ein No-op-Mock), aber
+  // sein Effekt ist identisch mit unmount() + neuem render(): alle
+  // useState-Initializer laufen erneut. Genau dagegen sichert der
+  // Modul-Scope-Snapshot ab (Muster aus SpendenRechner.tsx, Task-16-Report).
+  const goldeneKaskade = {
+    nummer: 1,
+    poolwertCent: 41_500,
+    soliFondsCent: 30_000,
+    direktspenden: [{ slug: 'a', name: 'Einrichtung A', cent: 140 }],
+    abgaben: [{ slug: 'a', name: 'Einrichtung A', cent: 34, pPromille: 240 }],
+    managementBewegungCent: 302,
+    umverteilung: [{ slug: 'a', name: 'Einrichtung A', cent: 129 }],
+    keineVerteilungGrund: null,
+    endSoliFondsCent: 29_583,
+    endManagementKontoCent: 100_302,
+    meilensteine: [],
+  };
+
+  it('stellt das Kaskaden-Ergebnis nach Unmount + Remount wieder her', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => goldeneKaskade }));
+    const user = userEvent.setup();
+    const { unmount } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Jahresabschluss ausführen/i }));
+    expect(await screen.findByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+
+    unmount();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    expect(screen.getByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+    expect(screen.getByText(/Einrichtung A zahlt 0,24\s*%/)).toBeInTheDocument();
+  });
+
+  it('stellt Kurs-Zeile und Auszahlungslauf-Zeile nach Unmount + Remount wieder her', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ einrichtungsDepotDeltaCent: 35_000, soliDepotDeltaCent: 1_400 }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ laufId: 'lauf1', summeCent: 4_500, anzahl: 3 }),
+        })
+    );
+    const user = userEvent.setup();
+    const { unmount } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Marktjahr simulieren/i }));
+    expect(await screen.findByText(/Kurs: Einrichtungs-Depot \+350,00\s*€/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Auszahlungslauf/i }));
+    expect(await screen.findByText(/45,00\s*€ in 3 Auszahlungen überwiesen\./)).toBeInTheDocument();
+
+    unmount();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    // Beide transienten Zeilen sind sofort wieder da — der Snapshot des
+    // zuletzt refreshenden Handlers (Auszahlungslauf) trägt das
+    // Marktjahr-Ergebnis mit.
+    expect(screen.getByText(/Kurs: Einrichtungs-Depot \+350,00\s*€/)).toBeInTheDocument();
+    expect(screen.getByText(/45,00\s*€ in 3 Auszahlungen überwiesen\./)).toBeInTheDocument();
+  });
+
+  it('restauriert nichts mehr, wenn das Frische-Fenster abgelaufen ist (kein Wiederauftauchen bei späterer Rück-Navigation)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => goldeneKaskade }));
+    const user = userEvent.setup();
+    const { unmount } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Jahresabschluss ausführen/i }));
+    expect(await screen.findByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+
+    unmount();
+    const echtesJetzt = Date.now();
+    const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(echtesJetzt + 60_000);
+    try {
+      render(<SolidaritaetsfondsPanel lage={lage} />);
+      expect(screen.queryByTestId('kaskaden-ergebnis')).not.toBeInTheDocument();
+    } finally {
+      dateNowSpy.mockRestore();
+    }
   });
 });
