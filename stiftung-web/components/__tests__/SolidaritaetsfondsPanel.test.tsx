@@ -1,21 +1,20 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SolidaritaetsfondsPanel, verwerfeLetztesErgebnis } from '../SolidaritaetsfondsPanel';
-import { staggerInterval, PHASE1_MS, ABSCHLUSS_MS, VERTEILUNG_BUDGET_MS } from '../ZeitrafferErgebnis';
+import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
+import type { KontenLage } from '@/lib/server/kontenService';
 
-// Verteilen/Simulieren rufen nach Erfolg router.refresh() (F3), damit
-// server-gerenderte Sektionen aktuell bleiben. Ohne Mock wirft next/
-// navigations useRouter() außerhalb eines echten App-Router-Baums.
+// Aktionen rufen nach Erfolg router.refresh() auf (Kontenlage lebt server-
+// seitig, siehe page.tsx) — ohne Mock wirft next/navigation useRouter()
+// außerhalb eines echten App-Router-Baums.
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-// Die Zeitraffer-Sequenz (Task 32) staggert per Timer über mehrere Sekunden —
-// ohne reduced-motion-Stub wären die Assertions unten flaky/langsam
-// (Wall-Clock-Timer statt fake timers). reduced-motion erzwingt den
-// Sofort-Endzustand (siehe useCountUp/ZeitrafferErgebnis), deterministisch für
-// alle Tests in dieser Datei — auch die, die die Sequenz gar nicht auslösen.
+// KaskadenErgebnis staggert Sektionen per Timer (Task 18) — ohne
+// reduced-motion-Stub wären Assertions nach dem Jahresabschluss flaky/langsam.
+// reduced-motion erzwingt den Sofort-Endzustand, deterministisch für alle
+// Tests in dieser Datei.
 function stubReducedMotion() {
   vi.stubGlobal(
     'matchMedia',
@@ -34,287 +33,257 @@ function stubReducedMotion() {
 
 beforeEach(() => {
   stubReducedMotion();
-  // Der Remount-Restore-Snapshot lebt im Modul-Scope von
-  // SolidaritaetsfondsPanel.tsx und überlebt damit Testgrenzen — ohne Reset
-  // würde ein Ergebnis aus einem früheren Test in späteren Tests restauriert.
-  verwerfeLetztesErgebnis();
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('SolidaritaetsfondsPanel', () => {
-  it('zeigt den initialen Bestand', () => {
-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    expect(screen.getByText(/120,00 €/)).toBeInTheDocument();
-  });
+// Bewusst überlappungsfreie Cent-Werte (keine Zahl ist Teilstring einer
+// anderen formatierten Euro-Zahl) — sonst kollidieren getByText-Regexe
+// zwischen z. B. Verrechnungskonto und der Poolwert-Summenzeile.
+const lage: KontenLage = {
+  etfMarktwertCent: 500_000,
+  verrechnungskontoCent: 12_340,
+  soliDepotCent: 20_000,
+  soliVerrechnungskontoCent: 6_780,
+  managementKontoCent: 100_000,
+  managementCapCent: 120_000,
+  offeneDirektausschuettungenCent: 0,
+  poolwertCent: 512_340,
+  soliFondsCent: 26_780,
+};
 
-  it('zahlt ein und aktualisiert den Bestand aus der Server-Antwort', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ bestand: 170 }) }));
-    const user = userEvent.setup();
-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    await user.click(screen.getByRole('button', { name: /In den Fonds einzahlen/i }));
-    expect(await screen.findByText(/170,00 €/)).toBeInTheDocument();
-  });
+describe('SolidaritaetsfondsPanel — Kontenübersicht', () => {
+  it('zeigt den Fondswert-Hero und alle fünf Konten plus Poolwert-Summenzeile', () => {
+    const { container } = render(<SolidaritaetsfondsPanel lage={lage} />);
+    // Fondswert-Hero
+    expect(screen.getByText(/267,80\s*€/)).toBeInTheDocument();
 
-  it('verteilt und zeigt das Ergebnis, setzt Bestand auf 0', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ verteiltGesamt: 120, verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 120 }] }),
-      })
-    );
-    const user = userEvent.setup();
-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
-    expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
-    expect(screen.getByText('0,00 €')).toBeInTheDocument();
-  });
-
-  it('zeigt Fehlertext, wenn die Einzahlung fehlschlägt', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
-    const user = userEvent.setup();
-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    await user.click(screen.getByRole('button', { name: /In den Fonds einzahlen/i }));
-    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
-  });
-
-  it('lässt den Bestand unverändert, wenn Verteilung ohne Bedarf zurückkommt', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ verteiltGesamt: 0, verteilung: [] }),
-    }));
-    const user = userEvent.setup();
-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
-    expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
-    expect(screen.getByText(/120,00\s*€/)).toBeInTheDocument();
-  });
-
-  it('simuliert ein Jahr und zeigt Erträge + Verteilung, setzt Bestand aus neuerFondsBestand', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          nummer: 1,
-          fondsErtrag: 12.34,
-          kapitalErtrag: 88.1,
-          verteiltGesamt: 45.67,
-          verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 45.67 }],
-          neuerFondsBestand: 3.21,
-        }),
-      })
-    );
-    const user = userEvent.setup();
-    const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
-    expect(await screen.findByText(/Fonds-Ertrag:\s*12,34\s*€/)).toBeInTheDocument();
-    expect(screen.getByText(/Kapital-Ertrag.*88,10\s*€/)).toBeInTheDocument();
-    expect(screen.getByText(/Verteilt:\s*45,67\s*€/)).toBeInTheDocument();
-    expect(screen.getByText(/Arme Kita: 45,67\s*€/)).toBeInTheDocument();
-    // Bestand-Derivation: der Kartenkopf ("Aktueller Bestand") übernimmt
-    // neuerFondsBestand. Der Zeitraffer-Abschluss (Task 32) nennt denselben
-    // Wert zusätzlich explizit — daher gezielt der Kartenkopf statt
-    // getByText (das bei zwei Treffern sonst mehrdeutig wäre).
-    expect(container.querySelector('.hero-number')?.textContent).toMatch(/3,21\s*€/);
-  });
-
-  it('zeigt Fehlertext, wenn die Jahres-Simulation fehlschlägt', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
-    const user = userEvent.setup();
-    render(<SolidaritaetsfondsPanel initialBestand={120} />);
-    await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
-    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
-  });
-
-  // Simulations-Zeitraffer (Task 32): "Jahr simulieren" rendert jetzt eine
-  // inszenierte Sequenz (ZeitrafferErgebnis) statt drei bloßer Textzeilen.
-  // Unter reduced-motion (Stub oben) ist die Sequenz sofort im Endzustand —
-  // deterministisch, ohne fake timers.
-  describe('Zeitraffer-Sequenz', () => {
-    const zeitrafferResponse = {
-      nummer: 7,
-      fondsErtrag: 5,
-      kapitalErtrag: 200,
-      verteiltGesamt: 100,
-      verteilung: [
-        { slug: 'klein', name: 'Kleine Kita', anteil: 10 },
-        { slug: 'gross', name: 'Große Kita', anteil: 90 },
-      ],
-      neuerFondsBestand: 15,
-      meilensteine: [{ slug: 'gross', name: 'Große Kita', labels: ['Bronze erreicht'] }],
+    // Fünf Konten + Summenzeile — pro Zeile gezielt geprüft (within), damit
+    // Zahlen nicht versehentlich als Teilstring einer Nachbarzeile matchen
+    // (z. B. Poolwert enthält die Summe aller Einzelkonten).
+    const rows = [...container.querySelectorAll('tr')];
+    const zeileMit = (label: string) => {
+      const row = rows.find((r) => r.textContent?.includes(label));
+      if (!row) throw new Error(`Keine Zeile mit "${label}" gefunden`);
+      return within(row);
     };
 
-    it('zeigt sofort den vollständigen Endzustand als gestaffelten Container, mit hervorgehobenem größtem Empfänger', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => zeitrafferResponse }));
-      const user = userEvent.setup();
-      const { container } = render(<SolidaritaetsfondsPanel initialBestand={0} />);
-      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
-
-      // Staged-Container existiert, beide Einträge und die Abschluss-Summe
-      // sind sofort da (kein Warten auf gestaffelte Timer nötig).
-      expect(await screen.findByTestId('zeitraffer-ergebnis')).toBeInTheDocument();
-      expect(screen.getByText(/Kleine Kita: 10,00\s*€/)).toBeInTheDocument();
-      expect(screen.getByText(/Große Kita: 90,00\s*€/)).toBeInTheDocument();
-      expect(screen.getByText(/Verteilt:\s*100,00\s*€/)).toBeInTheDocument();
-      expect(screen.getByText(/Neuer Fonds-Bestand:\s*15,00\s*€/)).toBeInTheDocument();
-
-      // Größter Empfänger (Große Kita, 90 €) ist optisch hervorgehoben.
-      const eintraege = container.querySelectorAll('.zeitraffer-eintrag');
-      expect(eintraege).toHaveLength(2);
-      const hervorgehoben = container.querySelector('.zeitraffer-eintrag--top');
-      expect(hervorgehoben).not.toBeNull();
-      expect(hervorgehoben?.textContent).toMatch(/Große Kita/);
-    });
-
-    it('zeigt Meilenstein-Tags an der passenden Einrichtung, wenn vorhanden', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => zeitrafferResponse }));
-      const user = userEvent.setup();
-      render(<SolidaritaetsfondsPanel initialBestand={0} />);
-      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
-      expect(await screen.findByText(/🎉 Bronze erreicht/)).toBeInTheDocument();
-    });
-
-    it('zeigt „Kein Bedarf", wenn die Simulation keine Verteilung liefert', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            nummer: 2,
-            fondsErtrag: 0,
-            kapitalErtrag: 0,
-            verteiltGesamt: 0,
-            verteilung: [],
-            neuerFondsBestand: 0,
-          }),
-        })
-      );
-      const user = userEvent.setup();
-      render(<SolidaritaetsfondsPanel initialBestand={0} />);
-      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
-      expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
-    });
+    expect(zeileMit('Einrichtungs-Depot').getByText(/5\.000,00\s*€/)).toBeInTheDocument();
+    expect(zeileMit('Verrechnungskonto').getByText(/123,40\s*€/)).toBeInTheDocument();
+    expect(zeileMit('Soli-Depot').getByText(/200,00\s*€/)).toBeInTheDocument();
+    expect(zeileMit('Soli-Verrechnungskonto').getByText(/67,80\s*€/)).toBeInTheDocument();
+    const managementZeile = zeileMit('Management-Konto');
+    expect(managementZeile.getByText(/1\.000,00\s*€/)).toBeInTheDocument();
+    expect(managementZeile.getByText(/Cap:\s*1\.200,00\s*€/)).toBeInTheDocument();
+    expect(zeileMit('Poolwert').getByText(/5\.123,40\s*€/)).toBeInTheDocument();
   });
 
-  describe('Ergebnis übersteht den Refresh-Remount (Next-14: erster router.refresh() nach Hydration remountet den Client-Subtree)', () => {
-    // Im echten Browser remountet Next 14 den Client-Subtree beim ERSTEN
-    // router.refresh() nach der Hydration — Verteilung/Zeitraffer-Ergebnis
-    // und der aktualisierte Bestand fielen auf ihre Initialwerte zurück und
-    // verschwänden ~20 ms nach dem Erscheinen. RTL kann den echten
-    // Router-Remount nicht auslösen (refresh ist hier ein No-op-Mock), aber
-    // sein Effekt ist identisch mit unmount() + neuem render(): alle
-    // useState-Initializer laufen erneut. Genau dagegen sichert der
-    // Modul-Scope-Snapshot ab (Muster aus SpendenRechner.tsx).
-    it('stellt Verteilung und Bestand nach Unmount + Remount wieder her', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({ verteiltGesamt: 120, verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 120 }] }),
-        })
-      );
-      const user = userEvent.setup();
-      const { unmount } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-      await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
-      expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
-
-      unmount();
-      const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-
-      // Verteilungsliste ist sofort wieder da, Bestand zeigt den Stand nach
-      // der Verteilung (0), nicht den veralteten initialBestand-Prop (120).
-      expect(screen.getByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
-      expect(container.querySelector('.hero-number')?.textContent).toMatch(/0,00\s*€/);
-    });
-
-    it('stellt das Zeitraffer-Ergebnis nach Unmount + Remount wieder her', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            nummer: 1,
-            fondsErtrag: 12.34,
-            kapitalErtrag: 88.1,
-            verteiltGesamt: 45.67,
-            verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 45.67 }],
-            neuerFondsBestand: 3.21,
-          }),
-        })
-      );
-      const user = userEvent.setup();
-      const { unmount } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
-      expect(await screen.findByTestId('zeitraffer-ergebnis')).toBeInTheDocument();
-
-      unmount();
-      const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-
-      expect(screen.getByTestId('zeitraffer-ergebnis')).toBeInTheDocument();
-      expect(screen.getByText(/Arme Kita: 45,67\s*€/)).toBeInTheDocument();
-      expect(container.querySelector('.hero-number')?.textContent).toMatch(/3,21\s*€/);
-    });
-
-    it('restauriert nichts mehr, wenn das Frische-Fenster abgelaufen ist (kein Wiederauftauchen bei späterer Rück-Navigation)', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({ verteiltGesamt: 120, verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 120 }] }),
-        })
-      );
-      const user = userEvent.setup();
-      const { unmount } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-      await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
-      expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
-
-      unmount();
-      const echtesJetzt = Date.now();
-      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(echtesJetzt + 60_000);
-      try {
-        const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
-        expect(screen.queryByText(/Arme Kita/)).not.toBeInTheDocument();
-        expect(container.querySelector('.hero-number')?.textContent).toMatch(/120,00\s*€/);
-      } finally {
-        dateNowSpy.mockRestore();
-      }
-    });
+  it('zeigt "davon durchlaufend", wenn offene Direktausschüttungen bestehen', () => {
+    render(<SolidaritaetsfondsPanel lage={{ ...lage, offeneDirektausschuettungenCent: 3_000 }} />);
+    expect(screen.getByText(/davon durchlaufend:\s*30,00\s*€/)).toBeInTheDocument();
   });
 
-  // Zeitraffer-Dauer-Invariante (Task 32): staggerInterval skaliert mit der
-  // Anzahl der Einrichtungen, um Gesamtdauer strukturell ≤ 4 Sekunden zu halten.
-  describe('staggerInterval — Dauer-Struktur', () => {
-    it('hält bei kleinen N (9) die volle 220ms bei, da 2400/9 > 220', () => {
-      expect(staggerInterval(9)).toBe(220);
-    });
+  it('zeigt "davon durchlaufend" nicht, wenn keine offenen Direktausschüttungen bestehen', () => {
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    expect(screen.queryByText(/davon durchlaufend/)).not.toBeInTheDocument();
+  });
 
-    it('schrumpft bei großen N (50) auf ~48ms: 2400/50=48', () => {
-      expect(staggerInterval(50)).toBe(48);
-    });
+  it('rendert weder den alten 6-%-Button noch den alten "Fonds verteilen"-Button', () => {
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    expect(screen.queryByRole('button', { name: /Jetzt verteilen/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /\+6 ?%/i })).not.toBeInTheDocument();
+  });
+});
 
-    it('gibt 0 zurück für N ≤ 0', () => {
-      expect(staggerInterval(0)).toBe(0);
-      expect(staggerInterval(-1)).toBe(0);
-    });
+describe('SolidaritaetsfondsPanel — Soli-Spende', () => {
+  it('postet betragCent aus dem Euro-Input', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ zuwendungId: 'z1', soliFondsCent: 27_500 }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
 
-    it('garantiert Gesamtdauer ≤ 4000ms für alle kritischen N', () => {
-      const testCases = [1, 9, 13, 50, 200];
-      for (const n of testCases) {
-        const stagger = staggerInterval(n);
-        const totalMs = PHASE1_MS + n * stagger + ABSCHLUSS_MS;
-        expect(totalMs).toBeLessThanOrEqual(4000);
-      }
-    });
+    const input = screen.getByLabelText(/Betrag für den Solidaritätsfonds/i);
+    await user.clear(input);
+    await user.type(input, '25');
+    await user.click(screen.getByRole('button', { name: /in den Fonds (ein)?spenden|einzahlen/i }));
 
-    it('nutzt das volle VERTEILUNG_BUDGET_MS korrekt: stagger ≤ floor(2400/N)', () => {
-      // Invariante: für alle N sollte stagger = min(220, floor(2400/n))
-      const testCases = [1, 2, 9, 13, 50, 100];
-      for (const n of testCases) {
-        const expected = Math.min(220, Math.floor(VERTEILUNG_BUDGET_MS / n));
-        expect(staggerInterval(n)).toBe(expected);
-      }
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/solidaritaetsfonds/spenden',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ betragCent: 2_500 }),
+      })
+    );
+  });
+
+  it('zeigt Fehlertext, wenn die Spende fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /in den Fonds (ein)?spenden|einzahlen/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+});
+
+describe('SolidaritaetsfondsPanel — Marktjahr', () => {
+  it('postet auf /api/simulation/marktjahr und zeigt die Kurs-Zeile', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        einrichtungsDepotDeltaCent: 35_000,
+        soliDepotDeltaCent: 1_400,
+        poolwertCent: 545_000,
+        soliFondsCent: 26_400,
+      }),
     });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    await user.click(screen.getByRole('button', { name: /Marktjahr simulieren/i }));
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/simulation/marktjahr', expect.objectContaining({ method: 'POST' }));
+    expect(
+      await screen.findByText(/Kurs: Einrichtungs-Depot \+350,00\s*€, Soli-Depot \+14,00\s*€ — kein einziger Topf wurde geschrieben\./)
+    ).toBeInTheDocument();
+  });
+
+  it('zeigt Fehlertext, wenn die Marktjahr-Simulation fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Marktjahr simulieren/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+});
+
+describe('SolidaritaetsfondsPanel — Jahresabschluss (Kaskade)', () => {
+  // Goldene §9-Zahlen (siehe lib/verrechnung/__tests__/kaskade.test.ts).
+  const goldeneKaskade = {
+    nummer: 1,
+    poolwertCent: 41_500,
+    soliFondsCent: 30_000,
+    direktspenden: [
+      { slug: 'a', name: 'Einrichtung A', cent: 140 },
+      { slug: 'b', name: 'Einrichtung B', cent: 150 },
+      { slug: 'c', name: 'Einrichtung C', cent: 125 },
+    ],
+    abgaben: [
+      { slug: 'a', name: 'Einrichtung A', cent: 34, pPromille: 240 },
+      { slug: 'b', name: 'Einrichtung B', cent: 150, pPromille: 1000 },
+    ],
+    managementBewegungCent: 302,
+    umverteilung: [
+      { slug: 'a', name: 'Einrichtung A', cent: 129 },
+      { slug: 'c', name: 'Einrichtung C', cent: 170 },
+    ],
+    keineVerteilungGrund: null,
+    endSoliFondsCent: 29_583,
+    endManagementKontoCent: 100_302,
+    meilensteine: [],
+  };
+
+  it('postet auf /api/simulation/jahresabschluss und rendert KaskadenErgebnis mit Brutto-Positionen', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => goldeneKaskade });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    await user.click(screen.getByRole('button', { name: /Jahresabschluss ausführen/i }));
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/simulation/jahresabschluss', expect.objectContaining({ method: 'POST' }));
+    expect(await screen.findByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+    expect(screen.getByText(/Einrichtung A zahlt 0,24\s*%/)).toBeInTheDocument();
+    expect(screen.getByText(/0,34\s*€/)).toBeInTheDocument();
+  });
+
+  it('zeigt Fehlertext, wenn der Jahresabschluss fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Jahresabschluss ausführen/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+
+  it('zeigt einen zweiten Kaskadenlauf mit eigener Instanz (Lauf Nr. 2)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => goldeneKaskade })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...goldeneKaskade, nummer: 2 }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    const button = screen.getByRole('button', { name: /Jahresabschluss ausführen/i });
+    await user.click(button);
+    expect(await screen.findByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+    await user.click(button);
+    expect(await screen.findByTestId('kaskaden-ergebnis')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('SolidaritaetsfondsPanel — Auszahlungslauf', () => {
+  it('zeigt "X € in Y Auszahlungen überwiesen", wenn etwas offen war', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ laufId: 'lauf1', summeCent: 4_500, anzahl: 3 }) })
+    );
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Auszahlungslauf/i }));
+    expect(await screen.findByText(/45,00\s*€ in 3 Auszahlungen überwiesen\./)).toBeInTheDocument();
+  });
+
+  it('zeigt "Nichts offen.", wenn der Auszahlungslauf leer ist', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ laufId: null, summeCent: 0, anzahl: 0 }) })
+    );
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Auszahlungslauf/i }));
+    expect(await screen.findByText(/Nichts offen\./)).toBeInTheDocument();
+  });
+
+  it('zeigt Fehlertext, wenn der Auszahlungslauf fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    await user.click(screen.getByRole('button', { name: /Auszahlungslauf/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
+  });
+});
+
+describe('SolidaritaetsfondsPanel — Management-Cap Inline-Edit', () => {
+  it('postet PUT /api/management/cap mit dem neuen Cap in Cent', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...lage, managementCapCent: 150_000 }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+
+    const input = screen.getByLabelText(/Management-Cap/i);
+    await user.clear(input);
+    await user.type(input, '1500');
+    await user.click(screen.getByRole('button', { name: /Cap speichern/i }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/management/cap',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ capCent: 150_000 }),
+      })
+    );
+  });
+
+  it('zeigt Fehlertext, wenn das Speichern des Caps fehlschlägt', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    const user = userEvent.setup();
+    render(<SolidaritaetsfondsPanel lage={lage} />);
+    const input = screen.getByLabelText(/Management-Cap/i);
+    await user.clear(input);
+    await user.type(input, '1500');
+    await user.click(screen.getByRole('button', { name: /Cap speichern/i }));
+    expect(await screen.findByText(/Aktion fehlgeschlagen/i)).toBeInTheDocument();
   });
 });

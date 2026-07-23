@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { letzteSpenden } from '@/lib/server/einrichtungenService';
+import { buchungsTicker } from '@/lib/server/uebersichtService';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json(await letzteSpenden());
+  return NextResponse.json(await buchungsTicker());
 }

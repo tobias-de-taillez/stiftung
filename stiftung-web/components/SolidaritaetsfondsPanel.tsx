@@ -4,137 +4,111 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from './Card';
 import { StatusChip } from './StatusChip';
-import { formatEuro } from '@/lib/calc/format';
-import { ZeitrafferErgebnis, type ZeitrafferErgebnisProps } from './ZeitrafferErgebnis';
+import { KaskadenErgebnis } from './KaskadenErgebnis';
+import { formatEuroFromCent } from '@/lib/calc/format';
+import type { KontenLage } from '@/lib/server/kontenService';
+import type { KaskadenlaufErgebnis } from '@/lib/server/kaskadeService';
 
-type Verteilung = { slug: string; name: string; anteil: number }[];
+// Kein lokaler Kontenlage-Spiegel: die Kontenübersicht rendert direkt aus dem
+// `lage`-Prop (Muster TraegerPanel, Task 16). `router.refresh()` nach jeder
+// Aktion holt einen frischen `lage`-Prop vom Server — das genügt, weil hier
+// (anders als beim alten Fondsbestand) keine Aktion ihre komplette neue
+// Kontenlage in der eigenen Response mitliefert (Jahresabschluss/Auszahlungs-
+// lauf liefern nur Teilausschnitte). Nur die transienten Aktions-Ergebnisse
+// (Kurs-Zeile, Kaskaden-Ergebnis, Auszahlungslauf-Zeile) sind lokaler State.
+type MarktjahrErgebnis = { einrichtungsDepotDeltaCent: number; soliDepotDeltaCent: number };
+type AuszahlungErgebnis = { summeCent: number; anzahl: number };
 
-// --- Remount-Restore für Verteilungs-/Zeitraffer-Ergebnis --------------------
-// Next 14 remountet den Client-Subtree einer Seite beim ERSTEN router.refresh()
-// nach der Hydration (danach nicht mehr) — sämtliche useState-Stände fielen auf
-// ihre Initialwerte zurück: Verteilungsliste und Zeitraffer-Sequenz verschwänden
-// ~20 ms nach dem Erscheinen, der Bestand spränge auf den veralteten
-// initialBestand-Prop zurück. RTL-Tests sehen das nie, weil sie refresh als
-// No-op mocken. Deshalb wird das Ergebnis VOR dem refresh() außerhalb des
-// React-Baums (Modul-Scope) gesichert und beim Remount über die
-// useState-Initializer wiederhergestellt — dasselbe Muster wie der
-// BuchungsSnapshot in SpendenRechner.tsx.
-// ponytail: Frische-Fenster statt echter Remount-Erkennung — React/Next bieten
-// keinen Weg, den Refresh-Remount von einer normalen Rück-Navigation zu
-// unterscheiden. Innerhalb des Fensters erscheint das Ergebnis bei Rückkehr
-// auf die Seite erneut (harmlos, gleiche Daten); danach nicht mehr. Obsolet,
-// sobald eine Next-Version beim refresh nicht mehr remountet.
-interface ErgebnisSnapshot {
-  gebuchtUm: number;
-  bestand: number;
-  verteilung: Verteilung | null;
-  zeitraffer: (ZeitrafferErgebnisProps & { nummer: number }) | null;
+async function postJson(url: string, body?: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<Response> {
+  return fetch(url, {
+    method,
+    ...(body !== undefined
+      ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : {}),
+  });
 }
 
-const RESTORE_FENSTER_MS = 10_000;
-
-let letztesErgebnis: ErgebnisSnapshot | null = null;
-
-// Nur für Tests: Der Modul-Scope-Snapshot überlebt Testgrenzen und muss dort
-// pro Test zurückgesetzt werden.
-export function verwerfeLetztesErgebnis() {
-  letztesErgebnis = null;
-}
-
-function restauriereErgebnis(): ErgebnisSnapshot | null {
-  if (letztesErgebnis && Date.now() - letztesErgebnis.gebuchtUm < RESTORE_FENSTER_MS) {
-    return letztesErgebnis;
-  }
-  return null;
-}
-
-export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: number }) {
+export function SolidaritaetsfondsPanel({ lage }: { lage: KontenLage }) {
   const router = useRouter();
-  // Lazy-Initializer: läuft genau einmal pro Mount — beim Refresh-Remount
-  // liefert er den Snapshot des gerade gebuchten Ergebnisses zurück (s. o.).
-  // Kein Slug-Guard nötig: das Panel existiert genau einmal (Fonds-Seite).
-  const [restauriert] = useState(() => restauriereErgebnis());
-  const [bestand, setBestand] = useState(restauriert?.bestand ?? initialBestand);
-  const [betrag, setBetrag] = useState(50);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [verteilung, setVerteilung] = useState<Verteilung | null>(restauriert?.verteilung ?? null);
-  // Ergebnis der Jahres-Simulation (Task 32): trägt den kompletten
-  // /api/simulation/jahr-Response an ZeitrafferErgebnis weiter, das daraus die
-  // inszenierte Sequenz baut. `nummer` dient dort als React-`key`, damit ein
-  // erneutes Simulieren eine frische Instanz (und damit eine frische Sequenz)
-  // statt eines Timer-Neuaufsatzes bekommt.
-  const [zeitraffer, setZeitraffer] = useState<(ZeitrafferErgebnisProps & { nummer: number }) | null>(
-    restauriert?.zeitraffer ?? null
-  );
+
+  const [spendeBetrag, setSpendeBetrag] = useState(50);
+  const [capBetrag, setCapBetrag] = useState(lage.managementCapCent / 100);
+
+  const [marktjahrErgebnis, setMarktjahrErgebnis] = useState<MarktjahrErgebnis | null>(null);
+  const [kaskadeErgebnis, setKaskadeErgebnis] = useState<KaskadenlaufErgebnis | null>(null);
+  const [auszahlungErgebnis, setAuszahlungErgebnis] = useState<AuszahlungErgebnis | null>(null);
 
   async function handleSpenden() {
     setStatus('loading');
     try {
-      const res = await fetch('/api/solidaritaetsfonds/spenden', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ betrag }),
-      });
+      const betragCent = Math.round(spendeBetrag * 100);
+      const res = await postJson('/api/solidaritaetsfonds/spenden', { betragCent });
       if (!res.ok) throw new Error('failed');
-      const json = await res.json();
-      setBestand(json.bestand);
+      await res.json();
       setStatus('idle');
-    } catch {
-      setStatus('error');
-    }
-  }
-
-  async function handleVerteilen() {
-    setStatus('loading');
-    try {
-      const res = await fetch('/api/solidaritaetsfonds/verteilen', { method: 'POST' });
-      if (!res.ok) throw new Error('failed');
-      const json = await res.json();
-      const neuerBestand = Math.round((bestand - json.verteiltGesamt) * 100) / 100;
-      setVerteilung(json.verteilung);
-      setBestand(neuerBestand);
-      setStatus('idle');
-      // Snapshot VOR dem refresh() sichern: Der erste refresh() nach der
-      // Hydration remountet diesen Subtree (s. Kommentar am Modul-Kopf) —
-      // der Remount restauriert das Ergebnis aus genau diesem Snapshot.
-      letztesErgebnis = { gebuchtUm: Date.now(), bestand: neuerBestand, verteilung: json.verteilung, zeitraffer };
-      // Die Verteilung ändert das Kapital betroffener Einrichtungen in der DB
-      // (z. B. deren Finanztopf-Karte auf der Detailseite) — router.refresh()
-      // holt server-gerenderte Sektionen dieser Route neu.
       router.refresh();
     } catch {
       setStatus('error');
     }
   }
 
-  async function handleSimulieren() {
+  async function handleMarktjahr() {
     setStatus('loading');
     try {
-      const res = await fetch('/api/simulation/jahr', { method: 'POST' });
+      const res = await postJson('/api/simulation/marktjahr');
       if (!res.ok) throw new Error('failed');
       const json = await res.json();
-      const neuerZeitraffer = {
-        nummer: json.nummer,
-        fondsErtrag: json.fondsErtrag,
-        kapitalErtrag: json.kapitalErtrag,
-        verteiltGesamt: json.verteiltGesamt,
-        verteilung: json.verteilung,
-        neuerFondsBestand: json.neuerFondsBestand,
-        meilensteine: json.meilensteine,
-      };
-      setZeitraffer(neuerZeitraffer);
-      setBestand(json.neuerFondsBestand);
+      setMarktjahrErgebnis({
+        einrichtungsDepotDeltaCent: json.einrichtungsDepotDeltaCent,
+        soliDepotDeltaCent: json.soliDepotDeltaCent,
+      });
       setStatus('idle');
-      // Snapshot VOR dem refresh() — s. handleVerteilen oben.
-      letztesErgebnis = {
-        gebuchtUm: Date.now(),
-        bestand: json.neuerFondsBestand,
-        verteilung,
-        zeitraffer: neuerZeitraffer,
-      };
-      // Die Jahres-Simulation verändert Kapitalstände und ggf. Meilensteine
-      // von Einrichtungen in der DB — router.refresh() aus demselben Grund
-      // wie in handleVerteilen oben.
+      // Der Kurs wird nur gestellt, nicht gebucht — kein Topf ändert sich
+      // (Spec §2). router.refresh() holt trotzdem den frischen Poolwert/
+      // Fondswert für die Kontenübersicht.
+      router.refresh();
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  async function handleJahresabschluss() {
+    setStatus('loading');
+    try {
+      const res = await postJson('/api/simulation/jahresabschluss');
+      if (!res.ok) throw new Error('failed');
+      const json = await res.json();
+      setKaskadeErgebnis(json);
+      setStatus('idle');
+      router.refresh();
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  async function handleAuszahlungslauf() {
+    setStatus('loading');
+    try {
+      const res = await postJson('/api/auszahlungen/lauf');
+      if (!res.ok) throw new Error('failed');
+      const json = await res.json();
+      setAuszahlungErgebnis({ summeCent: json.summeCent, anzahl: json.anzahl });
+      setStatus('idle');
+      router.refresh();
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  async function handleCapSpeichern() {
+    setStatus('loading');
+    try {
+      const capCent = Math.round(capBetrag * 100);
+      const res = await postJson('/api/management/cap', { capCent }, 'PUT');
+      if (!res.ok) throw new Error('failed');
+      await res.json();
+      setStatus('idle');
       router.refresh();
     } catch {
       setStatus('error');
@@ -144,18 +118,73 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
   return (
     <Card>
       <StatusChip tone="forecast">Spielgeld — echte Buchung, kein echtes Geld</StatusChip>
-      <p className="eyebrow" style={{ marginTop: '0.75rem' }}>Aktueller Bestand</p>
-      <p className="hero-number" style={{ fontSize: '2.4rem' }}>{formatEuro(bestand)}</p>
 
-      <label style={{ display: 'block', marginTop: '1rem' }}>
+      <p className="eyebrow" style={{ marginTop: '0.75rem' }}>Solidaritätsfonds</p>
+      <p className="hero-number" style={{ fontSize: '2.4rem' }}>{formatEuroFromCent(lage.soliFondsCent)}</p>
+
+      <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <caption className="eyebrow" style={{ textAlign: 'left', marginBottom: '0.5rem' }}>
+            Kontenübersicht
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" style={{ textAlign: 'left', padding: '0.4rem' }}>Konto</th>
+              <th scope="col" style={{ textAlign: 'right', padding: '0.4rem' }}>Stand</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ padding: '0.4rem' }}>Einrichtungs-Depot</td>
+              <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuroFromCent(lage.etfMarktwertCent)}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.4rem' }}>
+                Verrechnungskonto
+                {lage.offeneDirektausschuettungenCent > 0 && (
+                  <span className="muted" style={{ display: 'block', fontSize: '0.8rem' }}>
+                    davon durchlaufend: {formatEuroFromCent(lage.offeneDirektausschuettungenCent)}
+                  </span>
+                )}
+              </td>
+              <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuroFromCent(lage.verrechnungskontoCent)}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.4rem' }}>Soli-Depot</td>
+              <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuroFromCent(lage.soliDepotCent)}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.4rem' }}>Soli-Verrechnungskonto</td>
+              <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuroFromCent(lage.soliVerrechnungskontoCent)}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '0.4rem' }}>
+                Management-Konto
+                <span className="muted" style={{ display: 'block', fontSize: '0.8rem' }}>
+                  Cap: {formatEuroFromCent(lage.managementCapCent)}
+                </span>
+              </td>
+              <td style={{ textAlign: 'right', padding: '0.4rem' }}>{formatEuroFromCent(lage.managementKontoCent)}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style={{ padding: '0.4rem', fontWeight: 700 }}>Poolwert</td>
+              <td style={{ textAlign: 'right', padding: '0.4rem', fontWeight: 700 }}>{formatEuroFromCent(lage.poolwertCent)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <label style={{ display: 'block', marginTop: '1.5rem' }}>
         <span className="eyebrow" style={{ display: 'block' }}>Allgemein spenden</span>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             aria-label="Betrag für den Solidaritätsfonds"
             type="number"
             min={5}
-            value={betrag}
-            onChange={(e) => setBetrag(Number(e.target.value) || 0)}
+            value={spendeBetrag}
+            onChange={(e) => setSpendeBetrag(Number(e.target.value) || 0)}
             style={{ width: '6rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
           />
           <button type="button" className="pill pill-primary" onClick={handleSpenden} disabled={status === 'loading'}>
@@ -164,43 +193,51 @@ export function SolidaritaetsfondsPanel({ initialBestand }: { initialBestand: nu
         </div>
       </label>
 
-      <button
-        type="button"
-        className="pill pill-secondary"
-        style={{ marginTop: '1rem' }}
-        onClick={handleVerteilen}
-        disabled={status === 'loading' || bestand <= 0}
-      >
-        Jetzt verteilen
-      </button>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+        <button type="button" className="pill pill-secondary" onClick={handleMarktjahr} disabled={status === 'loading'}>
+          Marktjahr simulieren (+7 % Kurs)
+        </button>
+        <button type="button" className="pill pill-secondary" onClick={handleJahresabschluss} disabled={status === 'loading'}>
+          Jahresabschluss ausführen (Kaskade)
+        </button>
+        <button type="button" className="pill pill-secondary" onClick={handleAuszahlungslauf} disabled={status === 'loading'}>
+          Auszahlungslauf (Monat)
+        </button>
+      </div>
 
-      <button
-        type="button"
-        className="pill pill-secondary"
-        style={{ marginTop: '1rem', marginLeft: '0.75rem' }}
-        onClick={handleSimulieren}
-        disabled={status === 'loading'}
-      >
-        Jahr simulieren (+6 %)
-      </button>
+      <label style={{ display: 'block', marginTop: '1.5rem' }}>
+        <span className="eyebrow" style={{ display: 'block' }}>Management-Cap ändern</span>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            aria-label="Management-Cap in Euro"
+            type="number"
+            min={0}
+            value={capBetrag}
+            onChange={(e) => setCapBetrag(Number(e.target.value) || 0)}
+            style={{ width: '7rem', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--cream)' }}
+          />
+          <button type="button" className="pill pill-secondary" onClick={handleCapSpeichern} disabled={status === 'loading'}>
+            Cap speichern
+          </button>
+        </div>
+      </label>
 
       {status === 'error' && <p className="negative">Aktion fehlgeschlagen. Bitte erneut versuchen.</p>}
 
-      {zeitraffer && <ZeitrafferErgebnis key={zeitraffer.nummer} {...zeitraffer} />}
+      {marktjahrErgebnis && (
+        <p style={{ marginTop: '1rem' }}>
+          {`Kurs: Einrichtungs-Depot +${formatEuroFromCent(marktjahrErgebnis.einrichtungsDepotDeltaCent)}, Soli-Depot +${formatEuroFromCent(marktjahrErgebnis.soliDepotDeltaCent)} — kein einziger Topf wurde geschrieben.`}
+        </p>
+      )}
 
-      {verteilung && (
-        <div style={{ marginTop: '1rem' }}>
-          <p className="eyebrow">Letzte Verteilung</p>
-          {verteilung.length === 0 ? (
-            <p className="muted">Kein Bedarf — alle Einrichtungen haben ihr Pro-Kind-Ziel erreicht.</p>
-          ) : (
-            <ul>
-              {verteilung.map((v) => (
-                <li key={v.slug}>{v.name}: {formatEuro(v.anteil)}</li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {kaskadeErgebnis && <KaskadenErgebnis key={kaskadeErgebnis.nummer} {...kaskadeErgebnis} />}
+
+      {auszahlungErgebnis && (
+        <p style={{ marginTop: '1rem' }}>
+          {auszahlungErgebnis.anzahl > 0
+            ? `${formatEuroFromCent(auszahlungErgebnis.summeCent)} in ${auszahlungErgebnis.anzahl} Auszahlungen überwiesen.`
+            : 'Nichts offen.'}
+        </p>
       )}
     </Card>
   );

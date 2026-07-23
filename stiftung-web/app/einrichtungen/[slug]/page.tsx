@@ -3,10 +3,12 @@ import QRCode from 'qrcode';
 import { Card } from '@/components/Card';
 import { ProgressBar } from '@/components/ProgressBar';
 import { SpendenRechner } from '@/components/SpendenRechner';
+import { TraegerPanel } from '@/components/TraegerPanel';
 import { WachstumsIllustration } from '@/components/WachstumsIllustration';
-import { formatEuro } from '@/lib/calc/format';
+import { formatEuroFromCent } from '@/lib/calc/format';
 import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
-import { einrichtungsTransparenz } from '@/lib/server/einrichtungenService';
+import { einrichtungDetail } from '@/lib/server/uebersichtService';
+import { aktuelleWidmung } from '@/lib/server/spendenService';
 
 // Spendenhistorie und Finanztopf-Stand müssen live sein (Task 34) — ohne
 // force-dynamic würde Next diese [slug]-Route trotz dynamischer Params unter
@@ -14,26 +16,35 @@ import { einrichtungsTransparenz } from '@/lib/server/einrichtungenService';
 // fetch()) gelesen wird. Gleiches Muster wie app/statistik/page.tsx.
 export const dynamic = 'force-dynamic';
 
+// Buchungs-Label je typ (Spec: Buchungsjournal, siehe lib/server/kontenService.ts
+// buche()-Aufrufer für die vollständige Liste möglicher typ-Werte).
+const BUCHUNGS_LABELS: Record<string, string> = {
+  spende: 'Spende',
+  erstbefuellung: 'Erstbefüllung aus dem Solidaritätsfonds',
+  kaskade_umverteilung: 'aus dem Solidaritätsfonds',
+  kaskade_direktspende: 'Direktförderung ausgezahlt',
+  kaskade_abgabe: 'Solidaritätsabgabe',
+  direktausschuettung_eingang: 'Direktspende (wird ausgezahlt)',
+  auszahlungslauf: 'Auszahlung',
+  schliessung: 'Schließung',
+};
+
 export default async function EinrichtungDetailPage({ params }: { params: { slug: string } }) {
-  const transparenz = await einrichtungsTransparenz(params.slug);
-  if (!transparenz) {
+  const [detail, widmung] = await Promise.all([einrichtungDetail(params.slug), aktuelleWidmung()]);
+  if (!detail) {
     notFound();
   }
-  const { einrichtung, foerderungProKind, anzahlUnterstuetzungen, spendenHistorie } = transparenz!;
+  const einrichtung = detail!;
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
   const url = `${baseUrl}/einrichtungen/${einrichtung.slug}`;
   const qrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 180 });
 
-  // Prisma liefert 'typ' als generischen String. impactBeispiel akzeptiert
-  // jede Zeichenkette und fallback auf tagespflege bei unbekannten Typen.
-  const rechnerEinrichtung = { ...einrichtung };
-
-  // Einrichtungs-Level (Task 30, Brainstorming Abs. 4): Bronze→Diamant als
-  // Zwischenziele des Finanztopfs selbst, definiert als Anteil des
-  // Zielkapitals — nicht zu verwechseln mit dem Spender-Badge im
-  // Spendenrechner (absoluter Spendenbetrag, siehe lib/data/levels.ts).
-  const level = einrichtungsLevel(einrichtung.aktuellesKapital, einrichtung.zielKapital);
+  // Einrichtungs-Level (Task 30): Bronze→Diamant als Zwischenziele des
+  // Finanztopfs selbst, definiert als Anteil des Zielkapitals. einrichtungsLevel
+  // ist reine Verhältnisrechnung — Cent rein, Cent raus: fehlenderBetrag muss
+  // deshalb über formatEuroFromCent formatiert werden, nicht formatEuro.
+  const level = einrichtungsLevel(einrichtung.topfwertCent, einrichtung.zielKapitalCent);
   const levelMarker = EINRICHTUNGS_LEVELS.map((stufe) => ({
     position: stufe.anteil * 100,
     label: stufe.name,
@@ -49,29 +60,23 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
 
       <Card>
         <p className="eyebrow">Finanztopf</p>
-        {/*
-          Wachstums-Illustration (Task 36): dieselbe Kennzahl (aktuellesKapital
-          / zielKapital), die auch levelMarker/ProgressBar unten antreibt —
-          die Pflanze zeigt dasselbe Einrichtungs-Level nur zusätzlich
-          bedeutungstragend statt rein textuell/über den Balken.
-        */}
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <WachstumsIllustration
-            aktuellesKapital={einrichtung.aktuellesKapital}
-            zielKapital={einrichtung.zielKapital}
+            aktuellesKapital={einrichtung.topfwertCent}
+            zielKapital={einrichtung.zielKapitalCent}
             groesse="gross"
           />
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
             <ProgressBar
-              value={einrichtung.aktuellesKapital}
-              max={einrichtung.zielKapital}
-              label={`${formatEuro(einrichtung.aktuellesKapital)} von ${formatEuro(einrichtung.zielKapital)} (Ziel: finanzielle Unabhängigkeit)`}
+              value={einrichtung.topfwertCent}
+              max={einrichtung.zielKapitalCent}
+              label={`${formatEuroFromCent(einrichtung.topfwertCent)} von ${formatEuroFromCent(einrichtung.zielKapitalCent)} (Ziel: finanzielle Unabhängigkeit)`}
               marker={levelMarker}
             />
             {level.current && <p className="muted">Aktuelles Level: {level.current.name}</p>}
             {level.next && (
               <p className="muted">
-                Nächstes Ziel: {level.next.name} — noch {formatEuro(level.fehlenderBetrag)}
+                Nächstes Ziel: {level.next.name} — noch {formatEuroFromCent(level.fehlenderBetrag)}
               </p>
             )}
           </div>
@@ -80,23 +85,30 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
 
       <Card>
         <p className="eyebrow">Spendenrechner</p>
-        <SpendenRechner einrichtung={rechnerEinrichtung} />
+        <SpendenRechner einrichtung={einrichtung} widmungWortlaut={widmung.wortlaut} />
       </Card>
+
+      <TraegerPanel
+        slug={einrichtung.slug}
+        traegerId={einrichtung.traegerId}
+        traegerName={einrichtung.traegerName}
+        rechtsformLabel={einrichtung.rechtsformLabel}
+        verifiziert={einrichtung.verifiziert}
+        auszahlungspfad={einrichtung.auszahlungspfad}
+        topfwertCent={einrichtung.topfwertCent}
+      />
 
       <Card>
         <p className="eyebrow">Transparenz</p>
-        <p>{`Förderung pro Kind: ${formatEuro(foerderungProKind)}`}</p>
-        <p className="muted">{`Unterstützungen insgesamt: ${anzahlUnterstuetzungen}`}</p>
-        {spendenHistorie.length === 0 ? (
+        <p>{`Förderung pro Kind: ${formatEuroFromCent(einrichtung.foerderungProKindCent)}`}</p>
+        <p className="muted">{`Unterstützungen insgesamt: ${einrichtung.anzahlUnterstuetzungen}`}</p>
+        {einrichtung.buchungen.length === 0 ? (
           <p className="muted">Noch keine Spenden für diese Einrichtung.</p>
         ) : (
           <ul style={{ display: 'grid', gap: '0.5rem', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
-            {spendenHistorie.map((eintrag) => (
-              <li key={eintrag.id}>
-                {eintrag.createdAt.toLocaleDateString('de-DE')} · {formatEuro(eintrag.betrag)}
-                {eintrag.quelle === 'solidaritaet' && (
-                  <span className="positive"> · aus dem Solidaritätsfonds</span>
-                )}
+            {einrichtung.buchungen.map((b) => (
+              <li key={b.id}>
+                {`${b.createdAt.toLocaleDateString('de-DE')} · ${BUCHUNGS_LABELS[b.typ] ?? b.typ} · ${formatEuroFromCent(b.betragCent)}`}
               </li>
             ))}
           </ul>

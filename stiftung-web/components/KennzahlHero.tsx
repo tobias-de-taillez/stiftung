@@ -1,7 +1,7 @@
 'use client';
 
 import { useCountUp } from '@/lib/hooks/useCountUp';
-import { formatEuro } from '@/lib/calc/format';
+import { formatEuroFromCent } from '@/lib/calc/format';
 
 /**
  * Kennzahl-Hero (Task 35): große, animiert hochzählende Gesamtkapital-Zahl
@@ -12,6 +12,10 @@ import { formatEuro } from '@/lib/calc/format';
  * ist und Hooks (useCountUp) nur in Client-Components laufen dürfen.
  * useCountUp selbst respektiert `prefers-reduced-motion` (Sofort-Sprung auf
  * den Zielwert, siehe lib/hooks/useCountUp.ts).
+ *
+ * `gesamtKapital` ist seit Task 19 ein Cent-Wert (Poolwert aus
+ * poolStatistik()) — die Formatierung läuft entsprechend über
+ * formatEuroFromCent statt formatEuro.
  */
 export function KennzahlHero({ gesamtKapital }: { gesamtKapital: number }) {
   const angezeigt = useCountUp(gesamtKapital, 1200);
@@ -19,7 +23,7 @@ export function KennzahlHero({ gesamtKapital }: { gesamtKapital: number }) {
     <div data-testid="kennzahl-hero">
       <p className="eyebrow">Bildungskapital heute</p>
       <p className="hero-number" style={{ fontSize: 'clamp(1.8rem, 4vw, 3.4rem)', margin: 0 }}>
-        {formatEuro(angezeigt)}
+        {formatEuroFromCent(angezeigt)}
       </p>
     </div>
   );

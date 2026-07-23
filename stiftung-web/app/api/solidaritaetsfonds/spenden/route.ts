@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
-import { spendeAnFonds } from '@/lib/server/solidaritaetsfondsService';
-import { UngueltigerBetragError } from '@/lib/server/einrichtungenService';
+import { spendeAnSoli, UngueltigeZuwendungError } from '@/lib/server/spendenService';
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const betrag = Number(body.betrag);
+  const betragCent = Number(body.betragCent);
+  if (!Number.isSafeInteger(betragCent) || betragCent <= 0) {
+    return NextResponse.json({ error: 'invalid_betrag' }, { status: 400 });
+  }
   try {
-    const bestand = await spendeAnFonds(betrag);
-    return NextResponse.json({ bestand }, { status: 201 });
+    const ergebnis = await spendeAnSoli(BigInt(betragCent));
+    return NextResponse.json(ergebnis, { status: 201 });
   } catch (err) {
-    if (err instanceof UngueltigerBetragError) {
+    if (err instanceof UngueltigeZuwendungError) {
       return NextResponse.json({ error: 'invalid_betrag' }, { status: 400 });
     }
     throw err;

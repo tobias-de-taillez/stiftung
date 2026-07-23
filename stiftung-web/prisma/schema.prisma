@@ -9,43 +9,104 @@ datasource db {
 }
 
 model Einrichtung {
-  id               String   @id @default(cuid())
-  slug             String   @unique
-  name             String
-  typ              String
-  ort              String
-  kinderAnzahl     Int
-  aktuellesKapital Float
-  zielKapital      Float
-  spenden          Spende[]
+  id              String      @id @default(cuid())
+  slug            String      @unique
+  name            String
+  typ             String
+  ort             String
+  kinderAnzahl    Int
+  anteile         BigInt      @default(0) // Pool-Anteile, 10^-8-Einheiten (Spec §2)
+  zielKapitalCent BigInt      @default(0) // Produktebene (Level/Fortschritt), kein Buchungswert
+  traegerId       String? // Services erzwingen einen Träger; nullable nur für Legacy-Zeilen
+  traeger         Traeger?    @relation(fields: [traegerId], references: [id], onDelete: SetNull)
+  geschlossenAm   DateTime? // Spec §3.3: geschlossen == raus aus Ranking und Listen
+  zuwendungen     Zuwendung[]
+  buchungen       Buchung[]
 }
 
-model Spende {
-  id            String      @id @default(cuid())
-  einrichtungId String
-  einrichtung   Einrichtung @relation(fields: [einrichtungId], references: [id])
-  betrag        Float
-  frequenz      String
-  quelle        String      @default("direkt")
-  createdAt     DateTime    @default(now())
+// Rechtsträger (Spec §1, §3.5): Träger 1 ── n Einrichtung. Am Träger hängen
+// Rechtsform, Gemeinnützigkeitsstatus und Verifikation (Spielgeld-KYC).
+model Traeger {
+  id            String        @id @default(cuid())
+  name          String
+  rechtsform    String        @default("unbekannt") // Rechtsform-Union aus lib/verrechnung/traeger.ts
+  gemeinnuetzig Boolean       @default(false)
+  verifiziert   Boolean       @default(false) // "Zugang abgeholt" (Spec §3.4)
+  einrichtungen Einrichtung[]
 }
 
-model Solidaritaetsfonds {
-  id      String @id @default("main")
-  bestand Float  @default(0)
+// Kontenmodell (Spec §1) als Singleton-Zeile id 'main'. Einrichtungen haben
+// keine eigenen Konten — ihre Zuordnung sind die anteile-Zeilen.
+// ponytail: Grundstock (Phase 3, Spec §10) kommt später als weitere Spalten +
+// Buchungstyp — keine Datenmigration nötig, deshalb reicht die eine Zeile.
+model Kontenstand {
+  id                        String @id @default("main")
+  etfMarktwertCent          BigInt @default(0) // Einrichtungs-Depot (ETF)
+  verrechnungskontoCent     BigInt @default(0) // Cash-Puffer, enthält auch durchlaufende Posten
+  soliDepotCent             BigInt @default(0)
+  soliVerrechnungskontoCent BigInt @default(0)
+  managementKontoCent       BigInt @default(0)
+  managementCapCent         BigInt @default(0) // von der Mitgliederversammlung beschlossen (Spec §8)
 }
 
-model FondsSpende {
-  id        String   @id @default(cuid())
-  betrag    Float
-  createdAt DateTime @default(now())
+// Versionierter Widmungs-Wortlaut (Spec §3.1 "Dokumentation der Widmung"):
+// ändert sich die Formulierung, bleibt die alte Fassung den alten Spenden zugeordnet.
+model WidmungsText {
+  version   Int      @id
+  wortlaut  String
+  gueltigAb DateTime @default(now())
 }
 
-model Jahresabschluss {
-  id             String   @id @default(cuid())
-  nummer         Int
-  fondsErtrag    Float
-  kapitalErtrag  Float
-  verteiltGesamt Float
-  createdAt      DateTime @default(now())
+// Zuwendung von außen (ersetzt die frühere Alt-Welt Spende + FondsSpende).
+// einrichtungId null == Empfänger Solidaritätsfonds (Spec §3.1: zwei Merkmale,
+// Empfänger × Verwendungsart; Soli immer Verwendungsart A).
+model Zuwendung {
+  id                String           @id @default(cuid())
+  einrichtungId     String?
+  einrichtung       Einrichtung?     @relation(fields: [einrichtungId], references: [id], onDelete: SetNull)
+  betragCent        BigInt
+  verwendungsart    String // 'vermoegen' (A, § 62 Abs. 3 Nr. 2 AO) | 'direkt' (B, § 55 Abs. 1 Nr. 5 AO)
+  widmungVersion    Int? // Pflicht bei 'vermoegen' (Service erzwingt; B hat keine Vermögenswidmung)
+  widmungZeitpunkt  DateTime? // muss zum Zahlungszeitpunkt vorliegen
+  ausgezahltAm      DateTime? // nur 'direkt': null == offener durchlaufender Posten
+  auszahlungsLaufId String?
+  auszahlungsLauf   AuszahlungsLauf? @relation(fields: [auszahlungsLaufId], references: [id])
+  createdAt         DateTime         @default(now())
+}
+
+// Monatlicher Sammellauf für Direktausschüttungen (Spec §3.1 "Auszahlungsrhythmus").
+model AuszahlungsLauf {
+  id          String      @id @default(cuid())
+  summeCent   BigInt
+  anzahl      Int
+  createdAt   DateTime    @default(now())
+  zuwendungen Zuwendung[]
+}
+
+// Buchungsjournal (Spec §7): Gebucht wird brutto, pro Einrichtung einzeln.
+// Jede Kapitalbewegung im Kontenmodell erzeugt genau eine Zeile.
+model Buchung {
+  id             String        @id @default(cuid())
+  typ            String // Union in lib/server/buchungstypen.ts
+  einrichtungId  String?
+  einrichtung    Einrichtung?  @relation(fields: [einrichtungId], references: [id], onDelete: SetNull)
+  betragCent     BigInt // immer >= 0; die Richtung steckt im typ
+  kaskadenlaufId String?
+  kaskadenlauf   Kaskadenlauf? @relation(fields: [kaskadenlaufId], references: [id])
+  createdAt      DateTime      @default(now())
+}
+
+// Protokoll eines Jahres-Kaskadenlaufs (Spec §4). Ersetzt die frühere Alt-Welt Jahresabschluss.
+model Kaskadenlauf {
+  id                     String    @id @default(cuid())
+  nummer                 Int
+  poolwertCent           BigInt // Snapshot Schritt 1
+  soliFondsCent          BigInt // Snapshot Schritt 1
+  direktspendenCent      BigInt
+  abgabenCent            BigInt
+  managementBewegungCent BigInt // signiert
+  umverteilungCent       BigInt
+  keineVerteilungGrund   String? // 'zuWenigEinrichtungen' | 'alleGleich' (Erfolgsfall!, Spec §6)
+  buchungen              Buchung[]
+  createdAt              DateTime  @default(now())
 }

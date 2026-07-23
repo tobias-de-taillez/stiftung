@@ -2,6 +2,10 @@ export function formatEuro(value: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
 }
 
+export function formatEuroFromCent(cent: number): string {
+  return formatEuro(cent / 100);
+}
+
 export function formatMonate(monate: number): string {
   const n = Math.round(monate);
   return `${n} ${n === 1 ? 'Monat' : 'Monate'}`;
