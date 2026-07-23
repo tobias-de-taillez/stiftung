@@ -34,7 +34,10 @@ export async function soliFondsCentAktuell(tx: Tx): Promise<bigint> {
 
 /** Σ Anteile aller offenen Einrichtungen (geschlossene haben anteile == 0). */
 export async function anteileGesamt(tx: Tx): Promise<bigint> {
-  const summe = await tx.einrichtung.aggregate({ _sum: { anteile: true } });
+  const summe = await tx.einrichtung.aggregate({
+    _sum: { anteile: true },
+    where: { geschlossenAm: null },
+  });
   return summe._sum.anteile ?? 0n;
 }
 

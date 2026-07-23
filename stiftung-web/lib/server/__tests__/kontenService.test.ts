@@ -8,6 +8,7 @@ import {
   soliFondsCentAktuell,
   kontenLage,
   setManagementCap,
+  anteileGesamt,
 } from '../kontenService';
 
 beforeEach(resetDb);
@@ -61,5 +62,14 @@ describe('kontenService', () => {
     await setManagementCap(120_000n);
     const lage = await kontenLage();
     expect(lage.managementCapCent).toBe(120_000);
+  });
+
+  it('anteileGesamt zählt nur offene Einrichtungen (geschlossene mit Rest-Anteilen fallen raus)', async () => {
+    await seedKontenstand();
+    await createTestEinrichtung({ topfCent: 1_000n });
+    await createTestEinrichtung({ topfCent: 500n, geschlossenAm: new Date() });
+    await prisma.$transaction(async (tx) => {
+      expect(await anteileGesamt(tx)).toBe(1_000n * 1_000_000n);
+    });
   });
 });
