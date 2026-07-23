@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../prismaClient';
 import { resetDb, seedKontenstand, seedWidmung, createTestTraeger, createTestEinrichtung } from './testDb';
-import { fuehreKaskadeAus } from '../kaskadeService';
+import { fuehreKaskadeAus, kaskadenlaeufe } from '../kaskadeService';
 import { ANTEILS_EINHEITEN_PRO_CENT } from '@/lib/verrechnung/konstanten';
 
 beforeEach(async () => {
@@ -55,8 +55,18 @@ describe('fuehreKaskadeAus — goldenes Spec-§9-Beispiel über die echte DB', (
     expect(k.soliVerrechnungskontoCent).toBe(0n);
     expect(k.managementKontoCent).toBe(100_302n);
 
-    // Brutto-Journal (Spec §7): Abgabe und Förderung als getrennte Positionen.
+    // Persistierte Kaskadenlauf-Zeile trägt die Summen des Protokolls.
     const lauf = await prisma.kaskadenlauf.findFirstOrThrow({ include: { buchungen: true } });
+    expect(lauf.nummer).toBe(1);
+    expect(lauf.poolwertCent).toBe(41_500n);
+    expect(lauf.soliFondsCent).toBe(30_000n);
+    expect(lauf.direktspendenCent).toBe(415n); // 140 + 150 + 125
+    expect(lauf.abgabenCent).toBe(184n); // 34 + 150
+    expect(lauf.managementBewegungCent).toBe(302n);
+    expect(lauf.umverteilungCent).toBe(299n); // 129 + 170
+    expect(lauf.keineVerteilungGrund).toBeNull();
+
+    // Brutto-Journal (Spec §7): Abgabe und Förderung als getrennte Positionen.
     const typen = lauf.buchungen.map((x) => x.typ);
     expect(typen.filter((x) => x === 'kaskade_direktspende')).toHaveLength(3);
     expect(typen.filter((x) => x === 'kaskade_abgabe')).toHaveLength(2);
@@ -99,6 +109,23 @@ describe('fuehreKaskadeAus — goldenes Spec-§9-Beispiel über die echte DB', (
 
     const zweiter = await fuehreKaskadeAus();
     expect(zweiter.nummer).toBe(2);
+  });
+
+  it('kaskadenlaeufe() liefert die Historie neueste zuerst, serialisiert für die Statistik-Seite', async () => {
+    await seedKontenstand({ etfMarktwertCent: 20_000n, soliDepotCent: 10_000n });
+    const t = await createTestTraeger();
+    await createTestEinrichtung({ slug: 'x', topfCent: 10_000n, kinderAnzahl: 5, traegerId: t.id });
+    await createTestEinrichtung({ slug: 'y', topfCent: 10_000n, kinderAnzahl: 10, traegerId: t.id });
+
+    expect(await kaskadenlaeufe()).toEqual([]);
+    await fuehreKaskadeAus();
+    await fuehreKaskadeAus();
+
+    const laeufe = await kaskadenlaeufe();
+    expect(laeufe.map((l) => l.nummer)).toEqual([2, 1]);
+    // serialisiert: BigInt-Spalten kommen als number an (JSON-tauglich).
+    expect(typeof laeufe[0].poolwertCent).toBe('number');
+    expect(typeof laeufe[0].umverteilungCent).toBe('number');
   });
 
   it('geschlossene Einrichtungen nehmen nicht teil', async () => {
