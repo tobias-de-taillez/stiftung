@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SolidaritaetsfondsPanel } from '../SolidaritaetsfondsPanel';
+import { SolidaritaetsfondsPanel, verwerfeLetztesErgebnis } from '../SolidaritaetsfondsPanel';
 import { staggerInterval, PHASE1_MS, ABSCHLUSS_MS, VERTEILUNG_BUDGET_MS } from '../ZeitrafferErgebnis';
 
 // Verteilen/Simulieren rufen nach Erfolg router.refresh() (F3), damit
@@ -34,6 +34,10 @@ function stubReducedMotion() {
 
 beforeEach(() => {
   stubReducedMotion();
+  // Der Remount-Restore-Snapshot lebt im Modul-Scope von
+  // SolidaritaetsfondsPanel.tsx und überlebt damit Testgrenzen — ohne Reset
+  // würde ein Ergebnis aus einem früheren Test in späteren Tests restauriert.
+  verwerfeLetztesErgebnis();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -191,6 +195,91 @@ describe('SolidaritaetsfondsPanel', () => {
       render(<SolidaritaetsfondsPanel initialBestand={0} />);
       await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
       expect(await screen.findByText(/Kein Bedarf/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Ergebnis übersteht den Refresh-Remount (Next-14: erster router.refresh() nach Hydration remountet den Client-Subtree)', () => {
+    // Im echten Browser remountet Next 14 den Client-Subtree beim ERSTEN
+    // router.refresh() nach der Hydration — Verteilung/Zeitraffer-Ergebnis
+    // und der aktualisierte Bestand fielen auf ihre Initialwerte zurück und
+    // verschwänden ~20 ms nach dem Erscheinen. RTL kann den echten
+    // Router-Remount nicht auslösen (refresh ist hier ein No-op-Mock), aber
+    // sein Effekt ist identisch mit unmount() + neuem render(): alle
+    // useState-Initializer laufen erneut. Genau dagegen sichert der
+    // Modul-Scope-Snapshot ab (Muster aus SpendenRechner.tsx).
+    it('stellt Verteilung und Bestand nach Unmount + Remount wieder her', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ verteiltGesamt: 120, verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 120 }] }),
+        })
+      );
+      const user = userEvent.setup();
+      const { unmount } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
+      expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
+
+      unmount();
+      const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+
+      // Verteilungsliste ist sofort wieder da, Bestand zeigt den Stand nach
+      // der Verteilung (0), nicht den veralteten initialBestand-Prop (120).
+      expect(screen.getByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
+      expect(container.querySelector('.hero-number')?.textContent).toMatch(/0,00\s*€/);
+    });
+
+    it('stellt das Zeitraffer-Ergebnis nach Unmount + Remount wieder her', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            nummer: 1,
+            fondsErtrag: 12.34,
+            kapitalErtrag: 88.1,
+            verteiltGesamt: 45.67,
+            verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 45.67 }],
+            neuerFondsBestand: 3.21,
+          }),
+        })
+      );
+      const user = userEvent.setup();
+      const { unmount } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+      await user.click(screen.getByRole('button', { name: /Jahr simulieren/i }));
+      expect(await screen.findByTestId('zeitraffer-ergebnis')).toBeInTheDocument();
+
+      unmount();
+      const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+
+      expect(screen.getByTestId('zeitraffer-ergebnis')).toBeInTheDocument();
+      expect(screen.getByText(/Arme Kita: 45,67\s*€/)).toBeInTheDocument();
+      expect(container.querySelector('.hero-number')?.textContent).toMatch(/3,21\s*€/);
+    });
+
+    it('restauriert nichts mehr, wenn das Frische-Fenster abgelaufen ist (kein Wiederauftauchen bei späterer Rück-Navigation)', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ verteiltGesamt: 120, verteilung: [{ slug: 'arm', name: 'Arme Kita', anteil: 120 }] }),
+        })
+      );
+      const user = userEvent.setup();
+      const { unmount } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt verteilen/i }));
+      expect(await screen.findByText(/Arme Kita: 120,00 €/)).toBeInTheDocument();
+
+      unmount();
+      const echtesJetzt = Date.now();
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(echtesJetzt + 60_000);
+      try {
+        const { container } = render(<SolidaritaetsfondsPanel initialBestand={120} />);
+        expect(screen.queryByText(/Arme Kita/)).not.toBeInTheDocument();
+        expect(container.querySelector('.hero-number')?.textContent).toMatch(/120,00\s*€/);
+      } finally {
+        dateNowSpy.mockRestore();
+      }
     });
   });
 
