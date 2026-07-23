@@ -21,6 +21,19 @@ describe('Schema v2', () => {
     expect(k.etfMarktwertCent).toBe(41_085n);
   });
 
+  it('Kaskadenlauf.nummer ist unique — doppelte Laufnummer wird von der DB abgewiesen', async () => {
+    const daten = {
+      poolwertCent: 0n,
+      soliFondsCent: 0n,
+      direktspendenCent: 0n,
+      abgabenCent: 0n,
+      managementBewegungCent: 0n,
+      umverteilungCent: 0n,
+    };
+    await prisma.kaskadenlauf.create({ data: { nummer: 1, ...daten } });
+    await expect(prisma.kaskadenlauf.create({ data: { nummer: 1, ...daten } })).rejects.toThrow();
+  });
+
   it('Einrichtung löschen setzt Buchungs-Referenz auf null (Welten kollidieren nicht)', async () => {
     const e = await createTestEinrichtung();
     await prisma.buchung.create({ data: { typ: 'spende', einrichtungId: e.id, betragCent: 100n } });

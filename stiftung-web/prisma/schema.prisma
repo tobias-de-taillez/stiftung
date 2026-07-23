@@ -99,7 +99,7 @@ model Buchung {
 // Protokoll eines Jahres-Kaskadenlaufs (Spec §4). Ersetzt die frühere Alt-Welt Jahresabschluss.
 model Kaskadenlauf {
   id                     String    @id @default(cuid())
-  nummer                 Int
+  nummer                 Int       @unique // fortlaufend; count()+1 im Service, die DB erzwingt Kollisionfreiheit
   poolwertCent           BigInt // Snapshot Schritt 1
   soliFondsCent          BigInt // Snapshot Schritt 1
   direktspendenCent      BigInt
