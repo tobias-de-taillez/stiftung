@@ -22,10 +22,18 @@ export async function schliesseEinrichtung(slug: string): Promise<{ uebertragCen
       data: { anteile: 0n, geschlossenAm: new Date() },
     });
     const k = await ensureKontenstand(tx);
+    // Physisch liegt ein Teil des Poolwerts als Cash auf dem Verrechnungskonto
+    // (Sweep-Ziel ~1 %). Die Entnahme nimmt zuerst das Depot, der Rest kommt
+    // aus dem investierbaren Cash — sonst würde das ETF-Konto negativ, sobald
+    // der Topf größer ist als der Depot-Bestand (z. B. letzte Einrichtung).
+    // Rest <= investierbares VK gilt strukturell: uebertrag <= Poolwert.
+    const ausEtf = uebertrag < k.etfMarktwertCent ? uebertrag : k.etfMarktwertCent;
+    const ausVerrechnungskonto = uebertrag - ausEtf;
     await tx.kontenstand.update({
       where: { id: 'main' },
       data: {
-        etfMarktwertCent: k.etfMarktwertCent - uebertrag,
+        etfMarktwertCent: k.etfMarktwertCent - ausEtf,
+        verrechnungskontoCent: k.verrechnungskontoCent - ausVerrechnungskonto,
         soliDepotCent: k.soliDepotCent + uebertrag,
       },
     });
