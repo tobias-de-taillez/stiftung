@@ -29,21 +29,80 @@ interface EinrichtungFuerRechner {
 
 const BETRAG_PRESETS = [25, 50, 100, 250];
 
+// --- Remount-Restore für die Spendenbestätigung ------------------------------
+// Next 14 remountet den Client-Subtree einer Seite beim ERSTEN router.refresh()
+// nach der Hydration (danach nicht mehr) — im echten Browser reproduziert:
+// Die Bestätigung erschien und wurde ~20 ms später durch den Remount wieder
+// entfernt, weil sämtliche useState-Stände auf ihre Initialwerte zurückfielen.
+// RTL-Tests sehen das nie, weil sie refresh als No-op mocken. Deshalb wird der
+// Stand der letzten Buchung VOR dem refresh() außerhalb des React-Baums
+// (Modul-Scope) gesichert und beim Remount über die useState-Initializer
+// wiederhergestellt.
+// ponytail: Slug-Guard + Frische-Fenster statt echter Remount-Erkennung —
+// React/Next bieten keinen Weg, den Refresh-Remount von einer normalen
+// Rück-Navigation zu unterscheiden. Innerhalb des Fensters erscheint die
+// Bestätigung bei Rückkehr auf dieselbe Seite erneut (harmlos, gleiche Daten);
+// danach nicht mehr. Obsolet, sobald eine Next-Version beim refresh nicht mehr
+// remountet.
+interface BuchungsSnapshot {
+  slug: string;
+  gebuchtUm: number;
+  kapitalStand: number;
+  altesKapital: number;
+  neuesKapital: number;
+  spendeId: string;
+  meilensteine: string[];
+  gebuchterBetrag: number;
+  gebuchteFrequenz: 'einmalig' | 'jaehrlich';
+}
+
+const RESTORE_FENSTER_MS = 10_000;
+
+let letzteBuchung: BuchungsSnapshot | null = null;
+
+// Nur für Tests: Der Modul-Scope-Snapshot überlebt Testgrenzen und muss dort
+// pro Test zurückgesetzt werden.
+export function verwerfeLetzteBuchung() {
+  letzteBuchung = null;
+}
+
+function restauriereBuchung(slug: string): BuchungsSnapshot | null {
+  if (
+    letzteBuchung &&
+    letzteBuchung.slug === slug &&
+    Date.now() - letzteBuchung.gebuchtUm < RESTORE_FENSTER_MS
+  ) {
+    return letzteBuchung;
+  }
+  return null;
+}
+
 export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRechner }) {
   const router = useRouter();
-  const [betrag, setBetrag] = useState(50);
-  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  // Lazy-Initializer: läuft genau einmal pro Mount — beim Refresh-Remount
+  // liefert er den Snapshot der gerade gebuchten Spende zurück (s. o.).
+  const [restauriert] = useState(() => restauriereBuchung(einrichtung.slug));
+  const [betrag, setBetrag] = useState(restauriert?.gebuchterBetrag ?? 50);
+  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>(
+    restauriert?.gebuchteFrequenz ?? 'einmalig'
+  );
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
+    restauriert ? 'done' : 'idle'
+  );
   // kapitalStand ist der jeweils aktuelle Live-Stand (startet beim Seitenlade-
   // Snapshot, wandert nach jeder erfolgreichen Spende weiter). altesKapital
   // hält den Vorher-Stand der zuletzt gebuchten Spende separat fest, damit er
   // nicht durch das Update von kapitalStand überschrieben wird, bevor die
   // Bestätigung ihn anzeigt — sonst zeigt eine zweite Spende wieder den
   // Seitenlade-Stand statt des tatsächlichen Vorher-Werts.
-  const [kapitalStand, setKapitalStand] = useState(einrichtung.aktuellesKapital);
-  const [altesKapital, setAltesKapital] = useState(einrichtung.aktuellesKapital);
-  const [neuesKapital, setNeuesKapital] = useState<number | null>(null);
-  const [spendeId, setSpendeId] = useState<string | null>(null);
+  const [kapitalStand, setKapitalStand] = useState(
+    restauriert?.kapitalStand ?? einrichtung.aktuellesKapital
+  );
+  const [altesKapital, setAltesKapital] = useState(
+    restauriert?.altesKapital ?? einrichtung.aktuellesKapital
+  );
+  const [neuesKapital, setNeuesKapital] = useState<number | null>(restauriert?.neuesKapital ?? null);
+  const [spendeId, setSpendeId] = useState<string | null>(restauriert?.spendeId ?? null);
   // gebuchterBetrag/gebuchteFrequenz sind ein Snapshot der zuletzt GEBUCHTEN
   // Spende — analog zu altesKapital oben. Ohne diesen Snapshot würde die
   // Bestätigung/Quittung/Share-Text die LIVE betrag/frequenz-States anzeigen,
@@ -52,12 +111,14 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
   // (Betrag, der nie tatsächlich gebucht wurde). Default-Werte spiegeln die
   // Initialwerte von betrag/frequenz — sie werden nie angezeigt, bevor eine
   // echte Buchung sie überschreibt (Anzeige ist an status === 'done' geknüpft).
-  const [gebuchterBetrag, setGebuchterBetrag] = useState(50);
-  const [gebuchteFrequenz, setGebuchteFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
+  const [gebuchterBetrag, setGebuchterBetrag] = useState(restauriert?.gebuchterBetrag ?? 50);
+  const [gebuchteFrequenz, setGebuchteFrequenz] = useState<'einmalig' | 'jaehrlich'>(
+    restauriert?.gebuchteFrequenz ?? 'einmalig'
+  );
   // Meilenstein-Erkennung (Task 31): kommt direkt aus der POST-Response
   // (erreichteMeilensteine, serverseitig via lib/data/levels.ts berechnet).
   // Default [] deckt Mocks ab, die dieses Feld (noch) nicht liefern.
-  const [meilensteine, setMeilensteine] = useState<string[]>([]);
+  const [meilensteine, setMeilensteine] = useState<string[]>(restauriert?.meilensteine ?? []);
 
   async function handleSpenden() {
     setStatus('loading');
@@ -77,11 +138,24 @@ export function SpendenRechner({ einrichtung }: { einrichtung: EinrichtungFuerRe
       setGebuchterBetrag(betrag);
       setGebuchteFrequenz(frequenz);
       setStatus('done');
+      // Snapshot VOR dem refresh() sichern: Der erste refresh() nach der
+      // Hydration remountet diesen Subtree (s. Kommentar am Modul-Kopf) —
+      // der Remount restauriert die Bestätigung aus genau diesem Snapshot.
+      letzteBuchung = {
+        slug: einrichtung.slug,
+        gebuchtUm: Date.now(),
+        kapitalStand: updated.aktuellesKapital,
+        altesKapital: kapitalStand,
+        neuesKapital: updated.aktuellesKapital,
+        spendeId: spende.id,
+        meilensteine: erreichteMeilensteine ?? [],
+        gebuchterBetrag: betrag,
+        gebuchteFrequenz: frequenz,
+      };
       // Server-Sektionen auf derselben Seite (Finanztopf-Karte, Transparenz-
       // Historie in app/einrichtungen/[slug]/page.tsx) lesen direkt aus der DB
-      // und werden sonst erst nach einem manuellen Reload aktuell — router.
-      // refresh() holt die Server Components neu, ohne den Client-State
-      // (Bestätigung/Konfetti) dieser Komponente zu verlieren.
+      // und werden sonst erst nach einem manuellen Reload aktuell — refresh()
+      // holt die Server Components neu.
       router.refresh();
     } catch {
       setStatus('error');

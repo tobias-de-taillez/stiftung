@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SpendenRechner } from '../SpendenRechner';
+import { SpendenRechner, verwerfeLetzteBuchung } from '../SpendenRechner';
 import { computeYearsToGoal, futureValueWithAnnualDonation, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
 // SpendenRechner ruft nach erfolgreicher Buchung router.refresh() (F3), damit
@@ -35,6 +35,13 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+// Der Remount-Restore-Snapshot lebt im Modul-Scope von SpendenRechner.tsx und
+// überlebt damit Testgrenzen — ohne Reset würde eine Buchung aus einem
+// früheren Test in späteren Tests eine Bestätigung restaurieren.
+beforeEach(() => {
+  verwerfeLetzteBuchung();
 });
 
 const einrichtung = {
@@ -470,6 +477,103 @@ describe('SpendenRechner', () => {
       expect(screen.queryByTestId('betrag-hinweis')).not.toBeInTheDocument();
       expect(screen.getByTestId('zukunftswert-hero')).toBeInTheDocument();
       expect(screen.getByTestId('impact-beispiel')).toBeInTheDocument();
+    });
+  });
+
+  describe('Bestätigung übersteht den Refresh-Remount (Next-14: erster router.refresh() nach Hydration remountet den Client-Subtree)', () => {
+    // Im echten Browser remountet Next 14 den Client-Subtree beim ERSTEN
+    // router.refresh() nach der Hydration — der frische useState-Stand wäre
+    // weg und die gerade gezeigte Bestätigung verschwände nach ~20 ms.
+    // RTL kann den echten Router-Remount nicht auslösen (refresh ist hier ein
+    // No-op-Mock), aber sein Effekt ist identisch mit unmount() + neuem
+    // render(): alle useState-Initializer laufen erneut. Genau dagegen sichert
+    // der Modul-Scope-Snapshot ab, den diese Tests prüfen.
+    function mockErfolgreicheBuchung() {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            einrichtung: { ...einrichtung, aktuellesKapital: 3050 },
+            spende: { id: 'spende-123', betrag: 50, frequenz: 'einmalig' },
+            erreichteMeilensteine: ['Silber erreicht'],
+          }),
+        })
+      );
+    }
+
+    it('stellt die Bestätigung nach Unmount + Remount mit denselben Buchungsdaten wieder her', async () => {
+      mockErfolgreicheBuchung();
+      const user = userEvent.setup();
+      const { unmount } = render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+      expect(await screen.findByTestId('konfetti-danke')).toBeInTheDocument();
+
+      unmount();
+      render(<SpendenRechner einrichtung={einrichtung} />);
+
+      // Bestätigung ist sofort wieder da — inklusive Vorher→Nachher-Werten,
+      // Beleg-Nr.-Quelle (spendeId) und Meilenstein-Banner.
+      expect(screen.getByTestId('konfetti-danke')).toHaveTextContent('50,00 €');
+      expect(screen.getByText(/3\.000,00 € → 3\.050,00 €/)).toBeInTheDocument();
+      expect(screen.getByTestId('meilenstein-banner')).toHaveTextContent('Silber erreicht');
+    });
+
+    it('nutzt nach dem Remount den restaurierten Kapitalstand als Vorher-Wert einer Folgespende', async () => {
+      mockErfolgreicheBuchung();
+      const user = userEvent.setup();
+      const { unmount } = render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+      expect(await screen.findByTestId('konfetti-danke')).toBeInTheDocument();
+      unmount();
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            einrichtung: { ...einrichtung, aktuellesKapital: 3150 },
+            spende: { id: 'spende-2', betrag: 100, frequenz: 'einmalig' },
+          }),
+        })
+      );
+      render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+
+      // Vorher-Wert der Folgespende ist der restaurierte Stand nach der ersten
+      // Spende (3.050), nicht der Seitenlade-Snapshot (3.000).
+      expect(await screen.findByText(/3\.050,00 € → 3\.150,00 €/)).toBeInTheDocument();
+    });
+
+    it('restauriert nichts für eine andere Einrichtung (Slug-Guard)', async () => {
+      mockErfolgreicheBuchung();
+      const user = userEvent.setup();
+      const { unmount } = render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+      expect(await screen.findByTestId('konfetti-danke')).toBeInTheDocument();
+
+      unmount();
+      render(<SpendenRechner einrichtung={{ ...einrichtung, slug: 'andere-einrichtung' }} />);
+
+      expect(screen.queryByTestId('konfetti-danke')).not.toBeInTheDocument();
+    });
+
+    it('restauriert nichts mehr, wenn das Frische-Fenster abgelaufen ist (kein Wiederauftauchen bei späterer Rück-Navigation)', async () => {
+      mockErfolgreicheBuchung();
+      const user = userEvent.setup();
+      const { unmount } = render(<SpendenRechner einrichtung={einrichtung} />);
+      await user.click(screen.getByRole('button', { name: /Jetzt spenden/i }));
+      expect(await screen.findByTestId('konfetti-danke')).toBeInTheDocument();
+
+      unmount();
+      const echtesJetzt = Date.now();
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(echtesJetzt + 60_000);
+      try {
+        render(<SpendenRechner einrichtung={einrichtung} />);
+        expect(screen.queryByTestId('konfetti-danke')).not.toBeInTheDocument();
+      } finally {
+        dateNowSpy.mockRestore();
+      }
     });
   });
 });
