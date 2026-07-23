@@ -1,10 +1,10 @@
-import { listEinrichtungen } from '@/lib/server/einrichtungenService';
+import { listEinrichtungenMitTopf } from '@/lib/server/uebersichtService';
 import { EinrichtungenFilter } from '@/components/EinrichtungenFilter';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EinrichtungenPage() {
-  const einrichtungen = await listEinrichtungen();
+  const einrichtungen = await listEinrichtungenMitTopf();
 
   return (
     <div style={{ padding: '2rem 0', display: 'grid', gap: '1.5rem' }}>
