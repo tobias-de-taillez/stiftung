@@ -8,7 +8,7 @@ import { WachstumsIllustration } from '@/components/WachstumsIllustration';
 import { formatEuroFromCent } from '@/lib/calc/format';
 import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
 import { einrichtungDetail } from '@/lib/server/uebersichtService';
-import { aktuelleWidmung } from '@/lib/server/spendenService';
+import { aktuelleWidmung, UngueltigeZuwendungError } from '@/lib/server/spendenService';
 
 // Spendenhistorie und Finanztopf-Stand müssen live sein (Task 34) — ohne
 // force-dynamic würde Next diese [slug]-Route trotz dynamischer Params unter
@@ -30,7 +30,15 @@ const BUCHUNGS_LABELS: Record<string, string> = {
 };
 
 export default async function EinrichtungDetailPage({ params }: { params: { slug: string } }) {
-  const [detail, widmung] = await Promise.all([einrichtungDetail(params.slug), aktuelleWidmung()]);
+  // Leere WidmungsText-Tabelle ist ein degradierter Zustand (Spendenrechner
+  // aus), kein Seitenfehler — nur echte DB-Fehler laufen weiter in error.tsx.
+  const [detail, widmung] = await Promise.all([
+    einrichtungDetail(params.slug),
+    aktuelleWidmung().catch((err) => {
+      if (err instanceof UngueltigeZuwendungError) return null;
+      throw err;
+    }),
+  ]);
   if (!detail) {
     notFound();
   }
@@ -85,7 +93,13 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
 
       <Card>
         <p className="eyebrow">Spendenrechner</p>
-        <SpendenRechner einrichtung={einrichtung} widmungWortlaut={widmung.wortlaut} />
+        {widmung ? (
+          <SpendenRechner einrichtung={einrichtung} widmungWortlaut={widmung.wortlaut} />
+        ) : (
+          <p className="muted">
+            Spenden ist im Moment nicht möglich — es ist kein Widmungstext hinterlegt. Schau später noch einmal vorbei.
+          </p>
+        )}
       </Card>
 
       <TraegerPanel
