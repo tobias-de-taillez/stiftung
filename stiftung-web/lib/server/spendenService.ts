@@ -7,6 +7,7 @@ import { kaufeAnteile, topfwertCent } from '@/lib/verrechnung/anteile';
 import { sweepBetrag } from '@/lib/verrechnung/sweep';
 import { serialisiere } from '@/lib/verrechnung/serialisierung';
 import { erreichteMeilensteine } from '@/lib/data/levels';
+import { erstbefuellungCent } from '@/lib/verrechnung/erstbefuellung';
 
 export class UngueltigeZuwendungError extends Error {}
 export class EinrichtungGeschlossenError extends Error {}
@@ -22,10 +23,35 @@ export interface SpendeErgebnis {
   widmung: { version: number; wortlaut: string } | null;
 }
 
+export interface NeueEinrichtungDaten {
+  name: string;
+  typ: string;
+  ort: string;
+  kinderAnzahl: number;
+}
+
+export interface AnlageErgebnis extends SpendeErgebnis {
+  dedup: boolean;
+  erstbefuellungCent: number;
+  slug: string;
+}
+
 function pruefeBetrag(betragCent: bigint): void {
   if (betragCent <= 0n) {
     throw new UngueltigeZuwendungError('Betrag muss größer als 0 sein');
   }
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalisiert(text: string): string {
+  return text.trim().toLowerCase();
 }
 
 async function ladeOffeneEinrichtung(tx: Tx, slug: string) {
@@ -202,5 +228,123 @@ export async function aktuelleWidmung(): Promise<{ version: number; wortlaut: st
   return prisma.$transaction(async (tx) => {
     const w = await ladeAktuelleWidmung(tx);
     return { version: w.version, wortlaut: w.wortlaut };
+  });
+}
+
+// ponytail: Zielkapital ist Produktebene (nicht Spec) — 2.000 €/Kind als
+// Platzhalter, bis das Produkt eine echte Zielgrößen-Logik beschließt.
+const ZIEL_CENT_PRO_KIND = 200_000n;
+
+/** Stufe-1-Anzeige (Spec §3.0): live aus dem Soli-Stand, bucht nichts. */
+export async function erstbefuellungsZusageCent(spendeCent: bigint): Promise<number> {
+  return prisma.$transaction(async (tx) => {
+    const soli = await soliFondsCentAktuell(tx);
+    return Number(erstbefuellungCent(spendeCent, soli));
+  });
+}
+
+export async function spendeMitAnlage(
+  daten: NeueEinrichtungDaten,
+  betragCent: bigint
+): Promise<AnlageErgebnis> {
+  pruefeBetrag(betragCent);
+  if (!daten.name.trim() || !daten.ort.trim() || daten.kinderAnzahl < 1) {
+    throw new UngueltigeZuwendungError('Name, Ort und Kinderzahl (>= 1) sind Pflicht');
+  }
+
+  // Dedup (Spec §3.0 "Doppelanlage"): Name + Ort, case-insensitiv. SQLite-
+  // Prisma kennt kein mode:'insensitive' — bei lokaler Datenmenge ist der
+  // JS-Vergleich über alle Zeilen die ehrliche, einfache Lösung. Geschlossene
+  // Einrichtungen zählen nicht: ihr Name darf neu besetzt werden (§3.3).
+  const alle = await prisma.einrichtung.findMany({
+    where: { geschlossenAm: null },
+    select: { slug: true, name: true, ort: true },
+  });
+  const treffer = alle.find(
+    (e) => normalisiert(e.name) === normalisiert(daten.name) && normalisiert(e.ort) === normalisiert(daten.ort)
+  );
+  if (treffer) {
+    const ergebnis = await spendeVermoegen(treffer.slug, betragCent);
+    return { ...ergebnis, dedup: true, erstbefuellungCent: 0, slug: treffer.slug };
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const widmung = await ladeAktuelleWidmung(tx);
+
+    // Slug mit Kollisions-Suffix
+    const basis = slugify(`${daten.typ}-${daten.name}-${daten.ort}`);
+    let slug = basis;
+    for (let i = 2; await tx.einrichtung.findUnique({ where: { slug } }); i++) {
+      slug = `${basis}-${i}`;
+    }
+
+    const traeger = await tx.traeger.create({
+      data: { name: `Träger ${daten.name}`, rechtsform: 'unbekannt', gemeinnuetzig: false, verifiziert: false },
+    });
+
+    // Erstbefüllung: verbindlich ist der Stand ZUM BUCHUNGSZEITPUNKT (Spec §3.0).
+    const soli = await soliFondsCentAktuell(tx);
+    const e = erstbefuellungCent(betragCent, soli);
+
+    // Anteilskauf für Spende + Erstbefüllung gemeinsam, zum Poolwert vor Zufluss.
+    const pool = await poolwertCent(tx);
+    const gesamt = await anteileGesamt(tx);
+    const neueAnteile = kaufeAnteile(betragCent + e, pool, gesamt);
+
+    const einrichtung = await tx.einrichtung.create({
+      data: {
+        slug,
+        name: daten.name.trim(),
+        typ: daten.typ,
+        ort: daten.ort.trim(),
+        kinderAnzahl: daten.kinderAnzahl,
+        aktuellesKapital: Number(betragCent + e) / 100, // Legacy, fällt in Task 20
+        zielKapital: Number(BigInt(daten.kinderAnzahl) * ZIEL_CENT_PRO_KIND) / 100, // Legacy
+        anteile: neueAnteile,
+        zielKapitalCent: BigInt(daten.kinderAnzahl) * ZIEL_CENT_PRO_KIND,
+        traegerId: traeger.id,
+      },
+    });
+
+    const k = await ensureKontenstand(tx);
+    // Soli-Entnahme: zuerst aus dem Soli-Verrechnungskonto, Rest aus dem Depot.
+    const ausVK = e < k.soliVerrechnungskontoCent ? e : k.soliVerrechnungskontoCent;
+    const ausDepot = e - ausVK;
+    await tx.kontenstand.update({
+      where: { id: 'main' },
+      data: {
+        soliVerrechnungskontoCent: k.soliVerrechnungskontoCent - ausVK,
+        soliDepotCent: k.soliDepotCent - ausDepot,
+        verrechnungskontoCent: k.verrechnungskontoCent + betragCent + e,
+      },
+    });
+
+    const zuwendung = await tx.zuwendung.create({
+      data: {
+        einrichtungId: einrichtung.id,
+        betragCent,
+        verwendungsart: 'vermoegen', // Träger unverifiziert → B strukturell ausgeschlossen
+        widmungVersion: widmung.version,
+        widmungZeitpunkt: new Date(),
+      },
+    });
+    if (e > 0n) {
+      await buche(tx, { typ: 'erstbefuellung', betragCent: e, einrichtungId: einrichtung.id });
+    }
+    await buche(tx, { typ: 'spende', betragCent, einrichtungId: einrichtung.id });
+    await sweepEinrichtungsDepot(tx);
+
+    const topfNachher = topfwertCent(neueAnteile, pool + betragCent + e, gesamt + neueAnteile);
+    return serialisiere({
+      zuwendungId: zuwendung.id,
+      einrichtung: { slug, name: einrichtung.name, topfwertCent: topfNachher, zielKapitalCent: einrichtung.zielKapitalCent },
+      topfwertVorherCent: 0n,
+      topfwertNachherCent: topfNachher,
+      erreichteMeilensteine: erreichteMeilensteine(0, Number(topfNachher), Number(einrichtung.zielKapitalCent)),
+      widmung: { version: widmung.version, wortlaut: widmung.wortlaut },
+      dedup: false,
+      erstbefuellungCent: e,
+      slug,
+    });
   });
 }
