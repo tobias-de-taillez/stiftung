@@ -7,6 +7,7 @@ import { TraegerPanel } from '@/components/TraegerPanel';
 import { WachstumsIllustration } from '@/components/WachstumsIllustration';
 import { formatEuroFromCent } from '@/lib/calc/format';
 import { EINRICHTUNGS_LEVELS, einrichtungsLevel } from '@/lib/data/levels';
+import { buchungsLabel } from '@/lib/data/buchungsLabels';
 import { einrichtungDetail } from '@/lib/server/uebersichtService';
 import { aktuelleWidmung } from '@/lib/server/spendenService';
 
@@ -15,19 +16,6 @@ import { aktuelleWidmung } from '@/lib/server/spendenService';
 // dem Full Route Cache ablegen können, weil hier nur über Prisma (nicht
 // fetch()) gelesen wird. Gleiches Muster wie app/statistik/page.tsx.
 export const dynamic = 'force-dynamic';
-
-// Buchungs-Label je typ (Spec: Buchungsjournal, siehe lib/server/kontenService.ts
-// buche()-Aufrufer für die vollständige Liste möglicher typ-Werte).
-const BUCHUNGS_LABELS: Record<string, string> = {
-  spende: 'Spende',
-  erstbefuellung: 'Erstbefüllung aus dem Solidaritätsfonds',
-  kaskade_umverteilung: 'aus dem Solidaritätsfonds',
-  kaskade_direktspende: 'Direktförderung ausgezahlt',
-  kaskade_abgabe: 'Solidaritätsabgabe',
-  direktausschuettung_eingang: 'Direktspende (wird ausgezahlt)',
-  auszahlungslauf: 'Auszahlung',
-  schliessung: 'Schließung',
-};
 
 export default async function EinrichtungDetailPage({ params }: { params: { slug: string } }) {
   const [detail, widmung] = await Promise.all([einrichtungDetail(params.slug), aktuelleWidmung()]);
@@ -95,7 +83,7 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
         rechtsformLabel={einrichtung.rechtsformLabel}
         verifiziert={einrichtung.verifiziert}
         auszahlungspfad={einrichtung.auszahlungspfad}
-        topfwertCent={einrichtung.topfwertCent}
+        offenerAntrag={einrichtung.offenerAntrag}
       />
 
       <Card>
@@ -108,7 +96,7 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
           <ul style={{ display: 'grid', gap: '0.5rem', listStyle: 'none', padding: 0, margin: '0.5rem 0 0' }}>
             {einrichtung.buchungen.map((b) => (
               <li key={b.id}>
-                {`${b.createdAt.toLocaleDateString('de-DE')} · ${BUCHUNGS_LABELS[b.typ] ?? b.typ} · ${formatEuroFromCent(b.betragCent)}`}
+                {`${b.createdAt.toLocaleDateString('de-DE')} · ${buchungsLabel(b.typ)} · ${formatEuroFromCent(b.betragCent)}`}
               </li>
             ))}
           </ul>
