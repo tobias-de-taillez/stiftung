@@ -16,6 +16,44 @@ import type { KaskadenlaufErgebnis } from '@/lib/server/kaskadeService';
 type MarktjahrErgebnis = { einrichtungsDepotDeltaCent: number; soliDepotDeltaCent: number };
 type AuszahlungErgebnis = { summeCent: number; anzahl: number };
 
+// --- Remount-Restore für die transienten Aktions-Ergebnisse ------------------
+// Next 14 remountet den Client-Subtree einer Seite beim ERSTEN router.refresh()
+// nach der Hydration (danach nicht mehr) — Kurs-Zeile, Kaskaden-Ergebnis und
+// Auszahlungslauf-Zeile fielen auf null zurück und verschwänden ~20 ms nach
+// dem Erscheinen. RTL-Tests sehen das nie, weil sie refresh als No-op mocken.
+// Deshalb werden die Ergebnisse VOR dem refresh() außerhalb des React-Baums
+// (Modul-Scope) gesichert und beim Remount über die useState-Initializer
+// wiederhergestellt — dasselbe Muster wie der BuchungsSnapshot in
+// SpendenRechner.tsx (Task-16-Report).
+// ponytail: Frische-Fenster statt echter Remount-Erkennung — React/Next bieten
+// keinen Weg, den Refresh-Remount von einer normalen Rück-Navigation zu
+// unterscheiden. Innerhalb des Fensters erscheint das Ergebnis bei Rückkehr
+// auf die Seite erneut (harmlos, gleiche Daten); danach nicht mehr. Obsolet,
+// sobald eine Next-Version beim refresh nicht mehr remountet.
+interface ErgebnisSnapshot {
+  gebuchtUm: number;
+  marktjahrErgebnis: MarktjahrErgebnis | null;
+  kaskadeErgebnis: KaskadenlaufErgebnis | null;
+  auszahlungErgebnis: AuszahlungErgebnis | null;
+}
+
+const RESTORE_FENSTER_MS = 10_000;
+
+let letztesErgebnis: ErgebnisSnapshot | null = null;
+
+// Nur für Tests: Der Modul-Scope-Snapshot überlebt Testgrenzen und muss dort
+// pro Test zurückgesetzt werden.
+export function verwerfeLetztesErgebnis() {
+  letztesErgebnis = null;
+}
+
+function restauriereErgebnis(): ErgebnisSnapshot | null {
+  if (letztesErgebnis && Date.now() - letztesErgebnis.gebuchtUm < RESTORE_FENSTER_MS) {
+    return letztesErgebnis;
+  }
+  return null;
+}
+
 async function postJson(url: string, body?: unknown, method: 'POST' | 'PUT' = 'POST'): Promise<Response> {
   return fetch(url, {
     method,
@@ -31,9 +69,19 @@ export function AdminAktionen({ lage }: { lage: KontenLage }) {
 
   const [capBetrag, setCapBetrag] = useState(lage.managementCapCent / 100);
 
-  const [marktjahrErgebnis, setMarktjahrErgebnis] = useState<MarktjahrErgebnis | null>(null);
-  const [kaskadeErgebnis, setKaskadeErgebnis] = useState<KaskadenlaufErgebnis | null>(null);
-  const [auszahlungErgebnis, setAuszahlungErgebnis] = useState<AuszahlungErgebnis | null>(null);
+  // Lazy-Initializer: läuft genau einmal pro Mount — beim Refresh-Remount
+  // liefert er den Snapshot der gerade ausgeführten Aktion zurück (s. o.).
+  // Kein Slug-Guard nötig: die Komponente existiert genau einmal (Admin-Seite).
+  const [restauriert] = useState(() => restauriereErgebnis());
+  const [marktjahrErgebnis, setMarktjahrErgebnis] = useState<MarktjahrErgebnis | null>(
+    restauriert?.marktjahrErgebnis ?? null
+  );
+  const [kaskadeErgebnis, setKaskadeErgebnis] = useState<KaskadenlaufErgebnis | null>(
+    restauriert?.kaskadeErgebnis ?? null
+  );
+  const [auszahlungErgebnis, setAuszahlungErgebnis] = useState<AuszahlungErgebnis | null>(
+    restauriert?.auszahlungErgebnis ?? null
+  );
 
   async function handleMarktjahr() {
     setStatus('loading');
@@ -41,11 +89,16 @@ export function AdminAktionen({ lage }: { lage: KontenLage }) {
       const res = await postJson('/api/admin/marktjahr');
       if (!res.ok) throw new Error('failed');
       const json = await res.json();
-      setMarktjahrErgebnis({
+      const neuesErgebnis = {
         einrichtungsDepotDeltaCent: json.einrichtungsDepotDeltaCent,
         soliDepotDeltaCent: json.soliDepotDeltaCent,
-      });
+      };
+      setMarktjahrErgebnis(neuesErgebnis);
       setStatus('idle');
+      // Snapshot VOR dem refresh() sichern: Der erste refresh() nach der
+      // Hydration remountet diesen Subtree (s. Kommentar am Modul-Kopf) —
+      // der Remount restauriert die Ergebnisse aus genau diesem Snapshot.
+      letztesErgebnis = { gebuchtUm: Date.now(), marktjahrErgebnis: neuesErgebnis, kaskadeErgebnis, auszahlungErgebnis };
       // Der Kurs wird nur gestellt, nicht gebucht — kein Topf ändert sich
       // (Spec §2). router.refresh() holt trotzdem den frischen Poolwert/
       // Fondswert für die Kontenübersicht.
@@ -63,6 +116,8 @@ export function AdminAktionen({ lage }: { lage: KontenLage }) {
       const json = await res.json();
       setKaskadeErgebnis(json);
       setStatus('idle');
+      // Snapshot VOR dem refresh() — s. handleMarktjahr oben.
+      letztesErgebnis = { gebuchtUm: Date.now(), marktjahrErgebnis, kaskadeErgebnis: json, auszahlungErgebnis };
       router.refresh();
     } catch {
       setStatus('error');
@@ -75,8 +130,11 @@ export function AdminAktionen({ lage }: { lage: KontenLage }) {
       const res = await postJson('/api/admin/auszahlungslauf');
       if (!res.ok) throw new Error('failed');
       const json = await res.json();
-      setAuszahlungErgebnis({ summeCent: json.summeCent, anzahl: json.anzahl });
+      const neuesErgebnis = { summeCent: json.summeCent, anzahl: json.anzahl };
+      setAuszahlungErgebnis(neuesErgebnis);
       setStatus('idle');
+      // Snapshot VOR dem refresh() — s. handleMarktjahr oben.
+      letztesErgebnis = { gebuchtUm: Date.now(), marktjahrErgebnis, kaskadeErgebnis, auszahlungErgebnis: neuesErgebnis };
       router.refresh();
     } catch {
       setStatus('error');
