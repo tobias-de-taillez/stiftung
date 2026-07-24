@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SpendenRechner, verwerfeLetzteBuchung } from '../SpendenRechner';
+import { SpendenRechner } from '../SpendenRechner';
+import { verwerfeTransienteErgebnisse } from '@/lib/hooks/useTransientesErgebnis';
 import { computeYearsToGoal, futureValueWithAnnualDonation, NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
 // SpendenRechner ruft nach erfolgreicher Buchung router.refresh() (F3), damit
@@ -18,6 +19,10 @@ vi.mock('next/navigation', () => ({
 // synchronen/`findByText`-Assertions unten wären flaky (siehe
 // SpendenBestaetigung.test.tsx für dieselbe Begründung).
 beforeEach(() => {
+  // Der Remount-Restore-Speicher lebt im Modul-Scope des Hooks und überlebt
+  // damit Testgrenzen — ohne Reset restaurierte eine Buchung aus einem
+  // früheren Test in späteren Tests eine Bestätigung.
+  verwerfeTransienteErgebnisse();
   vi.stubGlobal(
     'matchMedia',
     vi.fn().mockImplementation((query: string) => ({
@@ -35,13 +40,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-});
-
-// Der Remount-Restore-Snapshot lebt im Modul-Scope von SpendenRechner.tsx und
-// überlebt damit Testgrenzen — ohne Reset würde eine Buchung aus einem
-// früheren Test in späteren Tests eine Bestätigung restaurieren.
-beforeEach(() => {
-  verwerfeLetzteBuchung();
 });
 
 // topfwertCent/zielKapitalCent bewusst so gewählt, dass topfEuro/zielEuro
@@ -554,7 +552,8 @@ describe('SpendenRechner', () => {
     // RTL kann den echten Router-Remount nicht auslösen (refresh ist hier ein
     // No-op-Mock), aber sein Effekt ist identisch mit unmount() + neuem
     // render(): alle useState-Initializer laufen erneut. Genau dagegen sichert
-    // der Modul-Scope-Snapshot ab, den diese Tests prüfen.
+    // der Modul-Scope-Snapshot in lib/hooks/useTransientesErgebnis.ts ab,
+    // den diese Tests prüfen.
     function mockErfolgreicheBuchung() {
       vi.stubGlobal(
         'fetch',
@@ -652,3 +651,4 @@ describe('SpendenRechner', () => {
     });
   });
 });
+

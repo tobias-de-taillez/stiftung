@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from './Card';
 import { KaskadenErgebnis } from './KaskadenErgebnis';
 import { formatEuroFromCent } from '@/lib/calc/format';
+import { useTransientesErgebnis } from '@/lib/hooks/useTransientesErgebnis';
 import type { KontenLage } from '@/lib/server/kontenService';
 import type { KaskadenlaufErgebnis } from '@/lib/server/kaskadeService';
 
@@ -31,9 +32,13 @@ export function AdminAktionen({ lage }: { lage: KontenLage }) {
 
   const [capBetrag, setCapBetrag] = useState(lage.managementCapCent / 100);
 
-  const [marktjahrErgebnis, setMarktjahrErgebnis] = useState<MarktjahrErgebnis | null>(null);
-  const [kaskadeErgebnis, setKaskadeErgebnis] = useState<KaskadenlaufErgebnis | null>(null);
-  const [auszahlungErgebnis, setAuszahlungErgebnis] = useState<AuszahlungErgebnis | null>(null);
+  // useTransientesErgebnis statt useState: Der erste router.refresh() nach
+  // der Hydration remountet diesen Subtree (Next 14 + loading.tsx, siehe
+  // lib/hooks/useTransientesErgebnis.ts) — plain useState verlor das gerade
+  // gezeigte Ergebnis ~20 ms nach dem Erscheinen.
+  const [marktjahrErgebnis, setMarktjahrErgebnis] = useTransientesErgebnis<MarktjahrErgebnis>('admin.marktjahr');
+  const [kaskadeErgebnis, setKaskadeErgebnis] = useTransientesErgebnis<KaskadenlaufErgebnis>('admin.kaskade');
+  const [auszahlungErgebnis, setAuszahlungErgebnis] = useTransientesErgebnis<AuszahlungErgebnis>('admin.auszahlung');
 
   async function handleMarktjahr() {
     setStatus('loading');
