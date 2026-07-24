@@ -27,12 +27,25 @@ model Einrichtung {
 // Rechtsträger (Spec §1, §3.5): Träger 1 ── n Einrichtung. Am Träger hängen
 // Rechtsform, Gemeinnützigkeitsstatus und Verifikation (Spielgeld-KYC).
 model Traeger {
-  id            String        @id @default(cuid())
+  id            String                 @id @default(cuid())
   name          String
-  rechtsform    String        @default("unbekannt") // Rechtsform-Union aus lib/verrechnung/traeger.ts
-  gemeinnuetzig Boolean       @default(false)
-  verifiziert   Boolean       @default(false) // "Zugang abgeholt" (Spec §3.4)
+  rechtsform    String                 @default("unbekannt") // Rechtsform-Union aus lib/verrechnung/traeger.ts
+  gemeinnuetzig Boolean                @default(false)
+  verifiziert   Boolean                @default(false) // "Zugang abgeholt" (Spec §3.4)
   einrichtungen Einrichtung[]
+  antraege      VerifikationsAntrag[]
+}
+
+// Verifikations-Antragsfluss (Design-Spec §6): Public stellt Antrag, Admin entscheidet.
+model VerifikationsAntrag {
+  id            String    @id @default(cuid())
+  traegerId     String
+  traeger       Traeger   @relation(fields: [traegerId], references: [id])
+  rechtsform    String
+  gemeinnuetzig Boolean
+  status        String    @default("offen") // 'offen' | 'genehmigt' | 'abgelehnt'
+  createdAt     DateTime  @default(now())
+  entschiedenAm DateTime?
 }
 
 // Kontenmodell (Spec §1) als Singleton-Zeile id 'main'. Einrichtungen haben

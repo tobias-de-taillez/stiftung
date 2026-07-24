@@ -1,9 +1,13 @@
 // Schließung (Spec §3.3): Fondsvolumen fließt an den Soli-Fonds zurück.
 import { NextResponse } from 'next/server';
+import { pruefeAdminSession } from '@/lib/server/adminSession';
 import { schliesseEinrichtung } from '@/lib/server/lebenszyklusService';
 import { EinrichtungGeschlossenError, EinrichtungNichtGefundenError } from '@/lib/server/spendenService';
 
-export async function POST(_request: Request, { params }: { params: { slug: string } }) {
+export async function POST(request: Request, { params }: { params: { slug: string } }) {
+  if (!pruefeAdminSession(request)) {
+    return NextResponse.json({ error: 'nicht_angemeldet' }, { status: 401 });
+  }
   try {
     const ergebnis = await schliesseEinrichtung(params.slug);
     return NextResponse.json(ergebnis);

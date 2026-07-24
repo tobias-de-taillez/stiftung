@@ -19,6 +19,8 @@ export default defineConfig({
     fileParallelism: false,
     env: {
       DATABASE_URL: 'file:./test.db',
+      ADMIN_PASSWORT: 'test-passwort',
+      ADMIN_SESSION_SECRET: 'test-secret-mindestens-32-zeichen-lang!!',
     },
   },
   resolve: {

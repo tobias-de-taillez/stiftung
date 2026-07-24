@@ -1,19 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
-import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTestTraeger, pruefeInvarianten } from '@/lib/server/__tests__/testDb';
-import { spendeDirekt } from '@/lib/server/spendenService';
+import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, pruefeInvarianten } from '@/lib/server/__tests__/testDb';
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
 import { GET as getEinrichtungDetail } from '../einrichtungen/[slug]/route';
 import { POST as postSpenden } from '../einrichtungen/[slug]/spenden/route';
 import { POST as postSoliSpenden } from '../solidaritaetsfonds/spenden/route';
-import { POST as postSchliessen } from '../einrichtungen/[slug]/schliessen/route';
 import { GET as getErstbefuellung } from '../erstbefuellung/route';
-import { PUT as putCap } from '../management/cap/route';
-import { POST as postVerifikation } from '../traeger/[id]/verifikation/route';
-import { POST as postMarktjahr } from '../simulation/marktjahr/route';
-import { POST as postJahresabschluss } from '../simulation/jahresabschluss/route';
-import { POST as postAuszahlungenLauf } from '../auszahlungen/lauf/route';
 
 // DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
 afterEach(pruefeInvarianten);
@@ -141,134 +134,10 @@ describe('GET /api/erstbefuellung', () => {
   });
 });
 
-describe('PUT /api/management/cap', () => {
-  it('setzt den Cap und liefert die aktuelle Kontenlage', async () => {
-    const res = await putCap(
-      new Request('http://localhost/api/management/cap', { method: 'PUT', body: JSON.stringify({ capCent: 50_000 }) })
-    );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.managementCapCent).toBe(50_000);
-  });
-
-  it('gibt 400 bei negativem Cap', async () => {
-    const res = await putCap(
-      new Request('http://localhost/api/management/cap', { method: 'PUT', body: JSON.stringify({ capCent: -1 }) })
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_cap');
-  });
-});
-
-describe('POST /api/einrichtungen/[slug]/schliessen', () => {
-  it('schließt eine offene Einrichtung', async () => {
-    await seedKontenstand({ etfMarktwertCent: 5_000n });
-    const e = await createTestEinrichtung({ slug: 'schliess-mich', topfCent: 5_000n });
-
-    const res = await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: e.slug } });
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.uebertragCent).toBe(5_000);
-  });
-
-  it('gibt 404 bei unbekannter Einrichtung', async () => {
-    const res = await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: 'nix' } });
-    expect(res.status).toBe(404);
-  });
-
-  it('gibt 409 bei doppelter Schließung', async () => {
-    await seedKontenstand({ etfMarktwertCent: 1_000n });
-    const e = await createTestEinrichtung({ slug: 'doppelt-zu', topfCent: 1_000n });
-    await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: e.slug } });
-
-    const res = await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: e.slug } });
-    expect(res.status).toBe(409);
-  });
-});
-
-describe('POST /api/traeger/[id]/verifikation', () => {
-  it('setzt Verifikation, Rechtsform und Gemeinnützigkeit', async () => {
-    const t = await createTestTraeger({ verifiziert: false, rechtsform: 'unbekannt', gemeinnuetzig: false });
-
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: true, gemeinnuetzig: true, rechtsform: 'ggmbh' }),
-      }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(200);
-
-    const zeile = await prisma.traeger.findUniqueOrThrow({ where: { id: t.id } });
-    expect(zeile.verifiziert).toBe(true);
-    expect(zeile.rechtsform).toBe('ggmbh');
-    expect(zeile.gemeinnuetzig).toBe(true);
-  });
-
-  it('gibt 400 bei unbekannter Rechtsform', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ verifiziert: true, rechtsform: 'quatsch' }) }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-  });
-
-  it('gibt 400 bei geerbten Objekt-Eigenschaften statt eigener Keys (Object.hasOwn, nicht `in`)', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: true, rechtsform: 'constructor' }),
-      }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-  });
-
-  // Review-Finding aus Task 14 (jetzt in Task 16 nachgezogen): unbekannte
-  // traegerId ließ Prisma mit P2025 unbehandelt durchknallen → 500.
-  it('gibt 404 bei unbekannter traegerId statt eines unbehandelten 500ers', async () => {
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: true }),
-      }),
-      { params: { id: 'gibt-es-nicht' } }
-    );
-    expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe('not_found');
-  });
-
-  // Review-Finding aus Task 14: Boolean(body.verifiziert) coerced ein
-  // fehlendes/falsch typisiertes Feld stillschweigend zu false statt zu validieren.
-  it('gibt 400 bei nicht-boolschem verifiziert', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: 'ja' }),
-      }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_verifiziert');
-  });
-
-  it('gibt 400 bei fehlendem verifiziert-Feld', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ rechtsform: 'ggmbh' }) }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_verifiziert');
-  });
-});
-
-describe('kaputtes JSON → 400 statt 500 (alle Body-Routen über leseJsonBody)', () => {
-  const kaputt = (method: 'POST' | 'PUT' = 'POST') =>
-    new Request('http://localhost', { method, body: '{kein json' });
+// P1: kaputtes/nicht-objektförmiges JSON → 400 statt 500 (leseJsonBody).
+// Nur die public Body-Routen; die Admin-Routen deckt admin/__tests__/mutationsRouten ab.
+describe('kaputtes JSON → 400 statt 500 (public Body-Routen über leseJsonBody)', () => {
+  const kaputt = () => new Request('http://localhost', { method: 'POST', body: '{kein json' });
 
   it('POST /api/einrichtungen', async () => {
     const res = await postEinrichtungen(kaputt());
@@ -286,54 +155,8 @@ describe('kaputtes JSON → 400 statt 500 (alle Body-Routen über leseJsonBody)'
     expect(res.status).toBe(400);
   });
 
-  it('PUT /api/management/cap', async () => {
-    const res = await putCap(kaputt('PUT'));
-    expect(res.status).toBe(400);
-  });
-
-  it('POST /api/traeger/[id]/verifikation', async () => {
-    const res = await postVerifikation(kaputt(), { params: { id: 'egal' } });
-    expect(res.status).toBe(400);
-  });
-
   it('JSON-Body "null" ist ebenfalls ein 400, kein TypeError-500', async () => {
     const res = await postSoliSpenden(new Request('http://localhost', { method: 'POST', body: 'null' }));
     expect(res.status).toBe(400);
-  });
-});
-
-describe('POST-ohne-Body-Wrapper (Spec §4/§6): Marktjahr, Jahresabschluss, Auszahlungslauf', () => {
-  it('POST /api/simulation/marktjahr liefert 201 mit Kurs-Deltas', async () => {
-    await seedKontenstand({ etfMarktwertCent: 100_000n, soliDepotCent: 10_000n });
-    const res = await postMarktjahr();
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json).toHaveProperty('einrichtungsDepotDeltaCent');
-    expect(json).toHaveProperty('poolwertCent');
-  });
-
-  it('POST /api/simulation/jahresabschluss liefert 201 mit Kaskaden-Ergebnis', async () => {
-    await seedKontenstand({ etfMarktwertCent: 100_000n });
-    const res = await postJahresabschluss();
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json).toHaveProperty('nummer');
-    expect(json).toHaveProperty('umverteilung');
-  });
-
-  it('POST /api/auszahlungen/lauf liefert 200 ohne offene Direktausschüttungen (nichts erzeugt)', async () => {
-    const res = await postAuszahlungenLauf();
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json).toEqual({ laufId: null, summeCent: 0, anzahl: 0 });
-  });
-
-  it('POST /api/auszahlungen/lauf liefert 201, wenn ein Lauf angelegt wurde', async () => {
-    await seedKontenstand();
-    const e = await createTestEinrichtung();
-    await spendeDirekt(e.slug, 1_000n);
-    const res = await postAuszahlungenLauf();
-    expect(res.status).toBe(201);
-    expect((await res.json()).summeCent).toBe(1_000);
   });
 });
