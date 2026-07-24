@@ -80,6 +80,8 @@ wiederholen.
 |---|---|---|---|
 | [Build-Plan](superpowers/plans/2026-07-15-website-rebuild-lokal.md) | 3712 | 🕰️ Protokoll | Tasks 1–36, eingefroren. Finanzteil (Simulations-/Solidaritätsfonds-Logik) durch die Umsetzung des [Verrechnungsmodell-Umbau-Plans](superpowers/plans/2026-07-23-verrechnungsmodell-umbau.md) (Task 20) historisch — abgelöst, nicht mehr im Code |
 | [Verrechnungsmodell-Umbau-Plan](superpowers/plans/2026-07-23-verrechnungsmodell-umbau.md) | 4114 | 🕰️ Protokoll | Tasks 1–20, abgeschlossen. Ersetzt den Finanzteil des Build-Plans vollständig |
+| [Admin-Trennung-Design-Spec](superpowers/specs/2026-07-23-admin-trennung-design.md) | 337 | ✅ maßgeblich | Rollen-Trennung Public/Admin — Session-Cookie, Handler-Guard, Antrag→Genehmigung-Fluss. Umgesetzt über [Admin-Trennung-Plan](superpowers/plans/2026-07-24-admin-trennung.md) (Tasks 1–9), Branch `admin-trennung` |
+| [Admin-Trennung-Plan](superpowers/plans/2026-07-24-admin-trennung.md) | 1115 | 🕰️ Protokoll | Tasks 1–9, abgeschlossen. Setzt die Admin-Trennung-Design-Spec um |
 | [`docs/loops/STATE.md`](loops/STATE.md) | 35 | 🕰️ Protokoll | Ledger, meldet „ALL TASKS DONE" |
 | [`docs/loops/plan-executor.md`](loops/plan-executor.md) | 61 | ⚠️ teilweise überholt | Beschreibt den Loop als laufend, obwohl abgeschlossen |
 | `docs/loops/runs/*.md` (25 Dateien) | 1391 | 🕰️ Protokoll | **Nie rückwirkend ändern** |

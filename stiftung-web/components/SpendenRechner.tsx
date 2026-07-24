@@ -42,6 +42,49 @@ interface SpendenErgebnis {
 
 const BETRAG_PRESETS = [25, 50, 100, 250];
 
+// --- Remount-Restore für die Spendenbestätigung ------------------------------
+// Next 14 remountet den Client-Subtree einer Seite beim ERSTEN router.refresh()
+// nach der Hydration (danach nicht mehr) — im echten Browser reproduziert:
+// Die Bestätigung erschien und wurde ~20 ms später durch den Remount wieder
+// entfernt, weil sämtliche useState-Stände auf ihre Initialwerte zurückfielen.
+// RTL-Tests sehen das nie, weil sie refresh als No-op mocken. Deshalb wird der
+// Stand der letzten Buchung VOR dem refresh() außerhalb des React-Baums
+// (Modul-Scope) gesichert und beim Remount über die useState-Initializer
+// wiederhergestellt.
+// ponytail: Slug-Guard + Frische-Fenster statt echter Remount-Erkennung —
+// React/Next bieten keinen Weg, den Refresh-Remount von einer normalen
+// Rück-Navigation zu unterscheiden. Innerhalb des Fensters erscheint die
+// Bestätigung bei Rückkehr auf dieselbe Seite erneut (harmlos, gleiche Daten);
+// danach nicht mehr. Obsolet, sobald eine Next-Version beim refresh nicht mehr
+// remountet.
+interface BuchungsSnapshot {
+  slug: string;
+  gebuchtUm: number;
+  topfStandCent: number;
+  ergebnis: SpendenErgebnis;
+}
+
+const RESTORE_FENSTER_MS = 10_000;
+
+let letzteBuchung: BuchungsSnapshot | null = null;
+
+// Nur für Tests: Der Modul-Scope-Snapshot überlebt Testgrenzen und muss dort
+// pro Test zurückgesetzt werden.
+export function verwerfeLetzteBuchung() {
+  letzteBuchung = null;
+}
+
+function restauriereBuchung(slug: string): BuchungsSnapshot | null {
+  if (
+    letzteBuchung &&
+    letzteBuchung.slug === slug &&
+    Date.now() - letzteBuchung.gebuchtUm < RESTORE_FENSTER_MS
+  ) {
+    return letzteBuchung;
+  }
+  return null;
+}
+
 export function SpendenRechner({
   einrichtung,
   widmungWortlaut,
@@ -51,6 +94,10 @@ export function SpendenRechner({
 }) {
   const router = useRouter();
 
+  // Lazy-Initializer: läuft genau einmal pro Mount — beim Refresh-Remount
+  // liefert er den Snapshot der gerade gebuchten Spende zurück (s. o.).
+  const [restauriert] = useState(() => restauriereBuchung(einrichtung.slug));
+
   // lib/calc/spendenrechner.ts ist Euro-basiert (unverändert) — hier EINMAL
   // am Komponentenkopf von Cent nach Euro ableiten, statt jeden Aufruf
   // einzeln umzurechnen. topfStandCent ist der LIVE-Stand (wandert nach jeder
@@ -58,21 +105,29 @@ export function SpendenRechner({
   // derselben Sitzung mit dem tatsächlichen Topf statt dem Seitenlade-
   // Snapshot rechnet). Verwendungsart B kauft keine Anteile — der Topf ändert
   // sich dadurch nicht.
-  const [topfStandCent, setTopfStandCent] = useState(einrichtung.topfwertCent);
+  const [topfStandCent, setTopfStandCent] = useState(
+    restauriert?.topfStandCent ?? einrichtung.topfwertCent
+  );
   const topfEuro = topfStandCent / 100;
   const zielEuro = einrichtung.zielKapitalCent / 100;
 
-  const [betrag, setBetrag] = useState(50);
-  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>('einmalig');
-  const [verwendungsart, setVerwendungsart] = useState<'vermoegen' | 'direkt'>('vermoegen');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [betrag, setBetrag] = useState(restauriert ? restauriert.ergebnis.betragCent / 100 : 50);
+  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>(
+    restauriert?.ergebnis.frequenz ?? 'einmalig'
+  );
+  const [verwendungsart, setVerwendungsart] = useState<'vermoegen' | 'direkt'>(
+    restauriert?.ergebnis.verwendungsart ?? 'vermoegen'
+  );
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
+    restauriert ? 'done' : 'idle'
+  );
   // Snapshot der zuletzt GEBUCHTEN Spende (Fix 4027022 beibehalten): Die
   // Bestätigung/Quittung/Share-Text zeigt diesen eingefrorenen Stand, nicht
   // die Live-States, die der Regler nach der Buchung beliebig weiterändert.
   // altes/neuesTopfwertCent kommen für Verwendungsart A direkt vom Server
   // (topfwertVorherCent/topfwertNachherCent) — kein clientseitiges Tracken
   // eines "Vorher"-Werts mehr nötig.
-  const [ergebnis, setErgebnis] = useState<SpendenErgebnis | null>(null);
+  const [ergebnis, setErgebnis] = useState<SpendenErgebnis | null>(restauriert?.ergebnis ?? null);
 
   async function handleSpenden() {
     setStatus('loading');
@@ -86,31 +141,43 @@ export function SpendenRechner({
       if (!res.ok) throw new Error('request_failed');
       const json = await res.json();
 
-      if (json.verwendungsart === 'direkt') {
-        // spendeDirekt liefert weder Topf- noch Meilenstein-Info — eine
-        // Direktausschüttung kauft keine Anteile, der Topf bleibt unverändert.
-        setErgebnis({
-          betragCent,
-          frequenz,
-          verwendungsart: 'direkt',
-          altesTopfwertCent: topfStandCent,
-          neuesTopfwertCent: topfStandCent,
-          zuwendungId: json.zuwendungId,
-          meilensteine: [],
-        });
-      } else {
-        setTopfStandCent(json.topfwertNachherCent);
-        setErgebnis({
-          betragCent,
-          frequenz,
-          verwendungsart: 'vermoegen',
-          altesTopfwertCent: json.topfwertVorherCent,
-          neuesTopfwertCent: json.topfwertNachherCent,
-          zuwendungId: json.zuwendungId,
-          meilensteine: json.erreichteMeilensteine ?? [],
-        });
-      }
+      const neuesErgebnis: SpendenErgebnis =
+        json.verwendungsart === 'direkt'
+          ? {
+              // spendeDirekt liefert weder Topf- noch Meilenstein-Info — eine
+              // Direktausschüttung kauft keine Anteile, der Topf bleibt
+              // unverändert.
+              betragCent,
+              frequenz,
+              verwendungsart: 'direkt',
+              altesTopfwertCent: topfStandCent,
+              neuesTopfwertCent: topfStandCent,
+              zuwendungId: json.zuwendungId,
+              meilensteine: [],
+            }
+          : {
+              betragCent,
+              frequenz,
+              verwendungsart: 'vermoegen',
+              altesTopfwertCent: json.topfwertVorherCent,
+              neuesTopfwertCent: json.topfwertNachherCent,
+              zuwendungId: json.zuwendungId,
+              meilensteine: json.erreichteMeilensteine ?? [],
+            };
+      // Für 'direkt' ist neuesTopfwertCent === topfStandCent — das Set ist
+      // dort ein No-op, deshalb branchfrei.
+      setTopfStandCent(neuesErgebnis.neuesTopfwertCent);
+      setErgebnis(neuesErgebnis);
       setStatus('done');
+      // Snapshot VOR dem refresh() sichern: Der erste refresh() nach der
+      // Hydration remountet diesen Subtree (s. Kommentar am Modul-Kopf) —
+      // der Remount restauriert die Bestätigung aus genau diesem Snapshot.
+      letzteBuchung = {
+        slug: einrichtung.slug,
+        gebuchtUm: Date.now(),
+        topfStandCent: neuesErgebnis.neuesTopfwertCent,
+        ergebnis: neuesErgebnis,
+      };
       // Server-Sektionen auf derselben Seite (Finanztopf-Karte, Transparenz-
       // Historie in app/einrichtungen/[slug]/page.tsx) lesen direkt aus der DB
       // und werden sonst erst nach einem manuellen Reload aktuell.

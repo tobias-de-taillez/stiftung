@@ -11,7 +11,7 @@ Abschnitt „Zielmodell umgesetzt").
 ## Lokal starten
 
 ```bash
-echo 'DATABASE_URL="file:./dev.db"' > .env
+cp .env.example .env
 npm install
 npx prisma generate
 npm run db:push
@@ -19,9 +19,49 @@ npm run db:seed
 npm run dev
 ```
 
-Alternativ die mitgelieferte Vorlage kopieren: `cp .env.example .env`.
+`.env.example` enthält drei Variablen: `DATABASE_URL` sowie `ADMIN_PASSWORT`
+und `ADMIN_SESSION_SECRET` für den Admin-Bereich (siehe unten) — alle drei
+müssen in `.env` gesetzt sein, sonst startet `npm run dev` zwar, aber der
+Admin-Login schlägt fehl. `.env` ist git-ignoriert und wird nicht committet.
 
 Danach `http://localhost:3000` öffnen.
+
+## Admin-Bereich
+
+`/admin` ist passwortgeschützt (Passwort aus `ADMIN_PASSWORT` in `.env`,
+Default in `.env.example`: `wechselmich` — vor jedem Einsatz außerhalb der
+lokalen Demo ändern). Dort laufen alle administrativen Aktionen, die vorher
+öffentlich waren: Marktjahr auslösen, Jahresabschluss (Kaskade), Auszahlungslauf,
+Management-Cap setzen, Einrichtung schließen, sowie die
+Verifikations-Warteschlange (Anträge genehmigen/ablehnen) und das komplette
+Buchungsjournal. Das Session-Cookie ist signiert (`node:crypto`, keine neue
+Dependency) und hat kein `maxAge` — es stirbt mit dem Browserfenster.
+
+**Was öffentlich bleibt:** alle GETs (Statistik, Einrichtungsliste, Detailseiten,
+Soli-Fonds-Stand), Einrichtung anlegen, Spenden (an eine Einrichtung, an den
+Soli-Fonds), und den Verifikations-*Antrag* stellen
+(`POST /api/traeger/[id]/verifikation/antrag`). Die *Entscheidung* über den
+Antrag ist admin-only. Jeder `/api/admin/*`-Handler prüft die Session selbst
+(`pruefeAdminSession`) als erste Zeile — das ist die maßgebliche Barriere,
+nicht die Middleware (reiner Redirect-Komfort) oder die UI.
+
+### Zwei-Fenster-Demo (Test-Rezept)
+
+So lässt sich die Rollen-Trennung von Hand nachvollziehen, ohne zwei Rechner
+zu brauchen:
+
+1. Zwei **private/Inkognito-Browserfenster** öffnen (unterschiedliches
+   Cookie-Jar). Fenster A bleibt ohne Cookie = Normalo/Spender-Sicht.
+2. In Fenster A: eine noch unverifizierte Einrichtung öffnen, „Zugang
+   abholen" antragen (Verifikations-Antrag).
+3. In Fenster B: unter `/admin/login` mit dem Passwort aus `.env` anmelden,
+   den Antrag unter `/admin/verifikation` sehen und genehmigen.
+4. Zurück in Fenster A: die Einrichtungsseite neu laden — Status springt auf
+   „Zugang abgeholt", Verwendungsart B (Direkt auszahlen) wird im
+   Spendenrechner wählbar.
+5. In Fenster B zusätzlich Marktjahr und Jahresabschluss auslösen (Dashboard);
+   in Fenster A zeigen `/statistik` und `/solidaritaetsfonds` den neuen Stand
+   (nur lesen, keine Aktions-Buttons dort).
 
 ## Tests
 
@@ -36,7 +76,7 @@ dass jede DB-Test-Suite in ihrem `beforeEach` den zentralen Helper
 `resetDb()` aus `lib/server/__tests__/testDb.ts` aufruft (leert alle Tabellen
 in FK-sicherer Reihenfolge) und `fileParallelism: false` die Testdateien
 sequenziell ausführt. Neue DB-Test-Suiten rufen `resetDb()` statt eigener
-`deleteMany()`-Aufrufe. Aktueller Stand: 45 Testdateien, 407 Tests, alle PASS.
+`deleteMany()`-Aufrufe. Aktueller Stand: 56 Testdateien, 467 Tests, alle PASS.
 
 ## Struktur
 
@@ -61,9 +101,9 @@ Soli-Depot, Soli-Verrechnungskonto, Management-Konto — siehe
 [`docs/verrechnungsmodell.md`](../docs/verrechnungsmodell.md), Abschnitt
 „Kontenmodell".
 
-Ein Jahreslauf ist zweigeteilt: das **Marktjahr** (`app/api/simulation/marktjahr`)
-stellt nur den neuen ETF-Kurs, ohne zu buchen. Die **Kaskade**
-(`app/api/simulation/jahresabschluss`, `lib/verrechnung/kaskade.ts`,
+Ein Jahreslauf ist zweigeteilt: das **Marktjahr** (`app/api/admin/marktjahr`,
+admin-only) stellt nur den neuen ETF-Kurs, ohne zu buchen. Die **Kaskade**
+(`app/api/admin/jahresabschluss`, admin-only, `lib/verrechnung/kaskade.ts`,
 `lib/server/kaskadeService.ts`) bucht anschließend ertragsblind auf dem
 Stichtagswert: Solidaritätsabgabe der besser gestellten Einrichtungen,
 P5/P95-winsorisierte Rangposition, 1-%-Umverteilung an die bedürftigsten
@@ -78,7 +118,13 @@ Kontenstände allein.
 ## Was hier bewusst fehlt (lokale Version)
 
 - Kein echtes Payment (Stripe/PayPal) — Buchung ist real in der DB, aber ohne echtes Zahlungsmittel ("Spielgeld").
-- Kein Login/KYC — Träger-Verifikation ist ein Boolean-Feld, kein echter Prozess.
+- Kein Träger-Portal/KYC — Träger haben kein eigenes Login; das
+  Spender-Frontend stellt den Verifikations-Antrag stellvertretend. Ein Admin
+  entscheidet ihn im Admin-Bereich (siehe oben), aber ohne echte Prüfung von
+  Dokumenten. Eigenes Träger-Login ist Phase 2.
+- Ein einziges geteiltes Admin-Passwort, kein User-Modell, kein Rate-Limit/CSRF
+  auf den Admin-Routen — für die Spielgeld-Demo genügt `sameSite=lax` +
+  Same-Origin.
 - Prämisse P1 (thesaurierender ETF erzeugt keinen Mittelzufluss nach § 55 Abs. 1 Nr. 5 AO) ist ungeprüft.
 - Kein Grundstock-Topf — erst zur Stiftungsumwandlung in Phase 3 fällig.
 

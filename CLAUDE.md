@@ -10,6 +10,11 @@ npm run dev      # Dev-Server Port 3000
 npm run test     # Vitest (einmalig)
 ```
 
+Env-Variablen `ADMIN_PASSWORT` und `ADMIN_SESSION_SECRET` (siehe
+`stiftung-web/.env.example`) müssen in `stiftung-web/.env` gesetzt sein, sonst
+lassen sich weder `npm run dev` (Admin-Login) noch die Tests (dort per
+`vitest.config.ts` fest vorgegeben) starten.
+
 ## Maßgebliche Quellen
 
 - **Verrechnungsmodell (maßgeblich): `docs/verrechnungsmodell.md`** — Kontenmodell, Datenmodell, Jahres-Kaskade, Abgabe- und Umverteilungsformeln. Bei Widerspruch zu anderen Dokumenten gilt diese Spec, im Rahmen ihres Geltungsbereichs.
@@ -35,6 +40,18 @@ npm run test     # Vitest (einmalig)
 
 - Niemals ohne expliziten Auftrag pushen. (`project-rules.md` mit der gegenteiligen Auto-Push-Regel wurde am 2026-07-19 gelöscht.)
 - `projekt-status.md` wird beim Branch-Abschluss aktualisiert, nicht pro Commit.
+- **Admin-Bereich:** `/admin` (passwortgeschützt, Passwort aus `ADMIN_PASSWORT`
+  in `.env`). Trennt öffentliches Spender-Frontend von administrativen
+  Aktionen (Marktjahr, Jahresabschluss, Auszahlungslauf, Management-Cap,
+  Einrichtung schließen, Verifikations-Entscheidung) — siehe
+  `docs/superpowers/specs/2026-07-23-admin-trennung-design.md`. Jeder
+  `/api/admin/*`-Handler prüft die Session selbst (`pruefeAdminSession`); die
+  Middleware ist nur Redirect-Komfort, keine alleinige Barriere.
+- **Zwei-Fenster-Demo-Muster** zum manuellen Testen der Rollen-Trennung: ein
+  privates Browserfenster ohne Cookie (Normalo/Spender-Sicht) neben einem
+  zweiten privaten Fenster, in dem man sich unter `/admin/login` einloggt
+  (Admin-Sicht). Beide Rollen sind so gleichzeitig und unabhängig voneinander
+  sichtbar, weil das Session-Cookie kein `maxAge` hat und pro Fenster gilt.
 
 ## Loops
 
