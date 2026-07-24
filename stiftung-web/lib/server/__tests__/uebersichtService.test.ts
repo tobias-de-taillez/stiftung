@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../prismaClient';
 import { resetDb, seedKontenstand, createTestEinrichtung, createTestTraeger } from './testDb';
-import { listEinrichtungenMitTopf, einrichtungDetail, poolStatistik, buchungsTicker } from '../uebersichtService';
+import { listEinrichtungenMitTopf, einrichtungDetail, poolStatistik, buchungsTicker, buchungsJournal } from '../uebersichtService';
 import { buche } from '../kontenService';
 import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
@@ -236,5 +236,69 @@ describe('buchungsTicker', () => {
     // orderBy id desc als Tiebreaker bei gleichem createdAt (ms-Kollisionen) —
     // die zuletzt erzeugte Buchung (höchster betragCent) kommt zuerst.
     expect(ticker[0].betragCent).toBe(3);
+  });
+});
+
+describe('buchungsJournal', () => {
+  it('liefert ein leeres Array ohne Buchungen', async () => {
+    expect(await buchungsJournal()).toEqual([]);
+  });
+
+  it('liefert alle Buchungstypen (nicht gefiltert wie Ticker), neueste zuerst', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    const e = await createTestEinrichtung({ slug: 'a', topfCent: 1_000n });
+    await buche(prisma, { typ: 'spende', betragCent: 100n, einrichtungId: e.id });
+    await buche(prisma, { typ: 'soli_spende', betragCent: 50n });
+    await buche(prisma, { typ: 'kaskade_abgabe', betragCent: 20n, einrichtungId: e.id });
+    // Interne Typen, die in Ticker NICHT auftauchen — im Journal aber schon.
+    await buche(prisma, { typ: 'sweep', betragCent: 10n });
+
+    const journal = await buchungsJournal();
+    expect(journal).toHaveLength(4);
+    expect(journal.map((j) => j.typ).sort()).toContain('kaskade_abgabe');
+    expect(journal.map((j) => j.typ).sort()).toContain('sweep');
+    // Neueste zuerst: sweep ist die letzte Buchung
+    expect(journal[0].typ).toBe('sweep');
+  });
+
+  it('enthält id, typ, betragCent, einrichtungName, einrichtungSlug und createdAt', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    const e = await createTestEinrichtung({ slug: 'test-slug', name: 'Test-Einrichtung', topfCent: 1_000n });
+    await buche(prisma, { typ: 'spende', betragCent: 100n, einrichtungId: e.id });
+
+    const journal = await buchungsJournal();
+    expect(journal).toHaveLength(1);
+    const eintrag = journal[0];
+    expect(eintrag).toHaveProperty('id');
+    expect(eintrag).toHaveProperty('typ');
+    expect(eintrag).toHaveProperty('betragCent');
+    expect(eintrag).toHaveProperty('einrichtungName');
+    expect(eintrag).toHaveProperty('einrichtungSlug');
+    expect(eintrag).toHaveProperty('createdAt');
+    expect(eintrag.betragCent).toBe(100);
+    expect(eintrag.typ).toBe('spende');
+    expect(eintrag.einrichtungName).toBe('Test-Einrichtung');
+    expect(eintrag.einrichtungSlug).toBe('test-slug');
+  });
+
+  it('fällt für Buchungen ohne Einrichtung auf null zurück', async () => {
+    await buche(prisma, { typ: 'soli_spende', betragCent: 500n });
+
+    const journal = await buchungsJournal();
+    expect(journal).toHaveLength(1);
+    expect(journal[0].einrichtungName).toBeNull();
+    expect(journal[0].einrichtungSlug).toBeNull();
+  });
+
+  it('begrenzt auf `limit` und sortiert neueste zuerst mit id-Tiebreaker', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    const e = await createTestEinrichtung({ slug: 'a', topfCent: 1_000n });
+    for (let i = 0; i < 5; i++) {
+      await buche(prisma, { typ: 'spende', betragCent: BigInt(i + 1), einrichtungId: e.id });
+    }
+    const journal = await buchungsJournal(3);
+    expect(journal).toHaveLength(3);
+    // Neueste zuerst: die letzte erzeugte Buchung (höchster betragCent) kommt zuerst.
+    expect(journal[0].betragCent).toBe(5);
   });
 });

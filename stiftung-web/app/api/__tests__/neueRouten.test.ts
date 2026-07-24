@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
-import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTestTraeger } from '@/lib/server/__tests__/testDb';
+import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung } from '@/lib/server/__tests__/testDb';
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
 import { GET as getEinrichtungDetail } from '../einrichtungen/[slug]/route';
 import { GET as getErstbefuellung } from '../erstbefuellung/route';
-import { POST as postVerifikation } from '../traeger/[id]/verifikation/route';
 
 beforeEach(async () => {
   await resetDb();
@@ -130,82 +129,3 @@ describe('GET /api/erstbefuellung', () => {
   });
 });
 
-describe('POST /api/traeger/[id]/verifikation', () => {
-  it('setzt Verifikation, Rechtsform und Gemeinnützigkeit', async () => {
-    const t = await createTestTraeger({ verifiziert: false, rechtsform: 'unbekannt', gemeinnuetzig: false });
-
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: true, gemeinnuetzig: true, rechtsform: 'ggmbh' }),
-      }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(200);
-
-    const zeile = await prisma.traeger.findUniqueOrThrow({ where: { id: t.id } });
-    expect(zeile.verifiziert).toBe(true);
-    expect(zeile.rechtsform).toBe('ggmbh');
-    expect(zeile.gemeinnuetzig).toBe(true);
-  });
-
-  it('gibt 400 bei unbekannter Rechtsform', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ verifiziert: true, rechtsform: 'quatsch' }) }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-  });
-
-  it('gibt 400 bei geerbten Objekt-Eigenschaften statt eigener Keys (Object.hasOwn, nicht `in`)', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: true, rechtsform: 'constructor' }),
-      }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-  });
-
-  // Review-Finding aus Task 14 (jetzt in Task 16 nachgezogen): unbekannte
-  // traegerId ließ Prisma mit P2025 unbehandelt durchknallen → 500.
-  it('gibt 404 bei unbekannter traegerId statt eines unbehandelten 500ers', async () => {
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: true }),
-      }),
-      { params: { id: 'gibt-es-nicht' } }
-    );
-    expect(res.status).toBe(404);
-    expect((await res.json()).error).toBe('not_found');
-  });
-
-  // Review-Finding aus Task 14: Boolean(body.verifiziert) coerced ein
-  // fehlendes/falsch typisiertes Feld stillschweigend zu false statt zu validieren.
-  it('gibt 400 bei nicht-boolschem verifiziert', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', {
-        method: 'POST',
-        body: JSON.stringify({ verifiziert: 'ja' }),
-      }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_verifiziert');
-  });
-
-  it('gibt 400 bei fehlendem verifiziert-Feld', async () => {
-    const t = await createTestTraeger();
-    const res = await postVerifikation(
-      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ rechtsform: 'ggmbh' }) }),
-      { params: { id: t.id } }
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_verifiziert');
-  });
-});

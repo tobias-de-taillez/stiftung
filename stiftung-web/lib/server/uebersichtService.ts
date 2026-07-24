@@ -137,3 +137,26 @@ export async function buchungsTicker(limit = 10) {
   );
 }
 export type BuchungsTickerEintrag = Awaited<ReturnType<typeof buchungsTicker>>[number];
+
+/**
+ * Vollständiges Buchungsjournal für die Admin-Ansicht (alle Typen, nicht nur
+ * die Ticker-sichtbaren). Neueste zuerst, id-Tiebreaker gegen ms-Kollisionen.
+ */
+export async function buchungsJournal(limit = 100) {
+  const buchungen = await prisma.buchung.findMany({
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take: limit,
+    include: { einrichtung: { select: { name: true, slug: true } } },
+  });
+  return serialisiere(
+    buchungen.map((b) => ({
+      id: b.id,
+      typ: b.typ,
+      betragCent: b.betragCent,
+      einrichtungName: b.einrichtung?.name ?? null,
+      einrichtungSlug: b.einrichtung?.slug ?? null,
+      createdAt: b.createdAt,
+    }))
+  );
+}
+export type JournalEintrag = Awaited<ReturnType<typeof buchungsJournal>>[number];
