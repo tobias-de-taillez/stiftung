@@ -30,7 +30,9 @@ describe('fuehreKaskadeAus — goldenes Spec-§9-Beispiel über die echte DB', (
     expect(ergebnis.poolwertCent).toBe(41_500);
     expect(ergebnis.direktspenden.map((d) => d.cent)).toEqual([140, 150, 125]);
     expect(ergebnis.abgaben.find((a) => a.slug === 'a')!.cent).toBe(34);
+    expect(ergebnis.abgaben.find((a) => a.slug === 'a')!.basisCent).toBe(14_000);
     expect(ergebnis.abgaben.find((a) => a.slug === 'b')!.cent).toBe(150);
+    expect(ergebnis.abgaben.find((a) => a.slug === 'b')!.basisCent).toBe(15_000);
     expect(ergebnis.managementBewegungCent).toBe(302);
     // Reihenfolge folgt der Lade-Reihenfolge (orderBy slug asc).
     expect(ergebnis.umverteilung).toEqual([

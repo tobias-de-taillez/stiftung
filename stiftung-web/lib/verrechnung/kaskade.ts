@@ -28,7 +28,7 @@ export interface KaskadeErgebnis {
   snapshot: { poolwertCent: Cent; soliFondsCent: Cent; topfCent: Map<string, Cent> };
   auffuellenCent: Cent;
   direktspenden: { id: string; cent: Cent }[];
-  abgaben: { id: string; cent: Cent; pPromille: number }[];
+  abgaben: { id: string; cent: Cent; basisCent: Cent; pPromille: number }[];
   managementBewegungCent: Cent;
   umverteilung: { id: string; cent: Cent }[];
   keineVerteilungGrund: KeineVerteilungGrund | null;
@@ -102,14 +102,15 @@ export function berechneKaskade(input: KaskadeInput): KaskadeErgebnis {
       })
     )
   );
-  const abgaben: { id: string; cent: Cent; pPromille: number }[] = [];
+  const abgaben: { id: string; cent: Cent; basisCent: Cent; pPromille: number }[] = [];
   let soli = input.soliFondsCent;
   if (rangSnapshot.p !== null) {
     for (const e of einrichtungen) {
       const p = rangSnapshot.p.get(e.id)!;
-      const cent = divRound(p * anteilVon(snapshotTopf.get(e.id)!, AUSSCHUETTUNGS_SATZ), P_SCALE);
+      const basisCent = snapshotTopf.get(e.id)!;
+      const cent = divRound(p * anteilVon(basisCent, AUSSCHUETTUNGS_SATZ), P_SCALE);
       if (cent > 0n) {
-        abgaben.push({ id: e.id, cent, pPromille: Number((p * 1000n) / P_SCALE) });
+        abgaben.push({ id: e.id, cent, basisCent, pPromille: Number((p * 1000n) / P_SCALE) });
         topf.set(e.id, topf.get(e.id)! - cent);
         etf -= cent;   // Einr.-Depot → Soli-Depot
         soli += cent;

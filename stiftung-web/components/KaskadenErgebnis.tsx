@@ -119,7 +119,7 @@ export function KaskadenErgebnis({
             <ul>
               {abgaben.map((a) => (
                 <li key={a.slug} className="zeitraffer-eintrag">
-                  {a.name} zahlt {formatSatzProzent(a.pPromille)} % — {formatEuroFromCent(a.cent)}
+                  {a.name} zahlt {formatSatzProzent(a.pPromille)} % von {formatEuroFromCent(a.basisCent)} — {formatEuroFromCent(a.cent)}
                 </li>
               ))}
             </ul>
