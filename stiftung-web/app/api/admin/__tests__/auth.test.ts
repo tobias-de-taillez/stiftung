@@ -41,12 +41,18 @@ describe('POST /api/admin/login', () => {
     const res = await login(req({}));
     expect(res.status).toBe(401);
   });
+
+  it('weist null-Body mit 401 ab (kein 500)', async () => {
+    const res = await login(new Request('http://x/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: 'null',
+    }));
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('POST /api/admin/logout', () => {
   it('löscht das Cookie (Max-Age=0)', async () => {
-    // @ts-expect-error - Request constructor type issue in jsdom environment
-    const res = await logout(new Request('http://x/api/admin/logout', { method: 'POST' }));
+    const res = await logout();
     expect(res.status).toBe(200);
     const setCookie = res.headers.get('set-cookie')!;
     expect(setCookie).toMatch(new RegExp(`${ADMIN_COOKIE}=`));

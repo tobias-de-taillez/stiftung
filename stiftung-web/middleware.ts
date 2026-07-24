@@ -6,7 +6,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Cookie-Name inline setzen, um node:crypto-Import zu vermeiden
-// (würde ansonsten in das Edge-Runtime-Bundle gezogen)
+// (würde ansonsten in das Edge-Runtime-Bundle gezogen).
+// MUSS identisch mit ADMIN_COOKIE in lib/server/adminSession.ts bleiben!
 const ADMIN_COOKIE = 'admin_session';
 
 export function middleware(request: NextRequest) {
