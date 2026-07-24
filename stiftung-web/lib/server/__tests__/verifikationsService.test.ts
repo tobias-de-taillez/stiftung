@@ -77,4 +77,27 @@ describe('verifikationsService', () => {
   it('Entscheidung über unbekannten Antrag wirft', async () => {
     await expect(entscheideAntrag('gibt-es-nicht', 'genehmigt')).rejects.toThrow(AntragNichtGefundenError);
   });
+
+  it('konkurrierende Doppelentscheidung: genau eine gewinnt, die andere wirft', async () => {
+    const t = await createTestTraeger({ verifiziert: false });
+    const { antragId } = await stelleAntrag(t.id, { rechtsform: 'ggmbh', gemeinnuetzig: true });
+
+    const ergebnisse = await Promise.allSettled([
+      entscheideAntrag(antragId, 'genehmigt'),
+      entscheideAntrag(antragId, 'abgelehnt'),
+    ]);
+    // Welcher Aufruf gewinnt, ist Implementierungsdetail (SQLite serialisiert) —
+    // geprüft wird nur: genau einer erfüllt, genau einer wirft BereitsEntschieden.
+    const erfuellt = ergebnisse.filter((r) => r.status === 'fulfilled');
+    const abgelehnt = ergebnisse.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(erfuellt).toHaveLength(1);
+    expect(abgelehnt).toHaveLength(1);
+    expect(abgelehnt[0].reason).toBeInstanceOf(AntragBereitsEntschiedenError);
+
+    // Antrag endet in genau einem Entscheidungs-Status, konsistent zum Träger.
+    const antrag = await prisma.verifikationsAntrag.findUniqueOrThrow({ where: { id: antragId } });
+    expect(['genehmigt', 'abgelehnt']).toContain(antrag.status);
+    const traeger = await prisma.traeger.findUniqueOrThrow({ where: { id: t.id } });
+    expect(traeger.verifiziert).toBe(antrag.status === 'genehmigt');
+  });
 });
