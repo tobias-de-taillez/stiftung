@@ -7,7 +7,7 @@ export async function PUT(request: Request) {
   if (!pruefeAdminSession(request)) {
     return NextResponse.json({ error: 'nicht_angemeldet' }, { status: 401 });
   }
-  const body = await request.json();
+  const body = (await request.json().catch(() => null)) ?? {};
   const capCent = Number(body.capCent);
   if (!Number.isSafeInteger(capCent) || capCent < 0) {
     return NextResponse.json({ error: 'invalid_cap' }, { status: 400 });

@@ -64,6 +64,17 @@ describe('Admin-Mutations-Routen: Fehlerbehandlung', () => {
     expect(res.status).toBe(400);
   });
 
+  it('cap: 400 mit null-body', async () => {
+    const req = new Request('http://x/api/admin/cap', {
+      method: 'PUT',
+      headers: { cookie: cookie(), 'Content-Type': 'application/json' },
+      body: 'null',
+    });
+    const res = await capPut(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_cap');
+  });
+
   it('schliessen: 404 bei unbekanntem slug', async () => {
     const ctx = { params: { slug: 'gibt-es-nicht' } };
     const res = await schliessen(adminReq('http://x/api/admin/einrichtungen/gibt-es-nicht/schliessen', 'POST'), ctx);

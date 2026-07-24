@@ -4,7 +4,7 @@ import { stelleAntrag, TraegerNichtGefundenError, BereitsVerifiziertError, Antra
 import { RECHTSFORM_LABELS, type Rechtsform } from '@/lib/verrechnung/traeger';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const body = await request.json().catch(() => ({}));
+  const body = (await request.json().catch(() => null)) ?? {};
   if (!Object.hasOwn(RECHTSFORM_LABELS, body.rechtsform) || body.rechtsform === 'unbekannt') {
     return NextResponse.json({ error: 'invalid_rechtsform' }, { status: 400 });
   }

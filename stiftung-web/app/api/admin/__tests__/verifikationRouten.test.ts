@@ -79,6 +79,17 @@ describe('POST /api/traeger/[id]/verifikation/antrag (public)', () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('invalid_gemeinnuetzig');
   });
+
+  it('400 invalid_rechtsform mit null-body', async () => {
+    const t = await createTestTraeger({ verifiziert: false });
+    const req = new Request(`http://x/api/traeger/${t.id}/verifikation/antrag`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: 'null',
+    });
+    const res = await antragPost(req, { params: { id: t.id } });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_rechtsform');
+  });
 });
 
 describe('Admin-Verifikations-Routen: Guard + Fluss', () => {
@@ -169,6 +180,18 @@ describe('Admin-Verifikations-Routen: Guard + Fluss', () => {
       new Request('http://x/api/admin/verifikation/antraege/x', {
         method: 'POST', headers: { cookie: adminCookie(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ entscheidung: 'vielleicht' }),
+      }),
+      { params: { id: 'x' } }
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_entscheidung');
+  });
+
+  it('400 invalid_entscheidung mit null-body', async () => {
+    const res = await entscheidePost(
+      new Request('http://x/api/admin/verifikation/antraege/x', {
+        method: 'POST', headers: { cookie: adminCookie(), 'Content-Type': 'application/json' },
+        body: 'null',
       }),
       { params: { id: 'x' } }
     );

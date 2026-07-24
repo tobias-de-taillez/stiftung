@@ -6,7 +6,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!pruefeAdminSession(request)) {
     return NextResponse.json({ error: 'nicht_angemeldet' }, { status: 401 });
   }
-  const body = await request.json().catch(() => ({}));
+  const body = (await request.json().catch(() => null)) ?? {};
   if (body.entscheidung !== 'genehmigt' && body.entscheidung !== 'abgelehnt') {
     return NextResponse.json({ error: 'invalid_entscheidung' }, { status: 400 });
   }
