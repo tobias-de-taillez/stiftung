@@ -17,6 +17,7 @@ import { impactBeispiel } from '@/lib/data/impactBeispiele';
 import { StatusChip } from './StatusChip';
 import { ProgressBar } from './ProgressBar';
 import { SpendenBestaetigung } from './SpendenBestaetigung';
+import { useTransientesErgebnis } from '@/lib/hooks/useTransientesErgebnis';
 
 interface EinrichtungFuerRechner {
   slug: string;
@@ -42,49 +43,6 @@ interface SpendenErgebnis {
 
 const BETRAG_PRESETS = [25, 50, 100, 250];
 
-// --- Remount-Restore für die Spendenbestätigung ------------------------------
-// Next 14 remountet den Client-Subtree einer Seite beim ERSTEN router.refresh()
-// nach der Hydration (danach nicht mehr) — im echten Browser reproduziert:
-// Die Bestätigung erschien und wurde ~20 ms später durch den Remount wieder
-// entfernt, weil sämtliche useState-Stände auf ihre Initialwerte zurückfielen.
-// RTL-Tests sehen das nie, weil sie refresh als No-op mocken. Deshalb wird der
-// Stand der letzten Buchung VOR dem refresh() außerhalb des React-Baums
-// (Modul-Scope) gesichert und beim Remount über die useState-Initializer
-// wiederhergestellt.
-// ponytail: Slug-Guard + Frische-Fenster statt echter Remount-Erkennung —
-// React/Next bieten keinen Weg, den Refresh-Remount von einer normalen
-// Rück-Navigation zu unterscheiden. Innerhalb des Fensters erscheint die
-// Bestätigung bei Rückkehr auf dieselbe Seite erneut (harmlos, gleiche Daten);
-// danach nicht mehr. Obsolet, sobald eine Next-Version beim refresh nicht mehr
-// remountet.
-interface BuchungsSnapshot {
-  slug: string;
-  gebuchtUm: number;
-  topfStandCent: number;
-  ergebnis: SpendenErgebnis;
-}
-
-const RESTORE_FENSTER_MS = 10_000;
-
-let letzteBuchung: BuchungsSnapshot | null = null;
-
-// Nur für Tests: Der Modul-Scope-Snapshot überlebt Testgrenzen und muss dort
-// pro Test zurückgesetzt werden.
-export function verwerfeLetzteBuchung() {
-  letzteBuchung = null;
-}
-
-function restauriereBuchung(slug: string): BuchungsSnapshot | null {
-  if (
-    letzteBuchung &&
-    letzteBuchung.slug === slug &&
-    Date.now() - letzteBuchung.gebuchtUm < RESTORE_FENSTER_MS
-  ) {
-    return letzteBuchung;
-  }
-  return null;
-}
-
 export function SpendenRechner({
   einrichtung,
   widmungWortlaut,
@@ -94,9 +52,21 @@ export function SpendenRechner({
 }) {
   const router = useRouter();
 
-  // Lazy-Initializer: läuft genau einmal pro Mount — beim Refresh-Remount
-  // liefert er den Snapshot der gerade gebuchten Spende zurück (s. o.).
-  const [restauriert] = useState(() => restauriereBuchung(einrichtung.slug));
+  // Snapshot der zuletzt GEBUCHTEN Spende (Fix 4027022 beibehalten): Die
+  // Bestätigung/Quittung/Share-Text zeigt diesen eingefrorenen Stand, nicht
+  // die Live-States, die der Regler nach der Buchung beliebig weiterändert.
+  // altes/neuesTopfwertCent kommen für Verwendungsart A direkt vom Server
+  // (topfwertVorherCent/topfwertNachherCent) — kein clientseitiges Tracken
+  // eines "Vorher"-Werts mehr nötig.
+  // useTransientesErgebnis statt useState: Der erste router.refresh() nach
+  // der Hydration remountet diesen Subtree (Next 14 + loading.tsx, siehe
+  // lib/hooks/useTransientesErgebnis.ts) — plain useState ließ die gerade
+  // gezeigte Bestätigung ~20 ms nach dem Erscheinen wieder verschwinden.
+  // Der Slug im Key verhindert, dass die Bestätigung einer anderen
+  // Einrichtung restauriert wird. Alle übrigen States unten restaurieren
+  // sich aus diesem Ergebnis — es friert Betrag/Frequenz/Verwendungsart und
+  // den Nachher-Topfwert der Buchung ein.
+  const [ergebnis, setErgebnis] = useTransientesErgebnis<SpendenErgebnis>(`spende.${einrichtung.slug}`);
 
   // lib/calc/spendenrechner.ts ist Euro-basiert (unverändert) — hier EINMAL
   // am Komponentenkopf von Cent nach Euro ableiten, statt jeden Aufruf
@@ -106,28 +76,20 @@ export function SpendenRechner({
   // Snapshot rechnet). Verwendungsart B kauft keine Anteile — der Topf ändert
   // sich dadurch nicht.
   const [topfStandCent, setTopfStandCent] = useState(
-    restauriert?.topfStandCent ?? einrichtung.topfwertCent
+    ergebnis?.neuesTopfwertCent ?? einrichtung.topfwertCent
   );
   const topfEuro = topfStandCent / 100;
   const zielEuro = einrichtung.zielKapitalCent / 100;
 
-  const [betrag, setBetrag] = useState(restauriert ? restauriert.ergebnis.betragCent / 100 : 50);
-  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>(
-    restauriert?.ergebnis.frequenz ?? 'einmalig'
-  );
+  const [betrag, setBetrag] = useState(ergebnis ? ergebnis.betragCent / 100 : 50);
+  const [frequenz, setFrequenz] = useState<'einmalig' | 'jaehrlich'>(ergebnis?.frequenz ?? 'einmalig');
   const [verwendungsart, setVerwendungsart] = useState<'vermoegen' | 'direkt'>(
-    restauriert?.ergebnis.verwendungsart ?? 'vermoegen'
+    ergebnis?.verwendungsart ?? 'vermoegen'
   );
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
-    restauriert ? 'done' : 'idle'
-  );
-  // Snapshot der zuletzt GEBUCHTEN Spende (Fix 4027022 beibehalten): Die
-  // Bestätigung/Quittung/Share-Text zeigt diesen eingefrorenen Stand, nicht
-  // die Live-States, die der Regler nach der Buchung beliebig weiterändert.
-  // altes/neuesTopfwertCent kommen für Verwendungsart A direkt vom Server
-  // (topfwertVorherCent/topfwertNachherCent) — kein clientseitiges Tracken
-  // eines "Vorher"-Werts mehr nötig.
-  const [ergebnis, setErgebnis] = useState<SpendenErgebnis | null>(restauriert?.ergebnis ?? null);
+  // Nach dem Refresh-Remount mit restauriertem Ergebnis direkt im
+  // done-Zustand starten, sonst bliebe die restaurierte Bestätigung
+  // unsichtbar (Render-Bedingung: status === 'done' && ergebnis).
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(ergebnis ? 'done' : 'idle');
 
   async function handleSpenden() {
     setStatus('loading');
@@ -167,17 +129,10 @@ export function SpendenRechner({
       // Für 'direkt' ist neuesTopfwertCent === topfStandCent — das Set ist
       // dort ein No-op, deshalb branchfrei.
       setTopfStandCent(neuesErgebnis.neuesTopfwertCent);
+      // setErgebnis sichert den Wert zugleich als Remount-Snapshot (siehe
+      // useTransientesErgebnis) — muss deshalb VOR router.refresh() stehen.
       setErgebnis(neuesErgebnis);
       setStatus('done');
-      // Snapshot VOR dem refresh() sichern: Der erste refresh() nach der
-      // Hydration remountet diesen Subtree (s. Kommentar am Modul-Kopf) —
-      // der Remount restauriert die Bestätigung aus genau diesem Snapshot.
-      letzteBuchung = {
-        slug: einrichtung.slug,
-        gebuchtUm: Date.now(),
-        topfStandCent: neuesErgebnis.neuesTopfwertCent,
-        ergebnis: neuesErgebnis,
-      };
       // Server-Sektionen auf derselben Seite (Finanztopf-Karte, Transparenz-
       // Historie in app/einrichtungen/[slug]/page.tsx) lesen direkt aus der DB
       // und werden sonst erst nach einem manuellen Reload aktuell.
