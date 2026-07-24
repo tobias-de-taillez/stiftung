@@ -99,6 +99,73 @@ vollständig — Ist == Soll:
 - Kein Grundstock-Topf — erst zur Stiftungsumwandlung in Phase 3 fällig; das
   Kontenmodell ist dafür vorbereitet (siehe Verrechnungsmodell § 10).
 
+## Rollen-Trennung Public/Admin umgesetzt (Stand 2026-07-24)
+
+Branch `admin-trennung`
+([`docs/superpowers/plans/2026-07-24-admin-trennung.md`](docs/superpowers/plans/2026-07-24-admin-trennung.md),
+9 Tasks; Design-Spec
+[`docs/superpowers/specs/2026-07-23-admin-trennung-design.md`](docs/superpowers/specs/2026-07-23-admin-trennung-design.md))
+trennt das öffentliche Spender-Frontend von einem passwortgeschützten
+Admin-Bereich. Vorher konnte jeder Besucher Marktjahr, Jahresabschluss,
+Auszahlungslauf, Management-Cap und Träger-Verifikation direkt auslösen —
+das war für die Demo praktisch, aber keine plausible Rollentrennung.
+
+**Was jetzt real ist:**
+- **Signiertes httpOnly-Session-Cookie** (`lib/server/adminSession.ts`), reine
+  `node:crypto`-HMAC-Signatur, keine neue Dependency. Kein `maxAge` — das
+  Cookie ist Session-Scope und stirbt mit dem Browserfenster; zwei private
+  Fenster ergeben deshalb zwei unabhängige, gleichzeitig nutzbare Rollen.
+- **`/admin`-Bereich** (`/admin/login`, Dashboard, `/admin/verifikation`,
+  `/admin/einrichtungen`, `/admin/journal`), Zugriff mit Passwort aus
+  `ADMIN_PASSWORT`. Middleware redirected unangemeldete Besucher als Komfort;
+  die maßgebliche Prüfung ist der RSC-Layout-Guard
+  (`app/admin/(geschuetzt)/layout.tsx`, `pruefeSessionToken`) plus der
+  Handler-Guard (`pruefeAdminSession`) in jeder `/api/admin/*`-Route.
+- **Mutations-Routen unter `/api/admin/*`** verschoben: Marktjahr,
+  Jahresabschluss, Auszahlungslauf, Management-Cap, Einrichtung schließen,
+  Verifikations-Entscheidung. Jeder Handler prüft die Session als erste
+  Zeile — ohne gültiges Cookie: `401 { error: 'nicht_angemeldet' }`.
+- **Antrag→Genehmigung-Fluss für Verifikation:** Der alte direkte
+  Verifikations-Toggle ist weg. Ein Träger (bzw. die Spender-Seite in seinem
+  Namen) stellt öffentlich einen Antrag
+  (`POST /api/traeger/[id]/verifikation/antrag`,
+  `lib/server/verifikationsService.ts`); ein Admin sieht ihn in der
+  Warteschlange (`/admin/verifikation`) und genehmigt oder lehnt ihn ab.
+  `setzeVerifikation` bleibt die einzige Stelle, die den Träger-Status
+  schreibt — der Antragsfluss sitzt davor.
+- **Was public bleibt:** alle GETs, Einrichtung anlegen
+  (`POST /api/einrichtungen`), Spende an eine Einrichtung
+  (`POST /api/einrichtungen/[slug]/spenden`), Spende an den Solidaritätsfonds
+  (`POST /api/solidaritaetsfonds/spenden`), Verifikations-Antrag stellen
+  (`POST /api/traeger/[id]/verifikation/antrag`). **Was admin ist:** Login/
+  Logout, Marktjahr, Jahresabschluss, Auszahlungslauf, Management-Cap,
+  Einrichtung schließen, Verifikations-Entscheidung, Buchungsjournal-Ansicht.
+- Grep-Beweis geführt: kein öffentlicher Handler importiert eine der
+  mutierenden Service-Funktionen mehr; alle Admin-Fetches im Client-Code
+  liegen ausschließlich in Komponenten, die nur unter `app/admin/` eingebunden
+  sind.
+- **467 Tests, alle grün** (56 Testdateien, Vitest); `npm run verify`
+  (tsc + Tests + Build) läuft ohne Fehler durch.
+
+**Ehrlich offen:**
+- Kein echtes User-Modell — ein einziges geteiltes Admin-Passwort, keine
+  Rollen/Rechte-Differenzierung unter Admins.
+- Kein Rate-Limit, kein CSRF-Token auf den Admin-Routen — für die
+  Spielgeld-Demo genügt `sameSite=lax` + Same-Origin; vor echtem Einsatz
+  nachzurüsten.
+- Kein Träger-Portal — Träger haben kein eigenes Login und stellen den
+  Verifikations-Antrag nicht selbst; das Spender-Frontend tut es stellvertretend
+  für sie. Eigenes Träger-Login ist Phase 2.
+- `entscheideAntrag` (`lib/server/verifikationsService.ts`) ist **nicht
+  transaktional** über Antrags-Update und `setzeVerifikation` hinweg — bei
+  zwei gleichzeitigen Admins auf denselben Antrag ist ein Race möglich. Für
+  eine Einzel-Admin-Demo unkritisch, aber ein Follow-up vor Multi-Admin-Einsatz.
+- Middleware matcht `/admin/((?!login).*)` und deckt damit die bloße
+  `/admin`-Route (Dashboard, Route-Group ohne URL-Segment) nicht ab — dort
+  übernimmt bewusst der RSC-Layout-Guard allein (stärkere Prüfung: volle
+  Signatur statt nur Cookie-Präsenz). Kein Datenleck, siehe Kommentar in
+  `app/admin/(geschuetzt)/layout.tsx`.
+
 ---
 ## Historie
 

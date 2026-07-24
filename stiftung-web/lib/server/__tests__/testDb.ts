@@ -9,6 +9,7 @@ export async function resetDb() {
   await prisma.zuwendung.deleteMany();
   await prisma.auszahlungsLauf.deleteMany();
   await prisma.kaskadenlauf.deleteMany();
+  await prisma.verifikationsAntrag.deleteMany();
   await prisma.einrichtung.deleteMany();
   await prisma.traeger.deleteMany();
   await prisma.widmungsText.deleteMany();
