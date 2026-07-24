@@ -11,21 +11,28 @@ import { useRouter } from 'next/navigation';
  */
 export function AdminLogoutButton() {
   const router = useRouter();
-  const [status, setStatus] = useState<'idle' | 'loading'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'fehler'>('idle');
 
   async function handleLogout() {
     setStatus('loading');
     try {
-      await fetch('/api/admin/logout', { method: 'POST' });
-    } finally {
+      const res = await fetch('/api/admin/logout', { method: 'POST' });
+      // Nur bei erfolgreichem Löschen des Cookies weiterleiten — sonst bliebe
+      // die Session bestehen, während die Login-Seite Abmeldung suggeriert.
+      if (!res.ok) throw new Error('logout_failed');
       router.push('/admin/login');
       router.refresh();
+    } catch {
+      setStatus('fehler');
     }
   }
 
   return (
-    <button type="button" className="pill pill-secondary" onClick={handleLogout} disabled={status === 'loading'}>
-      Abmelden
-    </button>
+    <div style={{ display: 'grid', gap: '0.4rem', justifyItems: 'end' }}>
+      <button type="button" className="pill pill-secondary" onClick={handleLogout} disabled={status === 'loading'}>
+        Abmelden
+      </button>
+      {status === 'fehler' && <p className="negative" style={{ margin: 0 }}>Abmelden fehlgeschlagen. Bitte erneut versuchen.</p>}
+    </div>
   );
 }
