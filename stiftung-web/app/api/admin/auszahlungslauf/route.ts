@@ -6,5 +6,7 @@ export async function POST(request: Request) {
   if (!pruefeAdminSession(request)) {
     return NextResponse.json({ error: 'nicht_angemeldet' }, { status: 401 });
   }
-  return NextResponse.json(await auszahlungslauf(), { status: 201 });
+  const ergebnis = await auszahlungslauf();
+  // Leerer Lauf legt nichts an — 200, nicht 201.
+  return NextResponse.json(ergebnis, { status: ergebnis.laufId ? 201 : 200 });
 }

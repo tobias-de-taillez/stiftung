@@ -1,10 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '@/lib/server/prismaClient';
-import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung } from '@/lib/server/__tests__/testDb';
+import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, pruefeInvarianten } from '@/lib/server/__tests__/testDb';
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
 import { GET as getEinrichtungDetail } from '../einrichtungen/[slug]/route';
+import { POST as postSpenden } from '../einrichtungen/[slug]/spenden/route';
+import { POST as postSoliSpenden } from '../solidaritaetsfonds/spenden/route';
 import { GET as getErstbefuellung } from '../erstbefuellung/route';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(async () => {
   await resetDb();
@@ -129,3 +134,29 @@ describe('GET /api/erstbefuellung', () => {
   });
 });
 
+// P1: kaputtes/nicht-objektförmiges JSON → 400 statt 500 (leseJsonBody).
+// Nur die public Body-Routen; die Admin-Routen deckt admin/__tests__/mutationsRouten ab.
+describe('kaputtes JSON → 400 statt 500 (public Body-Routen über leseJsonBody)', () => {
+  const kaputt = () => new Request('http://localhost', { method: 'POST', body: '{kein json' });
+
+  it('POST /api/einrichtungen', async () => {
+    const res = await postEinrichtungen(kaputt());
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_json');
+  });
+
+  it('POST /api/einrichtungen/[slug]/spenden', async () => {
+    const res = await postSpenden(kaputt(), { params: { slug: 'egal' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/solidaritaetsfonds/spenden', async () => {
+    const res = await postSoliSpenden(kaputt());
+    expect(res.status).toBe(400);
+  });
+
+  it('JSON-Body "null" ist ebenfalls ein 400, kein TypeError-500', async () => {
+    const res = await postSoliSpenden(new Request('http://localhost', { method: 'POST', body: 'null' }));
+    expect(res.status).toBe(400);
+  });
+});

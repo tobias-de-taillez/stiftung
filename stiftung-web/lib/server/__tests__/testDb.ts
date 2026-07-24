@@ -3,6 +3,7 @@
 // keine Alt-Welt-Tabellen mehr, die eine eigene Reset-Logik bräuchten.
 import { prisma } from '../prismaClient';
 import { ANTEILS_EINHEITEN_PRO_CENT } from '@/lib/verrechnung/konstanten';
+import { topfwertCent } from '@/lib/verrechnung/anteile';
 
 export async function resetDb() {
   await prisma.buchung.deleteMany();
@@ -14,6 +15,43 @@ export async function resetDb() {
   await prisma.traeger.deleteMany();
   await prisma.widmungsText.deleteMany();
   await prisma.kontenstand.deleteMany();
+}
+
+/**
+ * DB-Invarianten nach jedem Service-Test (`afterEach(pruefeInvarianten)`):
+ * kein Konto negativ, Σ Topfwerte == Poolwert (± 1 Cent je Einrichtung
+ * Anzeige-Rundung). Der Σ-Check ist bei anteiliger Topfwert-Formel vor allem
+ * ein Regressionsschutz für topfwertCent/divRound selbst.
+ */
+export async function pruefeInvarianten() {
+  const k = await prisma.kontenstand.findUnique({ where: { id: 'main' } });
+  if (!k) return; // Suite ohne Kontenstand — nichts zu prüfen
+  const konten = {
+    etfMarktwertCent: k.etfMarktwertCent,
+    verrechnungskontoCent: k.verrechnungskontoCent,
+    soliDepotCent: k.soliDepotCent,
+    soliVerrechnungskontoCent: k.soliVerrechnungskontoCent,
+    managementKontoCent: k.managementKontoCent,
+  };
+  for (const [feld, wert] of Object.entries(konten)) {
+    if (wert < 0n) throw new Error(`Invariante verletzt: ${feld} ist negativ (${wert})`);
+  }
+  const offeneDirekt =
+    (
+      await prisma.zuwendung.aggregate({
+        _sum: { betragCent: true },
+        where: { verwendungsart: 'direkt', ausgezahltAm: null },
+      })
+    )._sum.betragCent ?? 0n;
+  const pool = k.etfMarktwertCent + k.verrechnungskontoCent - offeneDirekt;
+  const offene = await prisma.einrichtung.findMany({ where: { geschlossenAm: null }, select: { anteile: true } });
+  const gesamt = offene.reduce((s, e) => s + e.anteile, 0n);
+  if (gesamt === 0n) return; // leerer Pool — kein Topf zu vergleichen
+  const summeToepfe = offene.reduce((s, e) => s + topfwertCent(e.anteile, pool, gesamt), 0n);
+  const diff = summeToepfe >= pool ? summeToepfe - pool : pool - summeToepfe;
+  if (diff > BigInt(offene.length)) {
+    throw new Error(`Invariante verletzt: Σ Topfwerte ${summeToepfe} weicht vom Poolwert ${pool} ab`);
+  }
 }
 
 export async function seedWidmung() {

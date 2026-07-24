@@ -1,8 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '../prismaClient';
-import { resetDb, seedKontenstand, seedWidmung, createTestEinrichtung } from './testDb';
-import { spendeVermoegen, spendeAnSoli, UngueltigeZuwendungError, EinrichtungGeschlossenError } from '../spendenService';
+import { resetDb, seedKontenstand, seedWidmung, createTestEinrichtung, pruefeInvarianten } from './testDb';
+import {
+  spendeVermoegen,
+  spendeAnSoli,
+  spendeMitAnlage,
+  UngueltigeZuwendungError,
+  EinrichtungGeschlossenError,
+} from '../spendenService';
 import { ANTEILS_EINHEITEN_PRO_CENT } from '@/lib/verrechnung/konstanten';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(async () => {
   await resetDb();
@@ -66,6 +75,54 @@ describe('spendeVermoegen (Verwendungsart A, Spec §3.1)', () => {
     await expect(spendeVermoegen('gibt-es-nicht', 100n)).rejects.toThrow();
     const offen = await createTestEinrichtung();
     await expect(spendeVermoegen(offen.slug, 0n)).rejects.toThrow(UngueltigeZuwendungError);
+  });
+});
+
+describe('spendeMitAnlage (Anlage bei Erstspende, Spec §3.0)', () => {
+  it('vollständig nicht-lateinischer Name/Typ/Ort fällt auf den Slug "einrichtung" zurück statt auf ""', async () => {
+    await seedKontenstand();
+    const ergebnis = await spendeMitAnlage(
+      { name: '子供の家', typ: '幼稚園', ort: '東京', kinderAnzahl: 5 },
+      10_000n
+    );
+    expect(ergebnis.slug).toBe('einrichtung');
+  });
+
+  it('Slug-Kollision ohne Dedup-Treffer bekommt das Suffix -2', async () => {
+    await seedKontenstand();
+    // "Kita Nord" und "Kita. Nord" normalisieren unterschiedlich (kein Dedup),
+    // slugifyen aber identisch → der Kollisions-Loop muss -2 anhängen.
+    const erste = await spendeMitAnlage({ name: 'Kita Nord', typ: 'kita', ort: 'Berlin', kinderAnzahl: 5 }, 10_000n);
+    const zweite = await spendeMitAnlage({ name: 'Kita. Nord', typ: 'kita', ort: 'Berlin', kinderAnzahl: 5 }, 10_000n);
+    expect(zweite.dedup).toBe(false);
+    expect(zweite.slug).toBe(`${erste.slug}-2`);
+    expect(await prisma.einrichtung.count()).toBe(2);
+  });
+
+  it('lehnt leeren Namen, leeren Ort, Kinderzahl < 1 und Betrag <= 0 ab', async () => {
+    await seedKontenstand();
+    const ok = { name: 'Kita', typ: 'kita', ort: 'Stadt', kinderAnzahl: 5 };
+    await expect(spendeMitAnlage({ ...ok, name: '   ' }, 1_000n)).rejects.toThrow(UngueltigeZuwendungError);
+    await expect(spendeMitAnlage({ ...ok, ort: '' }, 1_000n)).rejects.toThrow(UngueltigeZuwendungError);
+    await expect(spendeMitAnlage({ ...ok, kinderAnzahl: 0 }, 1_000n)).rejects.toThrow(UngueltigeZuwendungError);
+    await expect(spendeMitAnlage(ok, 0n)).rejects.toThrow(UngueltigeZuwendungError);
+    expect(await prisma.einrichtung.count()).toBe(0);
+  });
+});
+
+describe('fehlender Widmungstext (Doku-Pflicht, Spec §3.1)', () => {
+  it('Verwendungsart A ist ohne hinterlegten Wortlaut nicht buchbar', async () => {
+    await seedKontenstand();
+    const e = await createTestEinrichtung();
+    await prisma.widmungsText.deleteMany();
+    await expect(spendeVermoegen(e.slug, 1_000n)).rejects.toThrow(UngueltigeZuwendungError);
+    await expect(spendeAnSoli(1_000n)).rejects.toThrow(UngueltigeZuwendungError);
+    await expect(
+      spendeMitAnlage({ name: 'Neue Kita', typ: 'kita', ort: 'Stadt', kinderAnzahl: 3 }, 1_000n)
+    ).rejects.toThrow(UngueltigeZuwendungError);
+    // Nichts halb gebucht: keine Zuwendung, keine neue Einrichtung.
+    expect(await prisma.zuwendung.count()).toBe(0);
+    expect(await prisma.einrichtung.count()).toBe(1);
   });
 });
 

@@ -31,7 +31,12 @@ export async function auszahlungslauf(): Promise<{ laufId: string | null; summeC
     // Brutto-Protokoll (Spec §7): eine Buchung je Einrichtung.
     const jeEinrichtung = new Map<string, bigint>();
     for (const z of offene) {
-      jeEinrichtung.set(z.einrichtungId!, (jeEinrichtung.get(z.einrichtungId!) ?? 0n) + z.betragCent);
+      if (!z.einrichtungId) {
+        // Der Service erzwingt bei 'direkt' eine Einrichtung — so eine Zeile
+        // ist Datenkorruption; abbrechen statt einrichtungslos zu buchen.
+        throw new Error(`Direkt-Zuwendung ${z.id} ohne Einrichtung — Auszahlungslauf abgebrochen`);
+      }
+      jeEinrichtung.set(z.einrichtungId, (jeEinrichtung.get(z.einrichtungId) ?? 0n) + z.betragCent);
     }
     for (const [einrichtungId, betragCent] of jeEinrichtung) {
       await buche(tx, { typ: 'auszahlungslauf', betragCent, einrichtungId });

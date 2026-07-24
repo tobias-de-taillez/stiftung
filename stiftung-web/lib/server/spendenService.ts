@@ -55,7 +55,7 @@ function normalisiert(text: string): string {
 }
 
 async function ladeOffeneEinrichtung(tx: Tx, slug: string) {
-  const einrichtung = await tx.einrichtung.findUnique({ where: { slug }, include: { traeger: true } });
+  const einrichtung = await tx.einrichtung.findUnique({ where: { slug } });
   if (!einrichtung) throw new EinrichtungNichtGefundenError(`Keine Einrichtung mit slug ${slug}`);
   if (einrichtung.geschlossenAm) throw new EinrichtungGeschlossenError(`${slug} ist geschlossen`);
   return einrichtung;
@@ -90,7 +90,11 @@ async function sweepEinrichtungsDepot(tx: Tx): Promise<void> {
   }
 }
 
-/** Analoger Sweep fürs Soli-Depot (Spec §3.2 letzter Satz). */
+/**
+ * Analoger Sweep fürs Soli-Depot (Spec §3.2 letzter Satz).
+ * ponytail: bewusst zu sweepEinrichtungsDepot dupliziert — eine über
+ * Kontenstand-Feldnamen parametrisierte Variante wäre unleserlicher.
+ */
 async function sweepSoliDepot(tx: Tx): Promise<void> {
   const k = await ensureKontenstand(tx);
   const betrag = sweepBetrag({
@@ -203,7 +207,10 @@ export async function spendeDirekt(
   pruefeBetrag(betragCent);
   return prisma.$transaction(async (tx) => {
     const einrichtung = await ladeOffeneEinrichtung(tx, slug);
-    if (!einrichtung.traeger?.verifiziert) {
+    const traeger = einrichtung.traegerId
+      ? await tx.traeger.findUnique({ where: { id: einrichtung.traegerId } })
+      : null;
+    if (!traeger?.verifiziert) {
       // Spec §3.1: ohne verifizierten Zugang kein Konto, auf das ausgezahlt
       // werden könnte — für unverifizierte gibt es nur Verwendungsart A.
       throw new DirektNichtVerfuegbarError(`Träger von ${slug} ist nicht verifiziert`);
@@ -271,8 +278,9 @@ export async function spendeMitAnlage(
   return prisma.$transaction(async (tx) => {
     const widmung = await ladeAktuelleWidmung(tx);
 
-    // Slug mit Kollisions-Suffix
-    const basis = slugify(`${daten.typ}-${daten.name}-${daten.ort}`);
+    // Slug mit Kollisions-Suffix; vollständig nicht-lateinische Eingaben
+    // slugifyen zu "" — Fallback, damit kein leerer Slug entsteht.
+    const basis = slugify(`${daten.typ}-${daten.name}-${daten.ort}`) || 'einrichtung';
     let slug = basis;
     for (let i = 2; await tx.einrichtung.findUnique({ where: { slug } }); i++) {
       slug = `${basis}-${i}`;

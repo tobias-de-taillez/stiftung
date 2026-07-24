@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb, seedKontenstand, seedWidmung, createTestTraeger, createTestEinrichtung } from '@/lib/server/__tests__/testDb';
 import { erstelleSessionToken, ADMIN_COOKIE } from '@/lib/server/adminSession';
+import { spendeDirekt } from '@/lib/server/spendenService';
 import { PUT as capPut } from '../cap/route';
 import { POST as marktjahr } from '../marktjahr/route';
 import { POST as jahresabschluss } from '../jahresabschluss/route';
@@ -44,9 +45,10 @@ describe('Admin-Mutations-Routen: Guard', () => {
     expect((await jahresabschluss(adminReq('http://x/api/admin/jahresabschluss', 'POST'))).status).toBe(201);
   });
 
-  it('auszahlungslauf: ohne Cookie 401, mit Cookie 201', async () => {
+  it('auszahlungslauf: ohne Cookie 401, mit Cookie 200 (leerer Lauf legt nichts an)', async () => {
     expect((await auszahlungslauf(anonReq('http://x/api/admin/auszahlungslauf', 'POST'))).status).toBe(401);
-    expect((await auszahlungslauf(adminReq('http://x/api/admin/auszahlungslauf', 'POST'))).status).toBe(201);
+    // Kein offener Direktposten → nichts erzeugt → 200, nicht 201 (P5).
+    expect((await auszahlungslauf(adminReq('http://x/api/admin/auszahlungslauf', 'POST'))).status).toBe(200);
   });
 
   it('schliessen: ohne Cookie 401, mit Cookie 200', async () => {
@@ -64,7 +66,7 @@ describe('Admin-Mutations-Routen: Fehlerbehandlung', () => {
     expect(res.status).toBe(400);
   });
 
-  it('cap: 400 mit null-body', async () => {
+  it('cap: 400 invalid_json mit null-body (leseJsonBody, P1)', async () => {
     const req = new Request('http://x/api/admin/cap', {
       method: 'PUT',
       headers: { cookie: cookie(), 'Content-Type': 'application/json' },
@@ -72,7 +74,27 @@ describe('Admin-Mutations-Routen: Fehlerbehandlung', () => {
     });
     const res = await capPut(req);
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_cap');
+    expect((await res.json()).error).toBe('invalid_json');
+  });
+
+  it('cap: 400 invalid_json bei kaputtem JSON (leseJsonBody, P1)', async () => {
+    const req = new Request('http://x/api/admin/cap', {
+      method: 'PUT',
+      headers: { cookie: cookie(), 'Content-Type': 'application/json' },
+      body: '{kaputt',
+    });
+    const res = await capPut(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_json');
+  });
+
+  it('auszahlungslauf: 201 mit Cookie, wenn ein Lauf angelegt wurde (P5)', async () => {
+    const t = await createTestTraeger();
+    const e = await createTestEinrichtung({ slug: 'direkt-empfaenger', traegerId: t.id });
+    await spendeDirekt(e.slug, 1_000n);
+    const res = await auszahlungslauf(adminReq('http://x/api/admin/auszahlungslauf', 'POST'));
+    expect(res.status).toBe(201);
+    expect((await res.json()).summeCent).toBe(1_000);
   });
 
   it('schliessen: 404 bei unbekanntem slug', async () => {

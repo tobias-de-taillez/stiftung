@@ -138,7 +138,10 @@ export default async function StatistikPage() {
 
       <Card>
         <p className="eyebrow">Solidaritätsfonds</p>
-        <p>Nicht direkt zugeordnete Spenden werden nach Bedarf verteilt — wer pro Kind am wenigsten hat, bekommt am meisten.</p>
+        <p>
+          Spenden ohne Einrichtungs-Zuordnung wachsen im Solidaritätsfonds. Einmal im Jahr schüttet die
+          Kaskade 1 % des Fonds aus — je weniger eine Einrichtung pro Kind hat, desto größer ihr Anteil.
+        </p>
         <a href="/solidaritaetsfonds" className="pill pill-secondary">Zum Solidaritätsfonds</a>
       </Card>
 

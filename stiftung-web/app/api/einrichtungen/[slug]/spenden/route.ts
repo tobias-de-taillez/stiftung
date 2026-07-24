@@ -9,9 +9,11 @@ import {
   EinrichtungGeschlossenError,
   DirektNichtVerfuegbarError,
 } from '@/lib/server/spendenService';
+import { leseJsonBody } from '@/lib/server/leseJsonBody';
 
 export async function POST(request: Request, { params }: { params: { slug: string } }) {
-  const body = await request.json();
+  const body = await leseJsonBody(request);
+  if (!body) return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   const betragCent = Number(body.betragCent);
   const verwendungsart = body.verwendungsart === 'direkt' ? 'direkt' : 'vermoegen';
   if (!Number.isSafeInteger(betragCent) || betragCent <= 0) {

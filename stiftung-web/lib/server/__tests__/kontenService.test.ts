@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { prisma } from '../prismaClient';
-import { resetDb, seedKontenstand, createTestEinrichtung } from './testDb';
+import { resetDb, seedKontenstand, createTestEinrichtung, pruefeInvarianten } from './testDb';
 import {
   ensureKontenstand,
   offeneDirektausschuettungenCent,
@@ -10,6 +10,9 @@ import {
   setManagementCap,
   anteileGesamt,
 } from '../kontenService';
+
+// DB-Invarianten (P9): kein Konto negativ, Σ Topfwerte == Poolwert.
+afterEach(pruefeInvarianten);
 
 beforeEach(resetDb);
 
