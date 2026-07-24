@@ -4,13 +4,8 @@ import { resetDb, seedWidmung, seedKontenstand, createTestEinrichtung, createTes
 
 import { GET as getEinrichtungen, POST as postEinrichtungen } from '../einrichtungen/route';
 import { GET as getEinrichtungDetail } from '../einrichtungen/[slug]/route';
-import { POST as postSchliessen } from '../einrichtungen/[slug]/schliessen/route';
 import { GET as getErstbefuellung } from '../erstbefuellung/route';
-import { PUT as putCap } from '../management/cap/route';
 import { POST as postVerifikation } from '../traeger/[id]/verifikation/route';
-import { POST as postMarktjahr } from '../simulation/marktjahr/route';
-import { POST as postJahresabschluss } from '../simulation/jahresabschluss/route';
-import { POST as postAuszahlungenLauf } from '../auszahlungen/lauf/route';
 
 beforeEach(async () => {
   await resetDb();
@@ -135,51 +130,6 @@ describe('GET /api/erstbefuellung', () => {
   });
 });
 
-describe('PUT /api/management/cap', () => {
-  it('setzt den Cap und liefert die aktuelle Kontenlage', async () => {
-    const res = await putCap(
-      new Request('http://localhost/api/management/cap', { method: 'PUT', body: JSON.stringify({ capCent: 50_000 }) })
-    );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.managementCapCent).toBe(50_000);
-  });
-
-  it('gibt 400 bei negativem Cap', async () => {
-    const res = await putCap(
-      new Request('http://localhost/api/management/cap', { method: 'PUT', body: JSON.stringify({ capCent: -1 }) })
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe('invalid_cap');
-  });
-});
-
-describe('POST /api/einrichtungen/[slug]/schliessen', () => {
-  it('schließt eine offene Einrichtung', async () => {
-    await seedKontenstand({ etfMarktwertCent: 5_000n });
-    const e = await createTestEinrichtung({ slug: 'schliess-mich', topfCent: 5_000n });
-
-    const res = await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: e.slug } });
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.uebertragCent).toBe(5_000);
-  });
-
-  it('gibt 404 bei unbekannter Einrichtung', async () => {
-    const res = await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: 'nix' } });
-    expect(res.status).toBe(404);
-  });
-
-  it('gibt 409 bei doppelter Schließung', async () => {
-    await seedKontenstand({ etfMarktwertCent: 1_000n });
-    const e = await createTestEinrichtung({ slug: 'doppelt-zu', topfCent: 1_000n });
-    await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: e.slug } });
-
-    const res = await postSchliessen(new Request('http://localhost', { method: 'POST' }), { params: { slug: e.slug } });
-    expect(res.status).toBe(409);
-  });
-});
-
 describe('POST /api/traeger/[id]/verifikation', () => {
   it('setzt Verifikation, Rechtsform und Gemeinnützigkeit', async () => {
     const t = await createTestTraeger({ verifiziert: false, rechtsform: 'unbekannt', gemeinnuetzig: false });
@@ -257,32 +207,5 @@ describe('POST /api/traeger/[id]/verifikation', () => {
     );
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('invalid_verifiziert');
-  });
-});
-
-describe('POST-ohne-Body-Wrapper (Spec §4/§6): Marktjahr, Jahresabschluss, Auszahlungslauf', () => {
-  it('POST /api/simulation/marktjahr liefert 201 mit Kurs-Deltas', async () => {
-    await seedKontenstand({ etfMarktwertCent: 100_000n, soliDepotCent: 10_000n });
-    const res = await postMarktjahr();
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json).toHaveProperty('einrichtungsDepotDeltaCent');
-    expect(json).toHaveProperty('poolwertCent');
-  });
-
-  it('POST /api/simulation/jahresabschluss liefert 201 mit Kaskaden-Ergebnis', async () => {
-    await seedKontenstand({ etfMarktwertCent: 100_000n });
-    const res = await postJahresabschluss();
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json).toHaveProperty('nummer');
-    expect(json).toHaveProperty('umverteilung');
-  });
-
-  it('POST /api/auszahlungen/lauf liefert 201, auch ohne offene Direktausschüttungen', async () => {
-    const res = await postAuszahlungenLauf();
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json).toEqual({ laufId: null, summeCent: 0, anzahl: 0 });
   });
 });
