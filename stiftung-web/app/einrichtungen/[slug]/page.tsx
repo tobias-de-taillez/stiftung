@@ -83,7 +83,7 @@ export default async function EinrichtungDetailPage({ params }: { params: { slug
         rechtsformLabel={einrichtung.rechtsformLabel}
         verifiziert={einrichtung.verifiziert}
         auszahlungspfad={einrichtung.auszahlungspfad}
-        topfwertCent={einrichtung.topfwertCent}
+        offenerAntrag={einrichtung.offenerAntrag}
       />
 
       <Card>

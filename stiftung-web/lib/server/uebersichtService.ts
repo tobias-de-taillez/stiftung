@@ -55,17 +55,21 @@ export async function einrichtungDetail(slug: string) {
     const e = await tx.einrichtung.findUnique({ where: { slug }, include: { traeger: true } });
     if (!e || e.geschlossenAm) return null;
     const [pool, gesamt] = [await poolwertCent(tx), await anteileGesamt(tx)];
-    const [buchungen, anzahlUnterstuetzungen] = await Promise.all([
+    const [buchungen, anzahlUnterstuetzungen, offenerAntragCount] = await Promise.all([
       tx.buchung.findMany({
         where: { einrichtungId: e.id },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], // id-Tiebreaker wie bisher (ms-Kollisionen)
         take: 10,
       }),
       tx.buchung.count({ where: { einrichtungId: e.id, typ: { in: ZUFLUSS_TYPEN } } }),
+      // Legacy-Zeilen ohne Träger (traegerId null) können strukturell keinen
+      // Antrag haben — Guard statt Query (Task 8).
+      e.traegerId ? tx.verifikationsAntrag.count({ where: { traegerId: e.traegerId, status: 'offen' } }) : 0,
     ]);
     return serialisiere({
       ...mitTopf(e, pool, gesamt),
       anzahlUnterstuetzungen,
+      offenerAntrag: offenerAntragCount > 0,
       buchungen: buchungen.map((b) => ({ id: b.id, typ: b.typ, betragCent: b.betragCent, createdAt: b.createdAt })),
     });
   });

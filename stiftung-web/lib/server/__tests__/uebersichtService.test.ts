@@ -133,6 +133,51 @@ describe('einrichtungDetail', () => {
     expect(detail!.foerderungProKindCent).toBe(1_000);
     expect(detail!.slug).toBe('a');
   });
+
+  it('liefert offenerAntrag:false, wenn kein Verifikations-Antrag existiert', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    const e = await createTestEinrichtung({ slug: 'a', topfCent: 1_000n });
+    const detail = await einrichtungDetail(e.slug);
+    expect(detail!.offenerAntrag).toBe(false);
+  });
+
+  it('liefert offenerAntrag:true, wenn ein offener Verifikations-Antrag für den Träger existiert', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    const e = await createTestEinrichtung({ slug: 'a', topfCent: 1_000n });
+    await prisma.verifikationsAntrag.create({
+      data: { traegerId: e.traegerId!, rechtsform: 'verein', gemeinnuetzig: true },
+    });
+    const detail = await einrichtungDetail(e.slug);
+    expect(detail!.offenerAntrag).toBe(true);
+  });
+
+  it('liefert offenerAntrag:false, wenn der einzige Antrag bereits entschieden ist', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    const e = await createTestEinrichtung({ slug: 'a', topfCent: 1_000n });
+    await prisma.verifikationsAntrag.create({
+      data: { traegerId: e.traegerId!, rechtsform: 'verein', gemeinnuetzig: true, status: 'genehmigt', entschiedenAm: new Date() },
+    });
+    const detail = await einrichtungDetail(e.slug);
+    expect(detail!.offenerAntrag).toBe(false);
+  });
+
+  it('liefert offenerAntrag:false für Einrichtungen ohne Träger (Legacy-Zeile ohne traegerId)', async () => {
+    await seedKontenstand({ etfMarktwertCent: 1_000n });
+    await prisma.einrichtung.create({
+      data: {
+        slug: 'ohne-traeger',
+        name: 'Ohne Träger',
+        typ: 'kita',
+        ort: 'Teststadt',
+        kinderAnzahl: 5,
+        anteile: 0n,
+        zielKapitalCent: 100_000n,
+        traegerId: null,
+      },
+    });
+    const detail = await einrichtungDetail('ohne-traeger');
+    expect(detail!.offenerAntrag).toBe(false);
+  });
 });
 
 describe('poolStatistik', () => {
