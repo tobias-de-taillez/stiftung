@@ -57,3 +57,30 @@ describe('Admin-Mutations-Routen: Guard', () => {
     expect((await schliessen(adminReq('http://x/api/admin/einrichtungen/zu-schliessen/schliessen', 'POST'), ctx)).status).toBe(200);
   });
 });
+
+describe('Admin-Mutations-Routen: Fehlerbehandlung', () => {
+  it('cap: 400 bei negativem capCent', async () => {
+    const res = await capPut(adminReq('http://x/api/admin/cap', 'PUT', { capCent: -100 }));
+    expect(res.status).toBe(400);
+  });
+
+  it('schliessen: 404 bei unbekanntem slug', async () => {
+    const ctx = { params: { slug: 'gibt-es-nicht' } };
+    const res = await schliessen(adminReq('http://x/api/admin/einrichtungen/gibt-es-nicht/schliessen', 'POST'), ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it('schliessen: 409 bei bereits geschlossener Einrichtung', async () => {
+    const t = await createTestTraeger();
+    await createTestEinrichtung({ slug: 'einmal-schliesser', topfCent: 10_000n, traegerId: t.id });
+    const ctx = { params: { slug: 'einmal-schliesser' } };
+
+    // Erste Schließung erfolgreich
+    const res1 = await schliessen(adminReq('http://x/api/admin/einrichtungen/einmal-schliesser/schliessen', 'POST'), ctx);
+    expect(res1.status).toBe(200);
+
+    // Zweite Schließung sollte 409 sein
+    const res2 = await schliessen(adminReq('http://x/api/admin/einrichtungen/einmal-schliesser/schliessen', 'POST'), ctx);
+    expect(res2.status).toBe(409);
+  });
+});
