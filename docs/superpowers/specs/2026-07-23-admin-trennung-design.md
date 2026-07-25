@@ -61,15 +61,19 @@ Rein stdlib (`node:crypto`), keine Dependency.
 alle Alt-Sessions ungültig macht. Verifikation mit `crypto.timingSafeEqual`
 (längengleiche Buffer, sonst sofort `false`).
 
-**Kein Ablauf-Timestamp erzwungen** — die Session lebt so lange wie das
-Cookie, und das Cookie ist Session-Scope (kein `maxAge`/`expires`), stirbt also
-mit dem Browserfenster. `issuedAtMs` ist nur informativ.
+**Höchstalter als Defense-in-depth** (Follow-up admin-trennung) — das Cookie
+bleibt Session-Scope (kein `maxAge`/`expires`) und stirbt normal mit dem
+Browserfenster. Zusätzlich erzwingt der Handler-Guard über
+`pruefeSessionToken(token, maxAlterMs)` ein Höchstalter (`MAX_SESSION_ALTER_MS`,
+30 Tage), damit ein exfiltriertes Token nicht unbegrenzt gilt. `issuedAtMs` ist
+Teil der signierten Nutzlast; der Alters-Check greift erst nach gültiger
+Signatur. Ohne `maxAlterMs` bleibt die reine Token-Prüfung unbegrenzt gültig.
 
 **Exporte:**
 
 ```ts
 export function erstelleSessionToken(): string;
-export function pruefeSessionToken(token: string | undefined): boolean;
+export function pruefeSessionToken(token: string | undefined, maxAlterMs?: number): boolean;
 export function pruefePasswort(eingabe: string): boolean; // timingSafeEqual gegen ADMIN_PASSWORT
 export const ADMIN_COOKIE = 'admin_session';
 ```

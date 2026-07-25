@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { erstelleSessionToken, pruefeSessionToken, pruefePasswort, pruefeAdminSession, ADMIN_COOKIE } from '../adminSession';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { erstelleSessionToken, pruefeSessionToken, pruefePasswort, pruefeAdminSession, ADMIN_COOKIE, MAX_SESSION_ALTER_MS } from '../adminSession';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});
 
 describe('adminSession', () => {
   it('erstellt ein Token, das die eigene Prüfung besteht', () => {
@@ -14,6 +19,24 @@ describe('adminSession', () => {
     const echt = erstelleSessionToken();
     expect(pruefeSessionToken(echt + 'x')).toBe(false); // Signatur kippt
     expect(pruefeSessionToken('quatsch')).toBe(false);
+  });
+
+  it('Passwortänderung invalidiert ein Alt-Token (Secret aus Passwort abgeleitet)', () => {
+    const alt = erstelleSessionToken();
+    expect(pruefeSessionToken(alt)).toBe(true);
+    vi.stubEnv('ADMIN_PASSWORT', 'neues-passwort');
+    expect(pruefeSessionToken(alt)).toBe(false); // Secret kippt → Signatur kippt
+  });
+
+  it('erzwingt maxAlterMs erst, wenn gesetzt — sonst unbegrenzt gültig', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    const token = erstelleSessionToken();
+    expect(pruefeSessionToken(token, MAX_SESSION_ALTER_MS)).toBe(true); // frisch
+
+    vi.setSystemTime(new Date('2026-03-01T00:00:00Z')); // +59 Tage > 30
+    expect(pruefeSessionToken(token, MAX_SESSION_ALTER_MS)).toBe(false); // abgelaufen
+    expect(pruefeSessionToken(token)).toBe(true); // ohne maxAlterMs weiterhin gültig
   });
 
   it('pruefePasswort ist true nur beim exakten Passwort', () => {

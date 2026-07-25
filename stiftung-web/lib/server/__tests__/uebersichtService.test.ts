@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { prisma } from '../prismaClient';
 import { resetDb, seedKontenstand, createTestEinrichtung, createTestTraeger } from './testDb';
-import { listEinrichtungenMitTopf, einrichtungDetail, poolStatistik, buchungsTicker, buchungsJournal } from '../uebersichtService';
+import { listEinrichtungenMitTopf, einrichtungDetail, poolStatistik, buchungsTicker, buchungsJournal, listGeschlosseneEinrichtungen } from '../uebersichtService';
 import { buche } from '../kontenService';
 import { NET_GROWTH_RATE } from '@/lib/calc/spendenrechner';
 
@@ -345,5 +345,33 @@ describe('buchungsJournal', () => {
     expect(journal).toHaveLength(3);
     // Neueste zuerst: die letzte erzeugte Buchung (höchster betragCent) kommt zuerst.
     expect(journal[0].betragCent).toBe(5);
+  });
+});
+
+describe('listGeschlosseneEinrichtungen', () => {
+  it('liefert nur geschlossene Einrichtungen mit ISO-Datum, neueste zuerst', async () => {
+    await createTestEinrichtung({ name: 'Offene Kita', slug: 'offen' });
+    await createTestEinrichtung({
+      name: 'Früh geschlossen',
+      slug: 'frueh',
+      ort: 'Altstadt',
+      geschlossenAm: new Date('2026-01-10T12:00:00Z'),
+    });
+    await createTestEinrichtung({
+      name: 'Spät geschlossen',
+      slug: 'spaet',
+      geschlossenAm: new Date('2026-05-20T12:00:00Z'),
+    });
+
+    const liste = await listGeschlosseneEinrichtungen();
+
+    expect(liste.map((e) => e.name)).toEqual(['Spät geschlossen', 'Früh geschlossen']); // desc
+    expect(liste.find((e) => e.name === 'Offene Kita')).toBeUndefined();
+    expect(liste[1]).toMatchObject({ ort: 'Altstadt', geschlossenAm: '2026-01-10' });
+  });
+
+  it('liefert eine leere Liste, wenn keine Einrichtung geschlossen ist', async () => {
+    await createTestEinrichtung({ slug: 'offen-only' });
+    expect(await listGeschlosseneEinrichtungen()).toEqual([]);
   });
 });

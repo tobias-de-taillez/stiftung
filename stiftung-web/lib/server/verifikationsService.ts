@@ -51,20 +51,32 @@ export async function offeneAntraege() {
 export type OffenerAntrag = Awaited<ReturnType<typeof offeneAntraege>>[number];
 
 export async function entscheideAntrag(antragId: string, entscheidung: 'genehmigt' | 'abgelehnt'): Promise<void> {
-  const antrag = await prisma.verifikationsAntrag.findUnique({ where: { id: antragId } });
-  if (!antrag) throw new AntragNichtGefundenError(`Kein Antrag ${antragId}`);
-  if (antrag.status !== 'offen') throw new AntragBereitsEntschiedenError(`Antrag ${antragId} ist ${antrag.status}`);
+  // Atomarer Claim gegen Doppel-Entscheid bei Multi-Admin: nur wer den Antrag
+  // von 'offen' auf die Entscheidung dreht (count === 1), fährt fort. Der
+  // Verlierer eines Rennens bekommt count === 0 und wirft ohne Seiteneffekt.
+  const { count } = await prisma.verifikationsAntrag.updateMany({
+    where: { id: antragId, status: 'offen' },
+    data: { status: entscheidung, entschiedenAm: new Date() },
+  });
+  if (count === 0) {
+    // Kein offener Antrag beansprucht — unbekannt oder bereits entschieden.
+    const vorhanden = await prisma.verifikationsAntrag.findUnique({ where: { id: antragId } });
+    if (!vorhanden) throw new AntragNichtGefundenError(`Kein Antrag ${antragId}`);
+    throw new AntragBereitsEntschiedenError(`Antrag ${antragId} ist ${vorhanden.status}`);
+  }
 
   if (entscheidung === 'genehmigt') {
-    // setzeVerifikation ist die einzige Stelle, die den Träger-Status schreibt.
+    // rechtsform/gemeinnuetzig/traegerId sind nach create() immutabel — das
+    // Re-fetch nach dem Claim ist rennfrei. setzeVerifikation bleibt die einzige
+    // Stelle, die den Träger-Status schreibt. Wirft sie hier (in dieser App kein
+    // Träger-Lösch-Pfad, praktisch unerreichbar), bleibt der Antrag 'genehmigt'
+    // ohne verifizierten Träger — bewusst akzeptiertes Fenster statt Transaction,
+    // die setzeVerifikation als alleinige Schreibstelle aufbräche.
+    const antrag = await prisma.verifikationsAntrag.findUniqueOrThrow({ where: { id: antragId } });
     await setzeVerifikation(antrag.traegerId, {
       verifiziert: true,
       gemeinnuetzig: antrag.gemeinnuetzig,
       rechtsform: antrag.rechtsform as Rechtsform,
     });
   }
-  await prisma.verifikationsAntrag.update({
-    where: { id: antragId },
-    data: { status: entscheidung, entschiedenAm: new Date() },
-  });
 }

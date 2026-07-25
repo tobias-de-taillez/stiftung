@@ -50,6 +50,27 @@ export async function listEinrichtungenMitTopf() {
 }
 export type EinrichtungMitTopf = Awaited<ReturnType<typeof listEinrichtungenMitTopf>>[number];
 
+/**
+ * Geschlossene Einrichtungen für die Admin-Ansicht (Design-Spec §7: Liste inkl.
+ * geschlossener, markiert). Read-only, ohne Topf-Projektion — die Anteile sind
+ * beim Schließen in den Solidaritätsfonds übergegangen, ein Topfwert wäre ~0.
+ * geschlossenAm als ISO-Datum (UTC, YYYY-MM-DD) — deterministisch, kein TZ-Drift.
+ */
+export async function listGeschlosseneEinrichtungen() {
+  const zeilen = await prisma.einrichtung.findMany({
+    where: { geschlossenAm: { not: null } },
+    orderBy: { geschlossenAm: 'desc' },
+    select: { id: true, name: true, ort: true, geschlossenAm: true },
+  });
+  return zeilen.map((e) => ({
+    id: e.id,
+    name: e.name,
+    ort: e.ort,
+    geschlossenAm: e.geschlossenAm!.toISOString().slice(0, 10),
+  }));
+}
+export type GeschlosseneEinrichtung = Awaited<ReturnType<typeof listGeschlosseneEinrichtungen>>[number];
+
 export async function einrichtungDetail(slug: string) {
   return prisma.$transaction(async (tx) => {
     const e = await tx.einrichtung.findUnique({ where: { slug }, include: { traeger: true } });

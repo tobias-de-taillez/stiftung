@@ -6,6 +6,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export const ADMIN_COOKIE = 'admin_session';
 const PRAEFIX = 'admin.v1.';
 
+// Defense-in-depth (Follow-up admin-trennung): Das Cookie ist Session-Scope und
+// stirbt normal mit dem Browserfenster. Der Handler-Guard erzwingt zusätzlich
+// ein Höchstalter, damit ein exfiltriertes Token nicht unbegrenzt gilt.
+export const MAX_SESSION_ALTER_MS = 30 * 24 * 60 * 60 * 1000; // 30 Tage
+
 function env(name: string): string {
   const wert = process.env[name];
   if (!wert) {
@@ -37,14 +42,22 @@ export function erstelleSessionToken(): string {
   return `${nutzlast}.${signiere(nutzlast)}`;
 }
 
-export function pruefeSessionToken(token: string | undefined): boolean {
+export function pruefeSessionToken(token: string | undefined, maxAlterMs?: number): boolean {
   if (!token || !token.startsWith(PRAEFIX)) return false;
   const idx = token.lastIndexOf('.');
   if (idx <= PRAEFIX.length - 1) return false;
   const nutzlast = token.slice(0, idx);
   const signatur = token.slice(idx + 1);
   if (!nutzlast.startsWith(PRAEFIX) || signatur.length === 0) return false;
-  return sicherGleich(signatur, signiere(nutzlast));
+  if (!sicherGleich(signatur, signiere(nutzlast))) return false;
+  // Alters-Check erst NACH gültiger Signatur — issuedAtMs ist Teil der
+  // signierten Nutzlast, also nach dem Vergleich authentisch. Ohne maxAlterMs
+  // bleibt das Token unbegrenzt gültig (Session-Cookie-Default).
+  if (maxAlterMs !== undefined) {
+    const issuedAtMs = Number(nutzlast.slice(PRAEFIX.length));
+    if (!Number.isFinite(issuedAtMs) || Date.now() - issuedAtMs > maxAlterMs) return false;
+  }
+  return true;
 }
 
 export function pruefePasswort(eingabe: string): boolean {
@@ -59,5 +72,5 @@ export function pruefeAdminSession(request: Request): boolean {
     .map((teil) => teil.trim())
     .find((teil) => teil.startsWith(`${ADMIN_COOKIE}=`));
   if (!treffer) return false;
-  return pruefeSessionToken(treffer.slice(ADMIN_COOKIE.length + 1));
+  return pruefeSessionToken(treffer.slice(ADMIN_COOKIE.length + 1), MAX_SESSION_ALTER_MS);
 }
